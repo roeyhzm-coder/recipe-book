@@ -24,6 +24,20 @@ const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות',
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+function normalizeRating(value) {
+  const rating = Number(value);
+  if (!Number.isFinite(rating)) return '';
+  return Math.min(10, Math.max(1, Math.round(rating * 10) / 10));
+}
+
+function getRatingCardClass(rating) {
+  const value = Number(rating);
+  if (!Number.isFinite(value)) return 'bg-white';
+  if (value >= 8) return 'bg-sky-50';
+  if (value >= 5) return 'bg-yellow-50';
+  return 'bg-red-50';
+}
+
 function defaultCategories() {
   return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
 }
@@ -88,6 +102,7 @@ const DEMO_RECIPES = [
       'הוציאו את הבשר ותנו לו לנוח 5 דקות לפני החיתוך, כדי שהמיצים יישמרו בפנים.',
     ],
     macros: { calories: 850, protein: 95, carbs: 4, fat: 45 },
+    rating: 9.2,
     baseServings: 2,
     favorite: true,
     createdAt: Date.now() - 300000,
@@ -112,6 +127,7 @@ const DEMO_RECIPES = [
       'הוציאו מהפריזר, קשטו לפי הטעם והגישו מיד.',
     ],
     macros: { calories: 420, protein: 38, carbs: 45, fat: 10 },
+    rating: 8.6,
     baseServings: 2,
     favorite: false,
     createdAt: Date.now() - 200000,
@@ -136,6 +152,7 @@ const DEMO_RECIPES = [
       'הוציאו מהמקרר, קשטו בפירות יער טריים והגישו.',
     ],
     macros: { calories: 380, protein: 22, carbs: 55, fat: 8 },
+    rating: 7.4,
     baseServings: 1,
     favorite: false,
     createdAt: Date.now() - 100000,
@@ -230,6 +247,7 @@ function draftFromExtracted(parsed) {
       carbs: parsed.macros?.carbs ?? '',
       fat: parsed.macros?.fat ?? '',
     },
+    rating: '',
     baseServings: 1,
     favorite: false,
   };
@@ -534,7 +552,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           onOpen(recipe.id);
         }
       }}
-      className="text-right cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition"
+      className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition`}
     >
       <div className="relative bg-slate-100" style={{ aspectRatio: '4 / 3' }}>
         {!imgError && recipe.image ? (
@@ -561,6 +579,13 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
       </div>
       <div className="p-3 flex flex-col gap-2 flex-1">
         <h3 className="font-serif text-base leading-snug text-slate-900 line-clamp-2">{recipe.title}</h3>
+        {recipe.rating !== '' && recipe.rating !== undefined && (
+          <div className="flex items-center gap-1 text-sm font-semibold text-slate-700">
+            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+            <span>{Number(recipe.rating).toFixed(1)}</span>
+            <span className="text-xs font-normal text-slate-500">/ 10</span>
+          </div>
+        )}
         <div className="flex flex-wrap gap-1">
           {recipe.categories.slice(0, 2).map((c) => (
             <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
@@ -873,6 +898,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             ))}
           </div>
 
+          {recipe.rating !== '' && recipe.rating !== undefined && (
+            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${getRatingCardClass(recipe.rating)}`}>
+              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+              דירוג {Number(recipe.rating).toFixed(1)} מתוך 10
+            </div>
+          )}
+
           <div className="mt-4 grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
             <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
             <MacroBadge icon={Dumbbell} value={scaledMacros.protein} label="חלבון" unit="ג'" />
@@ -1023,18 +1055,20 @@ function emptyRecipeForm() {
     ingredients: [],
     steps: [],
     macros: { calories: '', protein: '', carbs: '', fat: '' },
+    rating: '',
     baseServings: 1,
     favorite: false,
   };
 }
 
-function FormView({ initial, categories, onCancel, onSave }) {
+function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const [form, setForm] = useState(() => (initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
   const [expandedIng, setExpandedIng] = useState({});
   const [showSmartImport, setShowSmartImport] = useState(false);
+  const [categoryInput, setCategoryInput] = useState('');
   const fileInputRef = useRef(null);
 
   function applySmartImportDraft(draft) {
@@ -1062,6 +1096,13 @@ function FormView({ initial, categories, onCancel, onSave }) {
       ...f,
       categories: f.categories.includes(c) ? f.categories.filter((x) => x !== c) : [...f.categories, c],
     }));
+  }
+  function addCategory() {
+    const name = categoryInput.trim();
+    if (!name) return;
+    onAddCategory(name);
+    setForm((f) => ({ ...f, categories: f.categories.includes(name) ? f.categories : [...f.categories, name] }));
+    setCategoryInput('');
   }
   function addEquipment() {
     if (!equipInput.trim()) return;
@@ -1181,6 +1222,33 @@ function FormView({ initial, categories, onCancel, onSave }) {
               <CategoryPill key={c} label={c} active={form.categories.includes(c)} onClick={() => toggleCategory(c)} />
             ))}
           </div>
+          <div className="flex gap-2 mt-3">
+            <input
+              value={categoryInput}
+              onChange={(e) => setCategoryInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
+              placeholder="קטגוריה חדשה"
+              className="flex-1 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm"
+            />
+            <button onClick={addCategory} className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0" aria-label="הוסף קטגוריה">
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* rating */}
+        <div>
+          <label className="text-sm text-slate-600 mb-1 block">דירוג המתכון (1 עד 10)</label>
+          <input
+            type="number"
+            min="1"
+            max="10"
+            step="0.1"
+            value={form.rating}
+            onChange={(e) => update('rating', e.target.value === '' ? '' : normalizeRating(e.target.value))}
+            placeholder="לדוגמה: 8.5"
+            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm"
+          />
         </div>
 
         {/* macros */}
@@ -1557,6 +1625,13 @@ export default function RecipeApp() {
       if (Array.isArray(parsed.categories)) setCategories(parsed.categories);
     }
   }
+  function addCategory(name) {
+    setCategories((current) => {
+      if (current.some((category) => category.name.toLowerCase() === name.toLowerCase())) return current;
+      return [...current, { id: uid(), name, pinned: false }];
+    });
+    notify('הקטגוריה נוספה');
+  }
   function resetDemo() {
     setRecipes(DEMO_RECIPES);
     setCategories(defaultCategories());
@@ -1600,6 +1675,7 @@ export default function RecipeApp() {
             categories={categories.map((c) => c.name)}
             onCancel={() => setView(editingRecipe && editingRecipe.id ? 'detail' : 'home')}
             onSave={saveRecipe}
+            onAddCategory={addCategory}
           />
         )}
         {view === 'settings' && (
