@@ -1774,8 +1774,7 @@ export default function RecipeApp() {
           <FormView
             initial={editingRecipe}
             categories={categories.map((c) => c.name)}
-            apiKey={apiKey}
-                onCancel={() => setView(editingRecipe && editingRecipe.id ? 'detail' : 'home')}
+            onCancel={() => setView(editingRecipe && editingRecipe.id ? 'detail' : 'home')}
             onSave={saveRecipe}
           />
         )}
@@ -1783,7 +1782,6 @@ export default function RecipeApp() {
           <SettingsView
             recipes={recipes}
             categories={categories}
-            onBack={() => setView('home')}
             onBack={() => setView('home')}
             onImport={handleImport}
             onResetDemo={resetDemo}
