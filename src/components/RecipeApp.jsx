@@ -12,7 +12,6 @@ import {
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 const API_KEY_STORAGE_KEY = 'mitbach_gemini_key_v1';
-const MODEL_STORAGE_KEY = 'mitbach_gemini_model_v1';
 
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
@@ -52,19 +51,6 @@ function loadApiKey() {
 function saveApiKey(key) {
   try {
     localStorage.setItem(API_KEY_STORAGE_KEY, key || '');
-  } catch (e) {}
-}
-
-function loadModelName() {
-  try {
-    return localStorage.getItem(MODEL_STORAGE_KEY) || 'gemini-2.5-flash';
-  } catch (e) {
-    return 'gemini-2.5-flash';
-  }
-}
-function saveModelName(model) {
-  try {
-    localStorage.setItem(MODEL_STORAGE_KEY, model || 'gemini-2.5-flash');
   } catch (e) {}
 }
 
@@ -263,20 +249,43 @@ async function listGeminiModels(apiKey) {
   return Array.isArray(data && data.models) ? data.models : [];
 }
 
-async function callGeminiExtractRecipe(apiKey, { text, imageBase64, imageMime }, preferredModel) {
-  const models = await listGeminiModels(apiKey);
+function rankGeminiModels(models) {
   const usable = models.filter(
     (m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
   );
-  if (usable.length === 0) {
+  const stripped = (n) => String(n || '').replace(/^models\//, '');
+  const score = (name) => {
+    const n = name.toLowerCase();
+    let s = 0;
+    const v = n.match(/(\d+(?:\.\d+)?)/);
+    if (v) s += parseFloat(v[1]) * 100;
+    if (n.includes('flash')) s += 30;
+    if (n.includes('pro')) s += 20;
+    if (n.includes('lite')) s -= 15;
+    if (n.includes('preview') || n.includes('exp')) s -= 25;
+    if (n.includes('vision') || n.includes('embedding') || n.includes('tts') || n.includes('image')) s -= 200;
+    return s;
+  };
+  return usable
+    .map((m) => stripped(m.name))
+    .sort((a, b) => score(b) - score(a));
+}
+
+function isModelUnavailableError(status, data) {
+  if (status === 404) return true;
+  const msg = ((data && data.error && data.error.message) || '').toLowerCase();
+  return (
+    status === 400 &&
+    (msg.includes('not found') || msg.includes('not supported') || msg.includes('is not available'))
+  );
+}
+
+async function callGeminiExtractRecipe(apiKey, { text, imageBase64, imageMime }) {
+  const models = await listGeminiModels(apiKey);
+  const candidates = rankGeminiModels(models);
+  if (candidates.length === 0) {
     throw new Error('Google API: לא נמצא אף מודל שתומך ב-generateContent עבור המפתח הזה.');
   }
-
-  const stripped = (n) => String(n || '').replace(/^models\//, '');
-  const preferred = preferredModel
-    ? usable.find((m) => stripped(m.name) === stripped(preferredModel))
-    : null;
-  const chosen = stripped((preferred || usable[0]).name);
 
   const parts = [{ text: EXTRACT_PROMPT }];
   if (text) parts.push({ text: `הטקסט לניתוח:\n${text}` });
@@ -289,34 +298,54 @@ async function callGeminiExtractRecipe(apiKey, { text, imageBase64, imageMime },
     });
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosen}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
-    }),
-  });
+  let lastError = null;
 
-  let data = null;
-  try {
-    data = await res.json();
-  } catch (e) {
-    data = null;
-  }
-  if (!res.ok) throw new Error(`${googleErrorMessage(data, res)} (מודל: ${chosen})`);
+  for (const chosen of candidates) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosen}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    let res;
+    let data = null;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
+        }),
+      });
+    } catch (e) {
+      lastError = new Error(e.message || 'שגיאת רשת בפנייה ל-Google.');
+      continue;
+    }
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = null;
+    }
 
-  const raw = ((data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [])
-    .map((p) => p.text || '')
-    .join('');
-  if (!raw.trim()) throw new Error(`לא התקבלה תשובה מה-AI (מודל: ${chosen}).`);
-  const cleaned = raw.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    throw new Error(`שגיאת פענוח JSON מהמודל ${chosen}: ${e.message}`);
+    if (!res.ok) {
+      lastError = new Error(`${googleErrorMessage(data, res)} (מודל: ${chosen})`);
+      if (isModelUnavailableError(res.status, data)) continue;
+      continue;
+    }
+
+    const raw = ((data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [])
+      .map((p) => p.text || '')
+      .join('');
+    if (!raw.trim()) {
+      lastError = new Error(`לא התקבלה תשובה מה-AI (מודל: ${chosen}).`);
+      continue;
+    }
+    const cleaned = raw.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      lastError = new Error(`שגיאת פענוח JSON מהמודל ${chosen}: ${e.message}`);
+      continue;
+    }
   }
+
+  throw lastError || new Error('Google API: לא נמצא מודל זמין.');
 }
 
 function draftFromExtracted(parsed) {
@@ -417,7 +446,7 @@ function ConfirmModal({ open, title, message, confirmLabel = 'אישור', dange
   );
 }
 
-function SmartImportModal({ open, apiKey, modelName, onClose, onExtracted }) {
+function SmartImportModal({ open, apiKey, onClose, onExtracted }) {
   const [tab, setTab] = useState('text');
   const [pastedText, setPastedText] = useState('');
   const [imageData, setImageData] = useState(null);
@@ -459,8 +488,7 @@ function SmartImportModal({ open, apiKey, modelName, onClose, onExtracted }) {
     try {
       const parsed = await callGeminiExtractRecipe(
         apiKey,
-        tab === 'text' ? { text: pastedText } : { imageBase64: imageData.base64, imageMime: imageData.mime },
-        modelName
+        tab === 'text' ? { text: pastedText } : { imageBase64: imageData.base64, imageMime: imageData.mime }
       );
       const draft = draftFromExtracted(parsed);
       setPastedText('');
@@ -1149,7 +1177,7 @@ function emptyRecipeForm() {
   };
 }
 
-function FormView({ initial, categories, apiKey, modelName, onCancel, onSave }) {
+function FormView({ initial, categories, apiKey, onCancel, onSave }) {
   const [form, setForm] = useState(() => (initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
@@ -1477,7 +1505,6 @@ function FormView({ initial, categories, apiKey, modelName, onCancel, onSave }) 
       <SmartImportModal
         open={showSmartImport}
         apiKey={apiKey}
-        modelName={modelName}
         onClose={() => setShowSmartImport(false)}
         onExtracted={applySmartImportDraft}
       />
@@ -1487,22 +1514,17 @@ function FormView({ initial, categories, apiKey, modelName, onCancel, onSave }) 
 
 /* -------------------------------- settings view -------------------------------- */
 
-function SettingsView({ recipes, categories, apiKey, modelName, onSaveApiKey, onSaveModelName, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
+function SettingsView({ recipes, categories, apiKey, onSaveApiKey, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
   const fileRef = useRef(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [localKey, setLocalKey] = useState(apiKey || '');
-  const [localModel, setLocalModel] = useState(modelName || 'gemini-2.5-flash');
 
   useEffect(() => {
     setLocalKey(apiKey || '');
   }, [apiKey]);
-  useEffect(() => {
-    setLocalModel(modelName || 'gemini-2.5-flash');
-  }, [modelName]);
 
   function handleSaveCredentials() {
     onSaveApiKey(localKey.trim());
-    onSaveModelName(localModel.trim());
     notify('הגדרות ה-AI נשמרו');
   }
 
@@ -1571,16 +1593,6 @@ function SettingsView({ recipes, categories, apiKey, modelName, onSaveApiKey, on
             className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm mb-3"
           />
 
-          <label className="text-xs text-slate-600 mb-1 block">שם מודל (ברירת מחדל תקינה עם מעקף אוטומטי):</label>
-          <input
-            type="text"
-            value={localModel}
-            onChange={(e) => setLocalModel(e.target.value)}
-            placeholder="gemini-2.5-flash"
-            dir="ltr"
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm mb-3"
-          />
-
           <button onClick={handleSaveCredentials} className="w-full py-2.5 rounded-xl bg-sky-600 text-white text-sm font-medium">
             שמירת הגדרות AI
           </button>
@@ -1632,7 +1644,6 @@ export default function RecipeApp() {
   const [recipes, setRecipes] = useState(loadRecipes);
   const [categories, setCategories] = useState(loadCategories);
   const [apiKey, setApiKey] = useState(loadApiKey);
-  const [modelName, setModelName] = useState(loadModelName);
   const [view, setView] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
@@ -1642,7 +1653,6 @@ export default function RecipeApp() {
   useEffect(() => saveRecipes(recipes), [recipes]);
   useEffect(() => saveCategories(categories), [categories]);
   useEffect(() => saveApiKey(apiKey), [apiKey]);
-  useEffect(() => saveModelName(modelName), [modelName]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1733,8 +1743,7 @@ export default function RecipeApp() {
             initial={editingRecipe}
             categories={categories.map((c) => c.name)}
             apiKey={apiKey}
-            modelName={modelName}
-            onCancel={() => setView(editingRecipe && editingRecipe.id ? 'detail' : 'home')}
+                onCancel={() => setView(editingRecipe && editingRecipe.id ? 'detail' : 'home')}
             onSave={saveRecipe}
           />
         )}
@@ -1743,9 +1752,7 @@ export default function RecipeApp() {
             recipes={recipes}
             categories={categories}
             apiKey={apiKey}
-            modelName={modelName}
-            onSaveApiKey={setApiKey}
-            onSaveModelName={setModelName}
+                onSaveApiKey={setApiKey}
             onBack={() => setView('home')}
             onImport={handleImport}
             onResetDemo={resetDemo}
@@ -1757,7 +1764,6 @@ export default function RecipeApp() {
       <SmartImportModal
         open={showSmartImportHome}
         apiKey={apiKey}
-        modelName={modelName}
         onClose={() => setShowSmartImportHome(false)}
         onExtracted={handleHomeSmartImportExtracted}
       />
