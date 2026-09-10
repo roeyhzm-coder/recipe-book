@@ -1783,8 +1783,7 @@ export default function RecipeApp() {
           <SettingsView
             recipes={recipes}
             categories={categories}
-            apiKey={apiKey}
-                onSaveApiKey={setApiKey}
+            onBack={() => setView('home')}
             onBack={() => setView('home')}
             onImport={handleImport}
             onResetDemo={resetDemo}
