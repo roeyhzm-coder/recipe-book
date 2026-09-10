@@ -1500,7 +1500,7 @@ function FormView({ initial, categories, apiKey, onCancel, onSave }) {
 
       <SmartImportModal
         open={showSmartImport}
-        apiKey={apiKey}
+        
         onClose={() => setShowSmartImport(false)}
         onExtracted={applySmartImportDraft}
       />
