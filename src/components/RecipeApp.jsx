@@ -393,11 +393,6 @@ function loadRecipes() {
   } catch (e) {}
   return DEMO_RECIPES;
 }
-function saveRecipes(recipes) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
-  } catch (e) {}
-}
 
 /* -------------------------------- small UI -------------------------------- */
 
