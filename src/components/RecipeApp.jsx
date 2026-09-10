@@ -13,7 +13,7 @@ import {
 
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
-const API_KEY_STORAGE_KEY = 'mitbach_gemini_key_v1';
+
 
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
