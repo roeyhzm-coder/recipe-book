@@ -1,24 +1,38 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { lazy, Suspense } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+const RecipeApp = lazy(() => import("@/components/RecipeApp.jsx"));
+
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "מטבח – ספר המתכונים החכם שלי" },
+      {
+        name: "description",
+        content:
+          "ניהול מתכונים בעברית: חיפוש, מועדפים, קטגוריות, טיימרים, ערכים תזונתיים וייבוא חכם.",
+      },
+      { property: "og:title", content: "מטבח – ספר המתכונים החכם שלי" },
+      {
+        property: "og:description",
+        content:
+          "ניהול מתכונים בעברית: חיפוש, מועדפים, קטגוריות, טיימרים וערכים תזונתיים.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
+    <div dir="rtl">
+      <Suspense
+        fallback={<div className="flex min-h-screen items-center justify-center">טוען…</div>}
+      >
+        <RecipeApp />
+      </Suspense>
     </div>
   );
 }
