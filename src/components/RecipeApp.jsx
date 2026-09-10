@@ -606,11 +606,13 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
 
 /* -------------------------------- home view -------------------------------- */
 
-function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpenSettings, onOpenSmartImport }) {
+function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpenSettings, onOpenSmartImport, onAddCategory }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('הכל');
   const [favOnly, setFavOnly] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showQuickCategory, setShowQuickCategory] = useState(false);
+  const [quickCategoryName, setQuickCategoryName] = useState('');
 
   const pinnedNames = useMemo(() => categories.filter((c) => c.pinned).map((c) => c.name), [categories]);
   const allNames = useMemo(() => categories.map((c) => c.name), [categories]);
@@ -626,6 +628,16 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
       return inTitle || inIngredients;
     });
   }, [recipes, search, category, favOnly]);
+
+  function submitQuickCategory(e) {
+    e.preventDefault();
+    const name = quickCategoryName.trim();
+    if (!name) return;
+    onAddCategory(name);
+    setCategory(name);
+    setQuickCategoryName('');
+    setShowQuickCategory(false);
+  }
 
   return (
     <div className="pb-28">
@@ -677,8 +689,41 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
             {category !== 'הכל' && !pinnedNames.includes(category) ? category : 'כל הקטגוריות'}
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={() => setShowQuickCategory(true)}
+            className="shrink-0 rounded-full border border-sky-300 bg-sky-50 px-3.5 py-1.5 text-sm text-sky-700 flex items-center gap-1"
+          >
+            + קטגוריה
+          </button>
         </div>
       </div>
+
+      {showQuickCategory && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900 bg-opacity-40 p-4" onClick={() => setShowQuickCategory(false)}>
+          <form
+            onSubmit={submitQuickCategory}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-xl"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-serif text-lg text-slate-900">קטגוריה חדשה</h3>
+              <button type="button" onClick={() => setShowQuickCategory(false)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <X className="w-4 h-4 text-slate-500" />
+              </button>
+            </div>
+            <input
+              autoFocus
+              value={quickCategoryName}
+              onChange={(e) => setQuickCategoryName(e.target.value)}
+              placeholder="לדוגמה: ללא גלוטן"
+              className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+            />
+            <button type="submit" disabled={!quickCategoryName.trim()} className="w-full mt-3 py-2.5 rounded-xl bg-sky-600 text-white text-sm font-medium disabled:opacity-40">
+              הוסף קטגוריה
+            </button>
+          </form>
+        </div>
+      )}
 
       <CategoryModal
         open={showCategoryModal}
@@ -1658,6 +1703,7 @@ export default function RecipeApp() {
             onAdd={startAdd}
             onOpenSettings={() => setView('settings')}
             onOpenSmartImport={() => setShowSmartImportHome(true)}
+            onAddCategory={addCategory}
           />
         )}
         {view === 'detail' && selectedRecipe && (
