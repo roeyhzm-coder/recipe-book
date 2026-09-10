@@ -42,18 +42,6 @@ function saveCategories(categories) {
   } catch (e) {}
 }
 
-function loadApiKey() {
-  try {
-    return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
-  } catch (e) {
-    return '';
-  }
-}
-function saveApiKey(key) {
-  try {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key || '');
-  } catch (e) {}
-}
 
 const EQUIPMENT_ICON_MAP = [
   { keys: ['גריל', 'תנור', 'כיריים', 'אש', 'טוסטר', 'איירפרייר', 'air fryer'], icon: Flame },
