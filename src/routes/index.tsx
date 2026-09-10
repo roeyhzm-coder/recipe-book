@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-const RecipeApp = lazy(() => import("@/components/RecipeApp.jsx"));
+import RecipeApp from "@/components/RecipeApp.jsx";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,11 +35,7 @@ function Index() {
 
   return (
     <div dir="rtl">
-      <Suspense
-        fallback={<div className="flex min-h-screen items-center justify-center">טוען…</div>}
-      >
-        <RecipeApp />
-      </Suspense>
+      <RecipeApp />
     </div>
   );
 }
