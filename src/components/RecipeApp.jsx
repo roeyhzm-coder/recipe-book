@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { fetchRecipes, syncRecipes, upsertRecipes } from '@/lib/recipes-db';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
@@ -1641,7 +1642,9 @@ function SettingsView({ recipes, categories, apiKey, onSaveApiKey, onBack, onImp
 /* ----------------------------------- main app ----------------------------------- */
 
 export default function RecipeApp() {
-  const [recipes, setRecipes] = useState(loadRecipes);
+  const [recipes, setRecipes] = useState([]);
+  const [recipesLoaded, setRecipesLoaded] = useState(false);
+  const lastSyncedRef = useRef([]);
   const [categories, setCategories] = useState(loadCategories);
   const [apiKey, setApiKey] = useState(loadApiKey);
   const [view, setView] = useState('home');
@@ -1650,7 +1653,41 @@ export default function RecipeApp() {
   const [toast, setToast] = useState('');
   const [showSmartImportHome, setShowSmartImportHome] = useState(false);
 
-  useEffect(() => saveRecipes(recipes), [recipes]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchRecipes();
+        if (cancelled) return;
+        if (rows.length) {
+          lastSyncedRef.current = rows;
+          setRecipes(rows);
+        } else {
+          const seeded = loadRecipes();
+          await upsertRecipes(seeded);
+          if (cancelled) return;
+          lastSyncedRef.current = seeded;
+          setRecipes(seeded);
+        }
+      } catch (e) {
+        if (!cancelled) setRecipes(loadRecipes());
+      } finally {
+        if (!cancelled) setRecipesLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!recipesLoaded) return;
+    const previous = lastSyncedRef.current;
+    lastSyncedRef.current = recipes;
+    syncRecipes(previous, recipes).catch(() => {
+      setToast('שמירה בענן נכשלה, נסו שוב');
+    });
+  }, [recipes, recipesLoaded]);
   useEffect(() => saveCategories(categories), [categories]);
   useEffect(() => saveApiKey(apiKey), [apiKey]);
 
