@@ -1684,7 +1684,7 @@ export default function RecipeApp() {
     });
   }, [recipes, recipesLoaded]);
   useEffect(() => saveCategories(categories), [categories]);
-  useEffect(() => saveApiKey(apiKey), [apiKey]);
+  
 
   useEffect(() => {
     if (!toast) return;
