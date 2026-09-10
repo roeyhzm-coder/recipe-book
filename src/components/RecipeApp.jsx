@@ -1641,7 +1641,7 @@ export default function RecipeApp() {
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const lastSyncedRef = useRef([]);
   const [categories, setCategories] = useState(loadCategories);
-  const [apiKey, setApiKey] = useState(loadApiKey);
+  
   const [view, setView] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
