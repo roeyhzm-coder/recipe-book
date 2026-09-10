@@ -235,10 +235,48 @@ const EXTRACT_PROMPT = `אתה מומחה לחילוץ מתכוני בישול �
 - כל הטקסט בעברית תקנית.
 - ציוד שלא נחוץ או כלים פשוטים — לא להוסיף כלל.`;
 
+function googleErrorMessage(data, res) {
+  const err = data && data.error;
+  if (err) {
+    const details = Array.isArray(err.details)
+      ? err.details.map((d) => d.reason || d.message || JSON.stringify(d)).join(' | ')
+      : '';
+    return [
+      `Google API ${err.code || res.status} ${err.status || ''}`.trim(),
+      err.message || '',
+      details,
+    ].filter(Boolean).join(' — ');
+  }
+  return `Google API ${res.status} ${res.statusText || ''}`.trim();
+}
+
+async function listGeminiModels(apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (e) {
+    data = null;
+  }
+  if (!res.ok) throw new Error(googleErrorMessage(data, res));
+  return Array.isArray(data && data.models) ? data.models : [];
+}
+
 async function callGeminiExtractRecipe(apiKey, { text, imageBase64, imageMime }, preferredModel) {
-  const modelsToTry = preferredModel 
-    ? [preferredModel, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'].filter((v, i, a) => a.indexOf(v) === i)
-    : ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = await listGeminiModels(apiKey);
+  const usable = models.filter(
+    (m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent')
+  );
+  if (usable.length === 0) {
+    throw new Error('Google API: לא נמצא אף מודל שתומך ב-generateContent עבור המפתח הזה.');
+  }
+
+  const stripped = (n) => String(n || '').replace(/^models\//, '');
+  const preferred = preferredModel
+    ? usable.find((m) => stripped(m.name) === stripped(preferredModel))
+    : null;
+  const chosen = stripped((preferred || usable[0]).name);
 
   const parts = [{ text: EXTRACT_PROMPT }];
   if (text) parts.push({ text: `הטקסט לניתוח:\n${text}` });
@@ -251,44 +289,34 @@ async function callGeminiExtractRecipe(apiKey, { text, imageBase64, imageMime },
     });
   }
 
-  let lastErrorMsg = '';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${chosen}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
+    }),
+  });
 
-  for (const model of modelsToTry) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
-        }),
-      });
-
-      if (res.status === 404) {
-        continue;
-      }
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message || `שגיאה מהשרת (קוד ${res.status})`);
-      }
-
-      const raw = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts || [])
-        .map((p) => p.text || '')
-        .join('');
-      if (!raw.trim()) throw new Error('לא התקבלה תשובה מה-AI.');
-      const cleaned = raw.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
-      return JSON.parse(cleaned);
-    } catch (e) {
-      lastErrorMsg = e.message || 'שגיאה בפענוח';
-      if (!lastErrorMsg.includes('404')) {
-        throw e;
-      }
-    }
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (e) {
+    data = null;
   }
+  if (!res.ok) throw new Error(`${googleErrorMessage(data, res)} (מודל: ${chosen})`);
 
-  throw new Error(lastErrorMsg || 'לא נמצא מודל פעיל. בדקו את מפתח ה-API שלכם.');
+  const raw = ((data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [])
+    .map((p) => p.text || '')
+    .join('');
+  if (!raw.trim()) throw new Error(`לא התקבלה תשובה מה-AI (מודל: ${chosen}).`);
+  const cleaned = raw.trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error(`שגיאת פענוח JSON מהמודל ${chosen}: ${e.message}`);
+  }
 }
 
 function draftFromExtracted(parsed) {
