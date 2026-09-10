@@ -1173,7 +1173,7 @@ function emptyRecipeForm() {
   };
 }
 
-function FormView({ initial, categories, apiKey, onCancel, onSave }) {
+function FormView({ initial, categories, onCancel, onSave }) {
   const [form, setForm] = useState(() => (initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
