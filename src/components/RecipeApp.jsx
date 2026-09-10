@@ -1564,36 +1564,14 @@ function SettingsView({ recipes, categories, apiKey, onSaveApiKey, onBack, onImp
       </div>
 
       <div className="px-4 mt-4 flex flex-col gap-3">
-        {/* API settings */}
+        {/* AI info */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <h2 className="font-serif text-base text-slate-900 mb-1">הגדרות Google Gemini AI</h2>
-          <p className="text-sm text-slate-500 mb-2">
-            הקוד נשמר במכשיר שלך בלבד ופונה ישירות ל-Google.
+          <h2 className="font-serif text-base text-slate-900 mb-1">ייבוא חכם עם AI</h2>
+          <p className="text-sm text-slate-500">
+            הייבוא החכם פועל דרך השרת של האפליקציה — אין צורך במפתח אישי.
           </p>
-          <a
-            href="[https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-sky-600 font-medium inline-block mb-3"
-          >
-            קבלו מפתח חינמי ב-Google AI Studio ←
-          </a>
-
-          <label className="text-xs text-slate-600 mb-1 block">מפתח API:</label>
-          <input
-            type="password"
-            value={localKey}
-            onChange={(e) => setLocalKey(e.target.value)}
-            placeholder="הדביקו את מפתח ה-API כאן..."
-            dir="ltr"
-            className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm mb-3"
-          />
-
-          <button onClick={handleSaveCredentials} className="w-full py-2.5 rounded-xl bg-sky-600 text-white text-sm font-medium">
-            שמירת הגדרות AI
-          </button>
-          {apiKey && <p className="text-xs text-sky-700 mt-2">✓ מפתח API מוגדר במכשיר</p>}
         </div>
+
 
         {/* backup */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
