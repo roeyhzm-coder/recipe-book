@@ -1795,7 +1795,7 @@ export default function RecipeApp() {
 
       <SmartImportModal
         open={showSmartImportHome}
-        apiKey={apiKey}
+
         onClose={() => setShowSmartImportHome(false)}
         onExtracted={handleHomeSmartImportExtracted}
       />
