@@ -1510,19 +1510,10 @@ function FormView({ initial, categories, apiKey, onCancel, onSave }) {
 
 /* -------------------------------- settings view -------------------------------- */
 
-function SettingsView({ recipes, categories, apiKey, onSaveApiKey, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
+function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
   const fileRef = useRef(null);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [localKey, setLocalKey] = useState(apiKey || '');
 
-  useEffect(() => {
-    setLocalKey(apiKey || '');
-  }, [apiKey]);
-
-  function handleSaveCredentials() {
-    onSaveApiKey(localKey.trim());
-    notify('הגדרות ה-AI נשמרו');
-  }
 
   function exportData() {
     const blob = new Blob([JSON.stringify({ recipes, categories }, null, 2)], { type: 'application/json' });
