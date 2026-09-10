@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 const RecipeApp = lazy(() => import("@/components/RecipeApp.jsx"));
 
@@ -26,6 +26,13 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return <div className="flex min-h-screen items-center justify-center">טוען…</div>;
+  }
+
   return (
     <div dir="rtl">
       <Suspense
