@@ -442,7 +442,7 @@ function ConfirmModal({ open, title, message, confirmLabel = 'אישור', dange
   );
 }
 
-function SmartImportModal({ open, apiKey, onClose, onExtracted }) {
+function SmartImportModal({ open, onClose, onExtracted }) {
   const [tab, setTab] = useState('text');
   const [pastedText, setPastedText] = useState('');
   const [imageData, setImageData] = useState(null);
@@ -468,10 +468,6 @@ function SmartImportModal({ open, apiKey, onClose, onExtracted }) {
 
   async function handleSubmit() {
     setError('');
-    if (!apiKey) {
-      setError('לא הוגדר מפתח API. עברו להגדרות והזינו מפתח Gemini כדי להשתמש בייבוא חכם.');
-      return;
-    }
     if (tab === 'text' && !pastedText.trim()) {
       setError('הדביקו טקסט לניתוח.');
       return;
@@ -482,11 +478,17 @@ function SmartImportModal({ open, apiKey, onClose, onExtracted }) {
     }
     setLoading(true);
     try {
-      const parsed = await callGeminiExtractRecipe(
-        apiKey,
-        tab === 'text' ? { text: pastedText } : { imageBase64: imageData.base64, imageMime: imageData.mime }
-      );
-      const draft = draftFromExtracted(parsed);
+      const result = await extractRecipe({
+        data:
+          tab === 'text'
+            ? { text: pastedText }
+            : { imageBase64: imageData.base64, imageMime: imageData.mime },
+      });
+      if (!result || !result.ok) {
+        setError((result && result.error) || 'אירעה שגיאה בפענוח. נסו שוב.');
+        return;
+      }
+      const draft = draftFromExtracted(result.recipe);
       setPastedText('');
       setImageData(null);
       onExtracted(draft);
@@ -496,6 +498,7 @@ function SmartImportModal({ open, apiKey, onClose, onExtracted }) {
       setLoading(false);
     }
   }
+
 
   function handleClose() {
     if (loading) return;
