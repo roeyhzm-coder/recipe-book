@@ -549,7 +549,11 @@ function SmartImportModal({ open, apiKey, modelName, onClose, onExtracted }) {
           </div>
         )}
 
-        {error && <p className="text-sm text-rose-600 mt-3">{error}</p>}
+        {error && (
+          <p className="text-sm text-rose-600 mt-3 whitespace-pre-wrap break-words border border-rose-300 bg-rose-50 rounded-lg p-2">
+            {error}
+          </p>
+        )}
 
         <button
           onClick={handleSubmit}
