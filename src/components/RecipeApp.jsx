@@ -613,9 +613,17 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
   const [imgError, setImgError] = useState(false);
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen(recipe.id)}
-      className="text-right bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(recipe.id);
+        }
+      }}
+      className="text-right cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition"
     >
       <div className="relative bg-slate-100" style={{ aspectRatio: '4 / 3' }}>
         {!imgError && recipe.image ? (
@@ -656,7 +664,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           <MacroBadge icon={Droplet} value={recipe.macros.fat} label="שומן" unit="ג'" />
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
