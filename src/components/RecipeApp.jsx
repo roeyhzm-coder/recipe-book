@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchRecipes, syncRecipes, upsertRecipes } from '@/lib/recipes-db';
+import { extractRecipe } from '@/lib/extract-recipe.functions';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
