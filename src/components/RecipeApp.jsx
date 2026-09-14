@@ -164,6 +164,28 @@ function scaleAmount(amount, multiplier) {
   const rounded = Math.round(v * 100) / 100;
   return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(rounded * 10 % 1 === 0 ? 1 : 2);
 }
+/* המרה משוערת לכלי מטבח נפוצים: כפית 5, כף 15, כוס 240 */
+function householdConversion(value, unit) {
+  const v = Number(value);
+  if (!isFinite(v) || v <= 0) return '';
+  const u = String(unit || '').trim();
+  const isWeight = u === 'גרם';
+  const isVolume = u === 'מ"ל' || u === 'מ״ל';
+  if (!isWeight && !isVolume) return '';
+
+  const TSP = 5;
+  const TBSP = 15;
+  const CUP = 240;
+  const fmt = (n) => {
+    const r = Math.round(n * 4) / 4;
+    return r % 1 === 0 ? String(r) : String(r);
+  };
+  if (v >= CUP * 0.75) return `כ-${fmt(v / CUP)} כוס`;
+  if (v >= TBSP) return `כ-${fmt(v / TBSP)} כף`;
+  if (v >= TSP / 2) return `כ-${fmt(v / TSP)} כפית`;
+  return 'פחות מכפית';
+}
+
 function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
   return Math.round(Number(v) * multiplier);
