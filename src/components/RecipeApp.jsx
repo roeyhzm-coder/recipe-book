@@ -181,6 +181,28 @@ function scaleAmount(amount, multiplier) {
   const rounded = Math.round(v * 100) / 100;
   return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(rounded * 10 % 1 === 0 ? 1 : 2);
 }
+/* המרה משוערת לכלי מטבח נפוצים: כפית 5, כף 15, כוס 240 */
+function householdConversion(value, unit) {
+  const v = Number(value);
+  if (!isFinite(v) || v <= 0) return '';
+  const u = String(unit || '').trim();
+  const isWeight = u === 'גרם';
+  const isVolume = u === 'מ"ל' || u === 'מ״ל';
+  if (!isWeight && !isVolume) return '';
+
+  const TSP = 5;
+  const TBSP = 15;
+  const CUP = 240;
+  const fmt = (n) => {
+    const r = Math.round(n * 4) / 4;
+    return r % 1 === 0 ? String(r) : String(r);
+  };
+  if (v >= CUP * 0.75) return `כ-${fmt(v / CUP)} כוס`;
+  if (v >= TBSP) return `כ-${fmt(v / TBSP)} כף`;
+  if (v >= TSP / 2) return `כ-${fmt(v / TSP)} כפית`;
+  return 'פחות מכפית';
+}
+
 function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
   return Math.round(Number(v) * multiplier);
@@ -358,7 +380,7 @@ function SmartImportModal({ open, onClose, onExtracted }) {
         setError((result && result.error) || 'אירעה שגיאה בפענוח. נסו שוב.');
         return;
       }
-      const draft = draftFromExtracted(result.recipe);
+      const draft = draftFromExtracted(JSON.parse(result.recipeJson));
       setPastedText('');
       setImageData(null);
       onExtracted(draft);
@@ -539,7 +561,27 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 
 /* -------------------------------- recipe card -------------------------------- */
 
+/* ------------------------------ rating badge ------------------------------ */
+function hasRating(v) {
+  return v !== '' && v !== null && v !== undefined && isFinite(Number(v));
+}
+function formatRating(v) {
+  const n = Number(v);
+  return n % 1 === 0 ? String(n) : n.toFixed(1);
+}
+function ratingBadgeClass(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (n <= 5.0) return 'bg-red-100 text-red-700 border-red-200';
+  if (n <= 7.0) return 'bg-amber-100 text-amber-700 border-amber-200';
+  if (n <= 8.0) return 'bg-lime-100 text-lime-700 border-lime-200';
+  if (n <= 9.0) return 'bg-green-100 text-green-700 border-green-200';
+  if (n <= 9.5) return 'bg-teal-100 text-teal-700 border-teal-200';
+  return 'bg-sky-100 text-sky-700 border-sky-200';
+}
+
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
+
   const [imgError, setImgError] = useState(false);
   return (
     <div
@@ -576,7 +618,15 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
         >
           <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-sky-500 text-sky-500' : 'text-slate-400'}`} />
         </button>
+        {hasRating(recipe.rating) && (
+          <span
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${ratingBadgeClass(recipe.rating)}`}
+          >
+            {formatRating(recipe.rating)}
+          </span>
+        )}
       </div>
+
       <div className="p-3 flex flex-col gap-2 flex-1">
         <h3 className="font-serif text-base leading-snug text-slate-900 line-clamp-2">{recipe.title}</h3>
         {recipe.rating !== '' && recipe.rating !== undefined && (
@@ -1034,7 +1084,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
                   <div className="text-left shrink-0">
                     <span className="text-sm font-medium text-slate-900 tabular-nums">
                       {scaleAmount(ing.amount, multiplier)} {ing.unit}
+                      {householdConversion(Number(ing.amount || 0) * multiplier, ing.unit) && (
+                        <span className="text-xs text-slate-400 font-normal">
+                          {' '}({householdConversion(Number(ing.amount || 0) * multiplier, ing.unit)})
+                        </span>
+                      )}
                     </span>
+
                     {hasMacro && (
                       <div className="text-xs text-slate-400 tabular-nums">
                         {ing.calories !== '' && `${scaleMacro(ing.calories, multiplier)} קק"ל `}
