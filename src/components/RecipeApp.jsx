@@ -957,7 +957,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
                   <div className="text-left shrink-0">
                     <span className="text-sm font-medium text-slate-900 tabular-nums">
                       {scaleAmount(ing.amount, multiplier)} {ing.unit}
+                      {householdConversion(Number(ing.amount || 0) * multiplier, ing.unit) && (
+                        <span className="text-xs text-slate-400 font-normal">
+                          {' '}({householdConversion(Number(ing.amount || 0) * multiplier, ing.unit)})
+                        </span>
+                      )}
                     </span>
+
                     {hasMacro && (
                       <div className="text-xs text-slate-400 tabular-nums">
                         {ing.calories !== '' && `${scaleMacro(ing.calories, multiplier)} קק"ל `}
