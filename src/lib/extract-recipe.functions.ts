@@ -71,7 +71,10 @@ function rankGeminiModels(models: NonNullable<GoogleErrorPayload["models"]>) {
       s -= 200;
     return s;
   };
-  return usable.map((m) => stripped(m.name)).sort((a, b) => score(b) - score(a));
+  return usable
+    .map((m) => stripped(m.name))
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, 4);
 }
 
 export type ExtractRecipeResult =
