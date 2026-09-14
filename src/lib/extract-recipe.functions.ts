@@ -62,7 +62,7 @@ function rankGeminiModels(models: NonNullable<GoogleErrorPayload["models"]>) {
     const n = name.toLowerCase();
     let s = 0;
     const v = n.match(/(\d+(?:\.\d+)?)/);
-    if (v) s += parseFloat(v[1]) * 100;
+    if (v) s += parseFloat(v[1] ?? "0") * 100;
     if (n.includes("flash")) s += 30;
     if (n.includes("pro")) s += 20;
     if (n.includes("lite")) s -= 15;
@@ -75,7 +75,7 @@ function rankGeminiModels(models: NonNullable<GoogleErrorPayload["models"]>) {
 }
 
 export type ExtractRecipeResult =
-  | { ok: true; recipe: unknown }
+  | { ok: true; recipe: Record<string, unknown> }
   | { ok: false; error: string };
 
 export const extractRecipe = createServerFn({ method: "POST" })
@@ -154,7 +154,7 @@ export const extractRecipe = createServerFn({ method: "POST" })
         .replace(/```$/, "")
         .trim();
       try {
-        return { ok: true, recipe: JSON.parse(cleaned) };
+        return { ok: true, recipe: JSON.parse(cleaned) as Record<string, unknown> };
       } catch (e) {
         lastError = `שגיאת פענוח JSON מהמודל ${model}: ${(e as Error).message}`;
       }
