@@ -26,6 +26,7 @@ export type Database = {
           image: string
           ingredients: Json
           macros: Json
+          rating: number | null
           steps: Json
           title: string
           updated_at: string
@@ -41,6 +42,7 @@ export type Database = {
           image?: string
           ingredients?: Json
           macros?: Json
+          rating?: number | null
           steps?: Json
           title?: string
           updated_at?: string
@@ -56,6 +58,7 @@ export type Database = {
           image?: string
           ingredients?: Json
           macros?: Json
+          rating?: number | null
           steps?: Json
           title?: string
           updated_at?: string
