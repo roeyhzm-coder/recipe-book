@@ -543,7 +543,27 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 
 /* -------------------------------- recipe card -------------------------------- */
 
+/* ------------------------------ rating badge ------------------------------ */
+function hasRating(v) {
+  return v !== '' && v !== null && v !== undefined && isFinite(Number(v));
+}
+function formatRating(v) {
+  const n = Number(v);
+  return n % 1 === 0 ? String(n) : n.toFixed(1);
+}
+function ratingBadgeClass(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (n <= 5.0) return 'bg-red-100 text-red-700 border-red-200';
+  if (n <= 7.0) return 'bg-amber-100 text-amber-700 border-amber-200';
+  if (n <= 8.0) return 'bg-lime-100 text-lime-700 border-lime-200';
+  if (n <= 9.0) return 'bg-green-100 text-green-700 border-green-200';
+  if (n <= 9.5) return 'bg-teal-100 text-teal-700 border-teal-200';
+  return 'bg-sky-100 text-sky-700 border-sky-200';
+}
+
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
+
   const [imgError, setImgError] = useState(false);
   return (
     <div
