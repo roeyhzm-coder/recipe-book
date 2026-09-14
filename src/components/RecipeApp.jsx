@@ -580,7 +580,15 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
         >
           <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-sky-500 text-sky-500' : 'text-slate-400'}`} />
         </button>
+        {hasRating(recipe.rating) && (
+          <span
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${ratingBadgeClass(recipe.rating)}`}
+          >
+            {formatRating(recipe.rating)}
+          </span>
+        )}
       </div>
+
       <div className="p-3 flex flex-col gap-2 flex-1">
         <h3 className="font-serif text-base leading-snug text-slate-900 line-clamp-2">{recipe.title}</h3>
         <div className="flex flex-wrap gap-1">
