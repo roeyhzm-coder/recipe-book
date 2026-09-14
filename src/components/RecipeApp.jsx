@@ -362,7 +362,7 @@ function SmartImportModal({ open, onClose, onExtracted }) {
         setError((result && result.error) || 'אירעה שגיאה בפענוח. נסו שוב.');
         return;
       }
-      const draft = draftFromExtracted(result.recipe);
+      const draft = draftFromExtracted(JSON.parse(result.recipeJson));
       setPastedText('');
       setImageData(null);
       onExtracted(draft);

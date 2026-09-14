@@ -75,7 +75,7 @@ function rankGeminiModels(models: NonNullable<GoogleErrorPayload["models"]>) {
 }
 
 export type ExtractRecipeResult =
-  | { ok: true; recipe: Record<string, unknown> }
+  | { ok: true; recipeJson: string }
   | { ok: false; error: string };
 
 export const extractRecipe = createServerFn({ method: "POST" })
@@ -154,7 +154,8 @@ export const extractRecipe = createServerFn({ method: "POST" })
         .replace(/```$/, "")
         .trim();
       try {
-        return { ok: true, recipe: JSON.parse(cleaned) as Record<string, unknown> };
+        JSON.parse(cleaned);
+        return { ok: true, recipeJson: cleaned };
       } catch (e) {
         lastError = `שגיאת פענוח JSON מהמודל ${model}: ${(e as Error).message}`;
       }
