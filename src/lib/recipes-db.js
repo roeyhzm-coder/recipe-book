@@ -12,6 +12,7 @@ function rowToRecipe(row) {
     macros: row.macros && typeof row.macros === "object" ? row.macros : {},
     baseServings: Number(row.base_servings) || 1,
     favorite: !!row.favorite,
+    rating: row.rating === null || row.rating === undefined ? '' : Number(row.rating),
     createdAt: Number(row.created_at_ms) || 0,
   };
 }
@@ -28,6 +29,10 @@ function recipeToRow(recipe) {
     macros: recipe.macros || {},
     base_servings: Number(recipe.baseServings) || 1,
     favorite: !!recipe.favorite,
+    rating:
+      recipe.rating === '' || recipe.rating === undefined || recipe.rating === null
+        ? null
+        : Number(recipe.rating),
     created_at_ms: Number(recipe.createdAt) || Date.now(),
   };
 }
