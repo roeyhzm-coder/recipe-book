@@ -14,7 +14,6 @@ import {
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 
-
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep',
@@ -30,21 +29,14 @@ function normalizeRating(value) {
   return Math.min(10, Math.max(1, Math.round(rating * 10) / 10));
 }
 
-function getRatingCardClass(rating) {
-  const value = Number(rating);
-  if (!Number.isFinite(value)) return 'bg-white';
-  if (value > 9.5) return 'bg-sky-50';
-  if (value > 9.0) return 'bg-teal-50';
-  if (value > 8.0) return 'bg-green-50';
-  if (value > 7.0) return 'bg-lime-50';
-  if (value > 5.0) return 'bg-amber-50';
-  return 'bg-red-50';
+function getRatingCardClass() {
+  return 'bg-white';
 }
-
 
 function defaultCategories() {
   return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
 }
+
 function loadCategories() {
   try {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
@@ -55,12 +47,12 @@ function loadCategories() {
   } catch (e) {}
   return defaultCategories();
 }
+
 function saveCategories(categories) {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
   } catch (e) {}
 }
-
 
 const EQUIPMENT_ICON_MAP = [
   { keys: ['גריל', 'תנור', 'כיריים', 'אש', 'טוסטר', 'איירפרייר', 'air fryer'], icon: Flame },
@@ -172,6 +164,7 @@ function unitToSeconds(value, unit) {
   if (unit.startsWith('דק')) return value * 60;
   return value;
 }
+
 function formatSeconds(s) {
   s = Math.max(0, Math.round(s));
   const h = Math.floor(s / 3600);
@@ -180,12 +173,13 @@ function formatSeconds(s) {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
+
 function scaleAmount(amount, multiplier) {
   const v = Number(amount || 0) * multiplier;
   const rounded = Math.round(v * 100) / 100;
   return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(rounded * 10 % 1 === 0 ? 1 : 2);
 }
-/* המרה משוערת לכלי מטבח נפוצים: כפית 5, כף 15, כוס 240 */
+
 function householdConversion(value, unit) {
   const v = Number(value);
   if (!isFinite(v) || v <= 0) return '';
@@ -204,7 +198,6 @@ function householdConversion(value, unit) {
   return 'פחות מכפית';
 }
 
-/* כיווץ תמונה שנבחרה לגודל סביר לפני שמירה — מונע שמירת קבצים ענקיים */
 function compressImageFile(file, maxDim = 900, quality = 0.7) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -232,16 +225,17 @@ function compressImageFile(file, maxDim = 900, quality = 0.7) {
   });
 }
 
-
 function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
   return Math.round(Number(v) * multiplier);
 }
+
 function normalizeUnit(u) {
   if (!u) return '';
   const map = { "ג'": 'גרם', מל: 'מ"ל', 'מ״ל': 'מ"ל', 'ק״ג': 'ק"ג', קג: 'ק"ג', כף: 'כפות', כפיות: 'כפית' };
   return map[u] || u;
 }
+
 function parseIngredientsPaste(text) {
   return text
     .split('\n')
@@ -257,6 +251,7 @@ function parseIngredientsPaste(text) {
       return makeIngredient(1, 'יחידה', line);
     });
 }
+
 function parseStepsPaste(text) {
   return text
     .split('\n')
@@ -265,10 +260,6 @@ function parseStepsPaste(text) {
 }
 
 /* ------------------------------ AI smart import ------------------------------ */
-
-/* הקריאה ל-Gemini מתבצעת בשרת דרך extractRecipe */
-
-
 
 function draftFromExtracted(parsed) {
   const ingredients = Array.isArray(parsed.ingredients)
@@ -421,7 +412,6 @@ function SmartImportModal({ open, onClose, onExtracted }) {
     }
   }
 
-
   function handleClose() {
     if (loading) return;
     setError('');
@@ -525,12 +515,12 @@ function SmartImportModal({ open, onClose, onExtracted }) {
 
 function MacroBadge({ icon: Icon, value, label, unit = '' }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-0.5 px-1 py-2">
-      <Icon className="w-4 h-4 text-slate-500" />
-      <span className="text-sm font-semibold text-slate-800 tabular-nums">
+    <div className="flex flex-col items-center justify-center py-1.5 px-0.5 min-w-0">
+      <Icon className="w-3.5 h-3.5 text-slate-400 mb-0.5 shrink-0" />
+      <span className="text-xs font-bold text-slate-800 tabular-nums truncate">
         {value === '' || value === undefined ? '—' : `${value}${unit}`}
       </span>
-      <span className="text-xs text-slate-500">{label}</span>
+      <span className="text-[10px] text-slate-500 truncate">{label}</span>
     </div>
   );
 }
@@ -591,14 +581,15 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 
 /* -------------------------------- recipe card -------------------------------- */
 
-/* ------------------------------ rating badge ------------------------------ */
 function hasRating(v) {
   return v !== '' && v !== null && v !== undefined && isFinite(Number(v));
 }
+
 function formatRating(v) {
   const n = Number(v);
   return n % 1 === 0 ? String(n) : n.toFixed(1);
 }
+
 function ratingBadgeClass(v) {
   const n = Number(v);
   if (!isFinite(n)) return 'bg-slate-100 text-slate-600 border-slate-200';
@@ -611,7 +602,6 @@ function ratingBadgeClass(v) {
 }
 
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
-
   const [imgError, setImgError] = useState(false);
   return (
     <div
@@ -624,7 +614,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           onOpen(recipe.id);
         }
       }}
-      className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition`}
+      className={`text-right cursor-pointer ${getRatingCardClass()} rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition shadow-sm hover:shadow-md`}
     >
       <div className="relative bg-slate-100" style={{ aspectRatio: '4 / 3' }}>
         {!imgError && recipe.image ? (
@@ -674,7 +664,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
             </span>
           ))}
         </div>
-        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border-t border-slate-200 pt-2 -mx-1">
+        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-slate-100 border-t border-slate-100 pt-1.5 -mx-1">
           <MacroBadge icon={Flame} value={recipe.macros.calories} label="קלוריות" />
           <MacroBadge icon={Dumbbell} value={recipe.macros.protein} label="חלבון" unit="ג'" />
           <MacroBadge icon={Wheat} value={recipe.macros.carbs} label="פחמימות" unit="ג'" />
@@ -917,6 +907,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
       return { ...prev, [key]: { ...cur, running: !cur.running } };
     });
   }
+
   function resetTimer(key, totalSeconds, e) {
     e.stopPropagation();
     setTimers((prev) => ({ ...prev, [key]: { total: totalSeconds, remaining: totalSeconds, running: false } }));
@@ -1030,7 +1021,6 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
               דירוג {formatRating(recipe.rating)} מתוך 10
             </div>
           )}
-
 
           <div className="mt-4 grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
             <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
@@ -1224,12 +1214,14 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
   }
+
   function toggleCategory(c) {
     setForm((f) => ({
       ...f,
       categories: f.categories.includes(c) ? f.categories.filter((x) => x !== c) : [...f.categories, c],
     }));
   }
+
   function addCategory() {
     const name = categoryInput.trim();
     if (!name) return;
@@ -1237,45 +1229,56 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     setForm((f) => ({ ...f, categories: f.categories.includes(name) ? f.categories : [...f.categories, name] }));
     setCategoryInput('');
   }
+
   function addEquipment() {
     if (!equipInput.trim()) return;
     setForm((f) => ({ ...f, equipment: [...f.equipment, equipInput.trim()] }));
     setEquipInput('');
   }
+
   function removeEquipment(i) {
     setForm((f) => ({ ...f, equipment: f.equipment.filter((_, idx) => idx !== i) }));
   }
+
   function addBlankIngredient() {
     setForm((f) => ({ ...f, ingredients: [...f.ingredients, makeIngredient(1, 'גרם', '')] }));
   }
+
   function updateIngredient(id, field, value) {
     setForm((f) => ({
       ...f,
       ingredients: f.ingredients.map((ing) => (ing.id === id ? { ...ing, [field]: value } : ing)),
     }));
   }
+
   function removeIngredient(id) {
     setForm((f) => ({ ...f, ingredients: f.ingredients.filter((ing) => ing.id !== id) }));
   }
+
   function applyIngredientPaste() {
     if (!ingPaste.trim()) return;
     setForm((f) => ({ ...f, ingredients: [...f.ingredients, ...parseIngredientsPaste(ingPaste)] }));
     setIngPaste('');
   }
+
   function addBlankStep() {
     setForm((f) => ({ ...f, steps: [...f.steps, ''] }));
   }
+
   function updateStep(i, value) {
     setForm((f) => ({ ...f, steps: f.steps.map((s, idx) => (idx === i ? value : s)) }));
   }
+
   function removeStep(i) {
     setForm((f) => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
   }
+
   function applyStepPaste() {
     if (!stepPaste.trim()) return;
     setForm((f) => ({ ...f, steps: [...f.steps, ...parseStepsPaste(stepPaste)] }));
     setStepPaste('');
   }
+
   function handleFile(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -1557,7 +1560,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
       <SmartImportModal
         open={showSmartImport}
-        
         onClose={() => setShowSmartImport(false)}
         onExtracted={applySmartImportDraft}
       />
@@ -1570,7 +1572,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
   const fileRef = useRef(null);
   const [confirmReset, setConfirmReset] = useState(false);
-
 
   function exportData() {
     const blob = new Blob([JSON.stringify({ recipes, categories }, null, 2)], { type: 'application/json' });
@@ -1612,7 +1613,6 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
       </div>
 
       <div className="px-4 mt-4 flex flex-col gap-3">
-        {/* AI info */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
           <h2 className="font-serif text-base text-slate-900 mb-1">ייבוא חכם עם AI</h2>
           <p className="text-sm text-slate-500">
@@ -1620,8 +1620,6 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
           </p>
         </div>
 
-
-        {/* backup */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
           <h2 className="font-serif text-base text-slate-900 mb-1">גיבוי ושחזור</h2>
           <div className="flex flex-col gap-2 mt-3">
@@ -1638,7 +1636,6 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
           </div>
         </div>
 
-        {/* reset */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
           <h2 className="font-serif text-base text-slate-900 mb-1">איפוס נתונים</h2>
           <button onClick={() => setConfirmReset(true)} className="mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-300 text-rose-700 text-sm font-medium w-full">
@@ -1667,7 +1664,7 @@ export default function RecipeApp() {
   const [recipesLoaded, setRecipesLoaded] = useState(false);
   const lastSyncedRef = useRef([]);
   const [categories, setCategories] = useState(loadCategories);
-  
+
   const [view, setView] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
   const [editingRecipe, setEditingRecipe] = useState(null);
@@ -1709,8 +1706,8 @@ export default function RecipeApp() {
       setToast('שמירה בענן נכשלה, נסו שוב');
     });
   }, [recipes, recipesLoaded]);
+
   useEffect(() => saveCategories(categories), [categories]);
-  
 
   useEffect(() => {
     if (!toast) return;
@@ -1726,17 +1723,21 @@ export default function RecipeApp() {
     setSelectedId(id);
     setView('detail');
   }
+
   function toggleFavorite(id) {
     setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, favorite: !r.favorite } : r)));
   }
+
   function startAdd() {
     setEditingRecipe(null);
     setView('form');
   }
+
   function startEdit(recipe) {
     setEditingRecipe(recipe);
     setView('form');
   }
+
   function saveRecipe(recipe) {
     setRecipes((rs) => {
       const exists = rs.some((r) => r.id === recipe.id);
@@ -1746,11 +1747,13 @@ export default function RecipeApp() {
     notify('המתכון נשמר בהצלחה');
     setView('detail');
   }
+
   function deleteRecipe(id) {
     setRecipes((rs) => rs.filter((r) => r.id !== id));
     notify('המתכון נמחק');
     setView('home');
   }
+
   function handleImport(parsed) {
     if (Array.isArray(parsed)) {
       setRecipes(parsed);
@@ -1759,6 +1762,7 @@ export default function RecipeApp() {
       if (Array.isArray(parsed.categories)) setCategories(parsed.categories);
     }
   }
+
   function addCategory(name) {
     setCategories((current) => {
       if (current.some((category) => category.name.toLowerCase() === name.toLowerCase())) return current;
@@ -1766,6 +1770,7 @@ export default function RecipeApp() {
     });
     notify('הקטגוריה נוספה');
   }
+
   function resetDemo() {
     setRecipes(DEMO_RECIPES);
     setCategories(defaultCategories());
@@ -1827,7 +1832,6 @@ export default function RecipeApp() {
 
       <SmartImportModal
         open={showSmartImportHome}
-
         onClose={() => setShowSmartImportHome(false)}
         onExtracted={handleHomeSmartImportExtracted}
       />
