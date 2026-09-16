@@ -52,30 +52,35 @@ async function safeJson(res: Response): Promise<GoogleErrorPayload | null> {
 }
 
 function rankGeminiModels(models: NonNullable<GoogleErrorPayload["models"]>) {
-  const usable = models.filter(
-    (m) =>
-      Array.isArray(m.supportedGenerationMethods) &&
-      m.supportedGenerationMethods.includes("generateContent"),
-  );
   const stripped = (n?: string) => String(n || "").replace(/^models\//, "");
+  const banned =
+    /(deep-research|robotics|computer-use|antigravity|transcribe|lyria|nano-banana|tts|image|embedding|vision|omni|gemma)/;
+  const usable = models
+    .filter(
+      (m) =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes("generateContent"),
+    )
+    .map((m) => stripped(m.name))
+    .filter((n) => /^gemini-/.test(n) && !banned.test(n));
+
   const score = (name: string) => {
     const n = name.toLowerCase();
     let s = 0;
-    const v = n.match(/(\d+(?:\.\d+)?)/);
-    if (v) s += parseFloat(v[1]) * 100;
+    const v = n.match(/^gemini-(\d+(?:\.\d+)?)/);
+    if (v) s += parseFloat(v[1] ?? "0") * 100;
     if (n.includes("flash")) s += 30;
     if (n.includes("pro")) s += 20;
     if (n.includes("lite")) s -= 15;
     if (n.includes("preview") || n.includes("exp")) s -= 25;
-    if (n.includes("vision") || n.includes("embedding") || n.includes("tts") || n.includes("image"))
-      s -= 200;
     return s;
   };
-  return usable.map((m) => stripped(m.name)).sort((a, b) => score(b) - score(a));
+  return usable.sort((a, b) => score(b) - score(a)).slice(0, 4);
 }
 
+
 export type ExtractRecipeResult =
-  | { ok: true; recipe: unknown }
+  | { ok: true; recipeJson: string }
   | { ok: false; error: string };
 
 export const extractRecipe = createServerFn({ method: "POST" })
@@ -154,7 +159,8 @@ export const extractRecipe = createServerFn({ method: "POST" })
         .replace(/```$/, "")
         .trim();
       try {
-        return { ok: true, recipe: JSON.parse(cleaned) };
+        JSON.parse(cleaned);
+        return { ok: true, recipeJson: cleaned };
       } catch (e) {
         lastError = `שגיאת פענוח JSON מהמודל ${model}: ${(e as Error).message}`;
       }

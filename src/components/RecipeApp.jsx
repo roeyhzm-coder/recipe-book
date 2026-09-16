@@ -33,10 +33,14 @@ function normalizeRating(value) {
 function getRatingCardClass(rating) {
   const value = Number(rating);
   if (!Number.isFinite(value)) return 'bg-white';
-  if (value >= 8) return 'bg-sky-50';
-  if (value >= 5) return 'bg-yellow-50';
+  if (value > 9.5) return 'bg-sky-50';
+  if (value > 9.0) return 'bg-teal-50';
+  if (value > 8.0) return 'bg-green-50';
+  if (value > 7.0) return 'bg-lime-50';
+  if (value > 5.0) return 'bg-amber-50';
   return 'bg-red-50';
 }
+
 
 function defaultCategories() {
   return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
@@ -181,6 +185,54 @@ function scaleAmount(amount, multiplier) {
   const rounded = Math.round(v * 100) / 100;
   return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(rounded * 10 % 1 === 0 ? 1 : 2);
 }
+/* המרה משוערת לכלי מטבח נפוצים: כפית 5, כף 15, כוס 240 */
+function householdConversion(value, unit) {
+  const v = Number(value);
+  if (!isFinite(v) || v <= 0) return '';
+  const u = String(unit || '').trim();
+  const isWeight = u === 'גרם';
+  const isVolume = u === 'מ"ל' || u === 'מ״ל';
+  if (!isWeight && !isVolume) return '';
+
+  const TSP = 5;
+  const TBSP = 15;
+  const CUP = 240;
+  const fmt = (n) => String(Math.round(n * 4) / 4);
+  if (v >= CUP * 0.75) return `כ-${fmt(v / CUP)} כוס`;
+  if (v >= TBSP) return `כ-${fmt(v / TBSP)} כף`;
+  if (v >= TSP / 2) return `כ-${fmt(v / TSP)} כפית`;
+  return 'פחות מכפית';
+}
+
+/* כיווץ תמונה שנבחרה לגודל סביר לפני שמירה — מונע שמירת קבצים ענקיים */
+function compressImageFile(file, maxDim = 900, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          resolve(reader.result);
+        }
+      };
+      img.onerror = () => resolve(reader.result);
+      img.src = reader.result;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+
 function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
   return Math.round(Number(v) * multiplier);
@@ -358,7 +410,7 @@ function SmartImportModal({ open, onClose, onExtracted }) {
         setError((result && result.error) || 'אירעה שגיאה בפענוח. נסו שוב.');
         return;
       }
-      const draft = draftFromExtracted(result.recipe);
+      const draft = draftFromExtracted(JSON.parse(result.recipeJson));
       setPastedText('');
       setImageData(null);
       onExtracted(draft);
@@ -539,7 +591,27 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 
 /* -------------------------------- recipe card -------------------------------- */
 
+/* ------------------------------ rating badge ------------------------------ */
+function hasRating(v) {
+  return v !== '' && v !== null && v !== undefined && isFinite(Number(v));
+}
+function formatRating(v) {
+  const n = Number(v);
+  return n % 1 === 0 ? String(n) : n.toFixed(1);
+}
+function ratingBadgeClass(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (n <= 5.0) return 'bg-red-100 text-red-700 border-red-200';
+  if (n <= 7.0) return 'bg-amber-100 text-amber-700 border-amber-200';
+  if (n <= 8.0) return 'bg-lime-100 text-lime-700 border-lime-200';
+  if (n <= 9.0) return 'bg-green-100 text-green-700 border-green-200';
+  if (n <= 9.5) return 'bg-teal-100 text-teal-700 border-teal-200';
+  return 'bg-sky-100 text-sky-700 border-sky-200';
+}
+
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
+
   const [imgError, setImgError] = useState(false);
   return (
     <div
@@ -576,16 +648,25 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
         >
           <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-sky-500 text-sky-500' : 'text-slate-400'}`} />
         </button>
+        {hasRating(recipe.rating) && (
+          <span
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-xs font-semibold border ${ratingBadgeClass(recipe.rating)}`}
+          >
+            {formatRating(recipe.rating)}
+          </span>
+        )}
       </div>
+
       <div className="p-3 flex flex-col gap-2 flex-1">
         <h3 className="font-serif text-base leading-snug text-slate-900 line-clamp-2">{recipe.title}</h3>
-        {recipe.rating !== '' && recipe.rating !== undefined && (
+        {hasRating(recipe.rating) && (
           <div className="flex items-center gap-1 text-sm font-semibold text-slate-700">
             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-            <span>{Number(recipe.rating).toFixed(1)}</span>
+            <span>{formatRating(recipe.rating)}</span>
             <span className="text-xs font-normal text-slate-500">/ 10</span>
           </div>
         )}
+
         <div className="flex flex-wrap gap-1">
           {recipe.categories.slice(0, 2).map((c) => (
             <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
@@ -943,12 +1024,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             ))}
           </div>
 
-          {recipe.rating !== '' && recipe.rating !== undefined && (
-            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${getRatingCardClass(recipe.rating)}`}>
+          {hasRating(recipe.rating) && (
+            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold border ${ratingBadgeClass(recipe.rating)}`}>
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              דירוג {Number(recipe.rating).toFixed(1)} מתוך 10
+              דירוג {formatRating(recipe.rating)} מתוך 10
             </div>
           )}
+
 
           <div className="mt-4 grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
             <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
@@ -1034,7 +1116,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
                   <div className="text-left shrink-0">
                     <span className="text-sm font-medium text-slate-900 tabular-nums">
                       {scaleAmount(ing.amount, multiplier)} {ing.unit}
+                      {householdConversion(Number(ing.amount || 0) * multiplier, ing.unit) && (
+                        <span className="text-xs text-slate-400 font-normal">
+                          {' '}({householdConversion(Number(ing.amount || 0) * multiplier, ing.unit)})
+                        </span>
+                      )}
                     </span>
+
                     {hasMacro && (
                       <div className="text-xs text-slate-400 tabular-nums">
                         {ing.calories !== '' && `${scaleMacro(ing.calories, multiplier)} קק"ל `}
@@ -1191,10 +1279,11 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function handleFile(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update('image', reader.result);
-    reader.readAsDataURL(file);
+    compressImageFile(file).then((dataUrl) => {
+      if (dataUrl) update('image', dataUrl);
+    });
   }
+
   function handleSubmit() {
     if (!form.title.trim()) return;
     const clean = {
