@@ -633,13 +633,14 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
 
       <div className="p-3 flex flex-col gap-2 flex-1">
         <h3 className="font-serif text-base leading-snug text-slate-900 line-clamp-2">{recipe.title}</h3>
-        {recipe.rating !== '' && recipe.rating !== undefined && (
+        {hasRating(recipe.rating) && (
           <div className="flex items-center gap-1 text-sm font-semibold text-slate-700">
             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-            <span>{Number(recipe.rating).toFixed(1)}</span>
+            <span>{formatRating(recipe.rating)}</span>
             <span className="text-xs font-normal text-slate-500">/ 10</span>
           </div>
         )}
+
         <div className="flex flex-wrap gap-1">
           {recipe.categories.slice(0, 2).map((c) => (
             <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700">
