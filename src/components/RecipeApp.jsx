@@ -29,8 +29,15 @@ function normalizeRating(value) {
   return Math.min(10, Math.max(1, Math.round(rating * 10) / 10));
 }
 
-function getRatingCardClass() {
-  return 'bg-white';
+function getRatingCardClass(rating) {
+  const value = Number(rating);
+  if (!Number.isFinite(value)) return 'bg-white';
+  if (value > 9.5) return 'bg-sky-50';
+  if (value > 9.0) return 'bg-teal-50';
+  if (value > 8.0) return 'bg-green-50';
+  if (value > 7.0) return 'bg-lime-50';
+  if (value > 5.0) return 'bg-amber-50';
+  return 'bg-red-50';
 }
 
 function defaultCategories() {
@@ -614,7 +621,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           onOpen(recipe.id);
         }
       }}
-      className={`text-right cursor-pointer ${getRatingCardClass()} rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition shadow-sm hover:shadow-md`}
+      className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} rounded-2xl border border-slate-200 overflow-hidden flex flex-col active:scale-95 transition shadow-sm hover:shadow-md`}
     >
       <div className="relative bg-slate-100" style={{ aspectRatio: '4 / 3' }}>
         {!imgError && recipe.image ? (
@@ -664,7 +671,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
             </span>
           ))}
         </div>
-        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-slate-100 border-t border-slate-100 pt-1.5 -mx-1">
+        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border-t border-slate-200 pt-1.5 -mx-1">
           <MacroBadge icon={Flame} value={recipe.macros.calories} label="קלוריות" />
           <MacroBadge icon={Dumbbell} value={recipe.macros.protein} label="חלבון" unit="ג'" />
           <MacroBadge icon={Wheat} value={recipe.macros.carbs} label="פחמימות" unit="ג'" />
@@ -1677,7 +1684,7 @@ export default function RecipeApp() {
       try {
         const rows = await fetchRecipes();
         if (cancelled) return;
-        if (rows.length) {
+        if (rows && rows.length) {
           lastSyncedRef.current = rows;
           setRecipes(rows);
         } else {
