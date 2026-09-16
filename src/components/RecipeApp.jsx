@@ -1279,10 +1279,11 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function handleFile(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update('image', reader.result);
-    reader.readAsDataURL(file);
+    compressImageFile(file).then((dataUrl) => {
+      if (dataUrl) update('image', dataUrl);
+    });
   }
+
   function handleSubmit() {
     if (!form.title.trim()) return;
     const clean = {
