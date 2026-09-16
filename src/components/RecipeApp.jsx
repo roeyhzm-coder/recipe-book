@@ -197,15 +197,41 @@ function householdConversion(value, unit) {
   const TSP = 5;
   const TBSP = 15;
   const CUP = 240;
-  const fmt = (n) => {
-    const r = Math.round(n * 4) / 4;
-    return r % 1 === 0 ? String(r) : String(r);
-  };
+  const fmt = (n) => String(Math.round(n * 4) / 4);
   if (v >= CUP * 0.75) return `כ-${fmt(v / CUP)} כוס`;
   if (v >= TBSP) return `כ-${fmt(v / TBSP)} כף`;
   if (v >= TSP / 2) return `כ-${fmt(v / TSP)} כפית`;
   return 'פחות מכפית';
 }
+
+/* כיווץ תמונה שנבחרה לגודל סביר לפני שמירה — מונע שמירת קבצים ענקיים */
+function compressImageFile(file, maxDim = 900, quality = 0.7) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch (e) {
+          resolve(reader.result);
+        }
+      };
+      img.onerror = () => resolve(reader.result);
+      img.src = reader.result;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
 
 function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
