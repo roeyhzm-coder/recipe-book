@@ -993,12 +993,13 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             ))}
           </div>
 
-          {recipe.rating !== '' && recipe.rating !== undefined && (
-            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${getRatingCardClass(recipe.rating)}`}>
+          {hasRating(recipe.rating) && (
+            <div className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold border ${ratingBadgeClass(recipe.rating)}`}>
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              דירוג {Number(recipe.rating).toFixed(1)} מתוך 10
+              דירוג {formatRating(recipe.rating)} מתוך 10
             </div>
           )}
+
 
           <div className="mt-4 grid grid-cols-4 divide-x divide-x-reverse divide-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
             <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
