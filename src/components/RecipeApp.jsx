@@ -33,10 +33,14 @@ function normalizeRating(value) {
 function getRatingCardClass(rating) {
   const value = Number(rating);
   if (!Number.isFinite(value)) return 'bg-white';
-  if (value >= 8) return 'bg-sky-50';
-  if (value >= 5) return 'bg-yellow-50';
+  if (value > 9.5) return 'bg-sky-50';
+  if (value > 9.0) return 'bg-teal-50';
+  if (value > 8.0) return 'bg-green-50';
+  if (value > 7.0) return 'bg-lime-50';
+  if (value > 5.0) return 'bg-amber-50';
   return 'bg-red-50';
 }
+
 
 function defaultCategories() {
   return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
