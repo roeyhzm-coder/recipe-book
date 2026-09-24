@@ -2649,12 +2649,26 @@ export default function RecipeApp() {
     setView('home');
   }
 
+  // Import merges into existing data: same-id recipes are updated, nothing is ever removed.
   function handleImport(parsed) {
-    if (Array.isArray(parsed)) {
-      setRecipes(parsed);
-    } else if (parsed && typeof parsed === 'object') {
-      if (Array.isArray(parsed.recipes)) setRecipes(parsed.recipes);
-      if (Array.isArray(parsed.categories)) setCategories(parsed.categories);
+    const importedRecipes = Array.isArray(parsed) ? parsed : parsed?.recipes;
+    const importedCategories = Array.isArray(parsed) ? null : parsed?.categories;
+
+    if (Array.isArray(importedRecipes)) {
+      const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null);
+      const importedById = new Map(valid.map((r) => [String(r.id), r]));
+      setRecipes((current) => [
+        ...current.map((r) => importedById.get(String(r.id)) ?? r),
+        ...valid.filter((r) => !current.some((c) => String(c.id) === String(r.id))),
+      ]);
+    }
+
+    if (Array.isArray(importedCategories)) {
+      setCategories((current) => {
+        const names = new Set(current.map((c) => c.name));
+        const added = importedCategories.filter((c) => c && c.name && !names.has(c.name));
+        return [...current, ...added.map((c) => ({ id: c.id || uid(), name: c.name, pinned: !!c.pinned }))];
+      });
     }
   }
 
