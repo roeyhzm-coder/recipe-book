@@ -13,12 +13,15 @@ import {
 
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
+const MERGED_CATEGORIES_STORAGE_KEY = 'mitbach_merged_categories_v1';
 
+const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep',
+  ...ICE_CREAM_CATEGORY_NAMES,
 ];
-const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון'];
+const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון'];
 const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'יחידה', 'חופן', 'קורט'];
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -44,12 +47,28 @@ function defaultCategories() {
   return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
 }
 
+// Categories added after a user's list was saved are merged in once, so deleting them later sticks.
+function mergeNewCategories(categories) {
+  let merged = [];
+  try {
+    merged = JSON.parse(localStorage.getItem(MERGED_CATEGORIES_STORAGE_KEY) || '[]');
+  } catch (e) {}
+  const pending = ICE_CREAM_CATEGORY_NAMES.filter(
+    (name) => !merged.includes(name) && !categories.some((c) => c.name === name)
+  );
+  try {
+    localStorage.setItem(MERGED_CATEGORIES_STORAGE_KEY, JSON.stringify([...new Set([...merged, ...ICE_CREAM_CATEGORY_NAMES])]));
+  } catch (e) {}
+  if (!pending.length) return categories;
+  return [...categories, ...pending.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }))];
+}
+
 function loadCategories() {
   try {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return mergeNewCategories(parsed);
     }
   } catch (e) {}
   return defaultCategories();
@@ -557,6 +576,477 @@ const DEMO_RECIPES = [
     baseServings: 1,
     favorite: false,
     createdAt: 1727190019000,
+  },
+  {
+    id: 'creami-1',
+    title: 'סורבה אבטיח וליים מרענן',
+    image: '/recipes/creami_02.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
+    ingredients: [
+      { id: 'cr1-1', amount: 300, unit: 'גרם', name: 'אבטיח טרי חתוך', calories: 90, protein: 2, carbs: 22, fat: 0 },
+      { id: 'cr1-2', amount: 115, unit: 'גרם', name: 'מים', calories: 0, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr1-3', amount: 15, unit: 'גרם', name: 'מיץ מחצי ליים סחוט', calories: 2, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr1-4', amount: 5, unit: 'גרם', name: 'ממתיק אפס קלוריות', calories: 0, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr1-5', amount: 1, unit: 'קורט', name: 'מלח ים', calories: 0, protein: 0, carbs: 0, fat: 0 },
+    ],
+    steps: [
+      'טחנו את כל המרכיבים בבלנדר קטן עד לקבלת מרקם חלק לחלוטין.',
+      'מזגו למכל נינג\'ה קרימי והקפיאו ללא מכסה (למניעת גבעה במרכז) למשך 24 שעות.',
+      'הכניסו למכשיר והפעילו על תוכנית Sorbet.',
+      'הפעילו פעם נוספת על תוכנית Sorbet לקבלת מרקם ברד איטלקי מושלם.',
+    ],
+    macros: { calories: 92, protein: 2, carbs: 22, fat: 0 },
+    rating: 9.0,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190021000,
+  },
+  {
+    id: 'creami-2',
+    title: 'סורבה תותים איטלקי',
+    image: '/recipes/creami_03.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
+    ingredients: [
+      { id: 'cr2-1', amount: 300, unit: 'גרם', name: 'תותים טריים', calories: 96, protein: 2, carbs: 24, fat: 0 },
+      { id: 'cr2-2', amount: 130, unit: 'גרם', name: 'מים', calories: 0, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr2-3', amount: 6, unit: 'גרם', name: 'ממתיק אפס קלוריות', calories: 0, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr2-4', amount: 1, unit: 'קורט', name: 'מלח ים', calories: 0, protein: 0, carbs: 0, fat: 0 },
+    ],
+    steps: [
+      'טחנו את כל המרכיבים בבלנדר ומזגו למכל הקרימי. הקפיאו במקפיא.',
+      'לפני העירבול, שטפו את דפנות המכל במים חמים למשך 60 שניות כדי למנוע הידבקות קרח לדפנות.',
+      'הפעילו על תוכנית Sorbet ולאחר מכן בצעו Re-spin.',
+      "צרו גומה במרכז, הוסיפו תוספות רצויות (כגון שוקולד צ'יפס) והפעילו Mix-in.",
+    ],
+    macros: { calories: 96, protein: 2, carbs: 24, fat: 0 },
+    rating: 9.1,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190022000,
+  },
+  {
+    id: 'creami-3',
+    title: 'גלידת פרוסטד לימונדה חלבון',
+    image: '/recipes/creami_04.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr3-1', amount: 220, unit: 'גרם', name: 'דיאט לימונדה', calories: 5, protein: 0, carbs: 1, fat: 0 },
+      { id: 'cr3-2', amount: 240, unit: 'גרם', name: 'חלב דל שומן / מועשר בחלבון', calories: 100, protein: 13, carbs: 12, fat: 0 },
+      { id: 'cr3-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 22, carbs: 2, fat: 1 },
+      { id: 'cr3-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr3-5', amount: 15, unit: 'גרם', name: 'מיץ וגרידת חצי לימון', calories: 5, protein: 0, carbs: 1, fat: 0 },
+    ],
+    steps: [
+      'ערבבו במכל את הלימונדה, החלב, אבקת החלבון, הפודינג, מיץ וגרידת הלימון והממתיק עד לקבלת בלילה חלקה.',
+      'הקפיאו במקפיא למשך הלילה.',
+      'הכניסו למכשיר והפעילו פעם אחת בלבד על תוכנית Lite Ice Cream.',
+    ],
+    macros: { calories: 246, protein: 35, carbs: 22, fat: 2 },
+    rating: 9.2,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190023000,
+  },
+  {
+    id: 'creami-4',
+    title: 'גלידת וניל קלאסית (75 קלוריות)',
+    image: '/recipes/creami_05.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr4-1', amount: 400, unit: 'גרם', name: 'חלב שקדים ללא סוכר בטעם וניל', calories: 40, protein: 2, carbs: 2, fat: 4 },
+      { id: 'cr4-2', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג וניל ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr4-3', amount: 1, unit: 'גרם', name: 'קסנטן גאם', calories: 5, protein: 0, carbs: 0, fat: 0 },
+      { id: 'cr4-4', amount: 5, unit: 'גרם', name: 'תמצית וניל איכותית וממתיק', calories: 5, protein: 0, carbs: 0, fat: 0 },
+    ],
+    steps: [
+      'ערבבו את כל המרכיבים במכל הקרימי באמצעות מקציף חלב ידני והקפיאו למשך הלילה.',
+      'שטפו את דפנות המכל במים חמים למשך 60 שניות.',
+      'הפעילו על תוכנית Lite Ice Cream. אם המרקם מעט פירורי, הוסיפו שלוק קטן של חלב שקדים ובצעו Re-spin.',
+    ],
+    macros: { calories: 75, protein: 2, carbs: 8, fat: 4 },
+    rating: 8.9,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190024000,
+  },
+  {
+    id: 'creami-5',
+    title: 'גלידת עוגת יום הולדת חלבון',
+    image: '/recipes/creami_06.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr5-1', amount: 225, unit: 'גרם', name: 'חלב מועשר בחלבון דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr5-2', amount: 225, unit: 'גרם', name: 'חלב שקדים ללא סוכר', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr5-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 23, carbs: 2, fat: 1 },
+      { id: 'cr5-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr5-5', amount: 20, unit: 'גרם', name: 'סוכריות צבעוניות (Mix-in)', calories: 80, protein: 0, carbs: 18, fat: 1 },
+    ],
+    steps: [
+      'ערבבו את כל המרכיבים (למעט הסוכריות) בעזרת מקציף והקפיאו ל-24 שעות.',
+      'הוציאו ושטפו את הדפנות במים חמים לדקה. הפעילו על תוכנית Lite Ice Cream.',
+      'צרו גומה במרכז, שפכו את הסוכריות הצבעוניות והפעילו על תוכנית Mix-in.',
+    ],
+    macros: { calories: 255, protein: 36, carbs: 17, fat: 4 },
+    rating: 9.4,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190025000,
+  },
+  {
+    id: 'creami-6',
+    title: "גלידת צ'יזקייק תות חלבון",
+    image: '/recipes/creami_07.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
+    ingredients: [
+      { id: 'cr6-1', amount: 200, unit: 'גרם', name: 'תותים טריים', calories: 65, protein: 1, carbs: 15, fat: 0 },
+      { id: 'cr6-2', amount: 240, unit: 'גרם', name: 'חלב מועשר בחלבון דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr6-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr6-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr6-5', amount: 28, unit: 'גרם', name: 'קוביות גבינת שמנת מופחתת שומן קפואות (Mix-in)', calories: 50, protein: 2, carbs: 2, fat: 4 },
+      { id: 'cr6-6', amount: 15, unit: 'גרם', name: 'עוגיית פתיבר / קרקר מפורר (Mix-in)', calories: 60, protein: 1, carbs: 11, fat: 1 },
+    ],
+    steps: [
+      'טחנו בבלנדר תותים, חלב, אבקת חלבון, פודינג וממתיק. מזגו למכל והקפיאו למשך הלילה.',
+      'הקפיאו בנפרד קוביות גבינת שמנת עבור התוספת.',
+      'הפעילו על תוכנית Lite Ice Cream.',
+      'צרו גומה במרכז, הוסיפו את קוביות הגבינה, תותים טריים ועוגיות מפוררות והפעילו Mix-in.',
+    ],
+    macros: { calories: 350, protein: 46, carbs: 38, fat: 2 },
+    rating: 9.6,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190026000,
+  },
+  {
+    id: 'creami-7',
+    title: 'גלידת חלב דגנים פרוטי פבלס',
+    image: '/recipes/creami_08.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
+    ingredients: [
+      { id: 'cr7-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr7-2', amount: 240, unit: 'גרם', name: 'חלב שקדים', calories: 30, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr7-3', amount: 56, unit: 'גרם', name: 'דגני בוקר צבעוניים (להשריה)', calories: 80, protein: 1, carbs: 18, fat: 1 },
+      { id: 'cr7-4', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr7-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr7-6', amount: 21, unit: 'גרם', name: 'דגנים פריכים לתוספת (Mix-in)', calories: 80, protein: 1, carbs: 18, fat: 1 },
+    ],
+    steps: [
+      'השרו את דגני הבוקר בשני סוגי החלב במקרר למשך 6-7 שעות וסננו היטב לקבלת חלב בטעם דגנים.',
+      'הוסיפו חלב להשלמת הנפח, ערבבו עם אבקת החלבון והפודינג והקפיאו למשך הלילה.',
+      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
+      'צרו גומה במרכז, הוסיפו דגנים פריכים והפעילו Mix-in.',
+    ],
+    macros: { calories: 284, protein: 36, carbs: 26, fat: 4 },
+    rating: 9.3,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190027000,
+  },
+  {
+    id: 'creami-8',
+    title: "גלידת צ'יזקייק סינמון טוסט קראנץ'",
+    image: '/recipes/creami_09.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr8-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr8-2', amount: 225, unit: 'גרם', name: 'חלב שקדים וניל', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr8-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr8-4', amount: 15, unit: 'גרם', name: 'אבקת חמאת בוטנים / אבקת עוגיות', calories: 60, protein: 7, carbs: 4, fat: 1.5 },
+      { id: 'cr8-5', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר וקינמון", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr8-6', amount: 10, unit: 'גרם', name: "דגני סינמון טוסט קראנץ' (Mix-in)", calories: 40, protein: 1, carbs: 8, fat: 1 },
+    ],
+    steps: [
+      'ערבבו את כל המרכיבים (פרט לתוספות) במקציף והקפיאו למשך הלילה.',
+      'הפעילו על תוכנית Ice Cream פעם אחת.',
+      "צרו גומה במרכז, הוסיפו קוביות גבינת שמנת קפואות ודגני סינמון טוסט קראנץ' והפעילו Mix-in.",
+    ],
+    macros: { calories: 301, protein: 44, carbs: 20, fat: 5 },
+    rating: 9.5,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190028000,
+  },
+  {
+    id: 'creami-9',
+    title: 'גלידת חלב דגנים סינמון טוסט',
+    image: '/recipes/creami_10.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
+    ingredients: [
+      { id: 'cr9-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr9-2', amount: 240, unit: 'גרם', name: 'חלב שקדים', calories: 30, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr9-3', amount: 56, unit: 'גרם', name: "דגני סינמון טוסט קראנץ' (להשריה)", calories: 80, protein: 1, carbs: 17, fat: 1 },
+      { id: 'cr9-4', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr9-5', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר וקינמון", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr9-6', amount: 21, unit: 'גרם', name: 'דגני סינמון טוסט לתוספת (Mix-in)', calories: 85, protein: 1, carbs: 17, fat: 2 },
+    ],
+    steps: [
+      'השרו את דגני הקינמון בחלב למשך 6-7 שעות וסננו היטב.',
+      'השלימו חלב, ערבבו עם אבקת החלבון והפודינג והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream.',
+      "הוסיפו דגני סינמון קראנצ'יים במרכז והפעילו Mix-in.",
+    ],
+    macros: { calories: 284, protein: 36, carbs: 26, fat: 4 },
+    rating: 9.4,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190029000,
+  },
+  {
+    id: 'creami-10',
+    title: 'גלידת פאי תפוחים חלבון',
+    image: '/recipes/creami_11.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr10-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr10-2', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 23, carbs: 2, fat: 1 },
+      { id: 'cr10-3', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr10-4', amount: 200, unit: 'גרם', name: 'מלית תפוחי עץ ללא תוספת סוכר וקינמון', calories: 80, protein: 0, carbs: 20, fat: 0 },
+      { id: 'cr10-5', amount: 2, unit: 'יחידה', name: 'עוגיות לוטוס / ביסקוף (Mix-in)', calories: 75, protein: 1, carbs: 11, fat: 3 },
+    ],
+    steps: [
+      'ערבבו את החלב, אבקת החלבון, הפודינג והתבלינים. קפלו פנימה את מלית התפוחים והקפיאו ללילה.',
+      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
+      'צרו גומה, הוסיפו 2 עוגיות לוטוס שבורות והפעילו Mix-in.',
+    ],
+    macros: { calories: 285, protein: 36, carbs: 33, fat: 1 },
+    rating: 9.5,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190030000,
+  },
+  {
+    id: 'creami-11',
+    title: 'גלידת פאי דלעת ותבלינים',
+    image: '/recipes/creami_12.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון'],
+    ingredients: [
+      { id: 'cr11-1', amount: 60, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 230, protein: 46, carbs: 4, fat: 2 },
+      { id: 'cr11-2', amount: 300, unit: 'גרם', name: 'מחית דלעת טבעית ללא סוכר', calories: 78, protein: 2, carbs: 18, fat: 0.5 },
+      { id: 'cr11-3', amount: 3, unit: 'גרם', name: "תערובת תבליני פאי דלעת (קינמון, ג'ינג'ר, מוסקט)", calories: 5, protein: 0, carbs: 1, fat: 0 },
+      { id: 'cr11-4', amount: 225, unit: 'גרם', name: 'קצפת קלה / חלבון מוקצף דל שומן', calories: 80, protein: 2, carbs: 10, fat: 2 },
+    ],
+    steps: [
+      'ערבבו את אבקת החלבון והתבלינים עם מעט מים קרים למרקם של זיגוג.',
+      'קפלו פנימה את מחית הדלעת והקצפת הקלה בעדינות.',
+      'מזגו לתבנית או מכל והקפיאו לפחות 6 שעות עד להתייצבות מלאה.',
+    ],
+    macros: { calories: 80, protein: 6, carbs: 13, fat: 0.5 },
+    rating: 8.8,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190031000,
+  },
+  {
+    id: 'creami-12',
+    title: "גלידת קפה אוריאו שוקולד צ'יפ",
+    image: '/recipes/creami_13.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr12-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr12-2', amount: 240, unit: 'גרם', name: 'קפה קולד ברו (נטול קפאין או רגיל)', calories: 5, protein: 0, carbs: 1, fat: 0 },
+      { id: 'cr12-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr12-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr12-5', amount: 2, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Oreo Thins)', calories: 65, protein: 1, carbs: 10, fat: 2.5 },
+      { id: 'cr12-6', amount: 10, unit: 'גרם', name: "מיני שוקולד צ'יפס מריר", calories: 50, protein: 1, carbs: 6, fat: 3 },
+    ],
+    steps: [
+      'ערבבו את הקפה, החלב, אבקת החלבון, הפודינג והממתיק והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream.',
+      "צרו גומה במרכז, פזרו את עוגיות האוריאו והשוקולד צ'יפס והפעילו Mix-in.",
+    ],
+    macros: { calories: 226, protein: 36, carbs: 16, fat: 2 },
+    rating: 9.4,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190032000,
+  },
+  {
+    id: 'creami-13',
+    title: 'גלידת לוטוס בתוספת חלבון',
+    image: '/recipes/creami_14.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr13-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr13-2', amount: 225, unit: 'גרם', name: 'חלב שקדים וניל', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr13-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr13-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr13-5', amount: 16, unit: 'גרם', name: 'ממרח לוטוס מומס (Mix-in)', calories: 95, protein: 0, carbs: 9, fat: 6 },
+      { id: 'cr13-6', amount: 2, unit: 'יחידה', name: 'עוגיות לוטוס שבורות (Mix-in)', calories: 75, protein: 1, carbs: 11, fat: 3 },
+    ],
+    steps: [
+      'ערבבו את החלב, חלב השקדים, אבקת החלבון והפודינג במקציף והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream פעם אחת לקבלת גלידת וניל קרמית.',
+      'צרו גומה במרכז, שפכו את ממרח הלוטוס ואת העוגיות המפוררות והפעילו תוכנית Mix-in.',
+    ],
+    macros: { calories: 400, protein: 38, carbs: 35, fat: 12 },
+    rating: 9.8,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190033000,
+  },
+  {
+    id: 'creami-14',
+    title: "גלידת קראנץ' בר חלבון",
+    image: '/recipes/creami_15.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון'],
+    ingredients: [
+      { id: 'cr14-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr14-2', amount: 225, unit: 'גרם', name: 'חלב שקדים', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr14-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr14-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr14-5', amount: 1, unit: 'יחידה', name: "חטיף שוקולד קראנץ' קטן (Mix-in)", calories: 60, protein: 1, carbs: 8, fat: 3 },
+      { id: 'cr14-6', amount: 20, unit: 'גרם', name: "שוקולד צ'יפס מומס מעורבב עם פצפוצי אורז (ציפוי קראנץ')", calories: 100, protein: 1, carbs: 14, fat: 4 },
+    ],
+    steps: [
+      'ערבבו את רכיבי הבסיס והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream, הוסיפו את חטיף השוקולד בגומה במרכז והפעילו Mix-in.',
+      'ערבבו 10 גרם שוקולד מומס עם 10 גרם פצפוצי אורז, מרחו כשכבה עליונה והחזירו למקפיא לחצי שעה לקבלת מעטפת מתפצחת.',
+    ],
+    macros: { calories: 393, protein: 38, carbs: 40, fat: 9 },
+    rating: 9.5,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190034000,
+  },
+  {
+    id: 'creami-15',
+    title: 'גלידת קוסמיק בראוני שוקולד עשיר',
+    image: '/recipes/creami_16.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr15-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr15-2', amount: 225, unit: 'גרם', name: 'חלב שקדים', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr15-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון שוקולד', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr15-4', amount: 10, unit: 'גרם', name: 'אבקת עוגיות שוקולד / בראוני', calories: 35, protein: 4, carbs: 2, fat: 1 },
+      { id: 'cr15-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr15-6', amount: 5, unit: 'גרם', name: 'קקאו כהה איכותי (Black Cocoa)', calories: 15, protein: 1, carbs: 1, fat: 1 },
+    ],
+    steps: [
+      'ערבבו את כל המרכיבים בעזרת מקציף עד לקבלת בלילת שוקולד כהה ואחידה.',
+      'הקפיאו ל-24 שעות במקפיא.',
+      "הפעילו על תוכנית Ice Cream פעם אחת עד לקבלת מרקם פאדג'י עשיר.",
+    ],
+    macros: { calories: 297, protein: 42, carbs: 21, fat: 5 },
+    rating: 9.6,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190035000,
+  },
+  {
+    id: 'creami-16',
+    title: 'גלידת חלב דגנים ריסז פאפס',
+    image: '/recipes/creami_17.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
+    ingredients: [
+      { id: 'cr16-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr16-2', amount: 240, unit: 'גרם', name: 'חלב שקדים', calories: 30, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr16-3', amount: 56, unit: 'גרם', name: 'דגני ריסז פאפס (להשריה)', calories: 85, protein: 2, carbs: 16, fat: 2 },
+      { id: 'cr16-4', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
+      { id: 'cr16-5', amount: 30, unit: 'גרם', name: 'אבקת חמאת בוטנים (PB2)', calories: 110, protein: 12, carbs: 8, fat: 2.5 },
+      { id: 'cr16-6', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג באטרסקוטש / וניל', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr16-7', amount: 15, unit: 'גרם', name: 'דגני ריסז פאפס פריכים (Mix-in)', calories: 65, protein: 1, carbs: 11, fat: 2 },
+    ],
+    steps: [
+      'השרו את דגני הריסז בשני סוגי החלב ל-6 שעות וסננו היטב.',
+      'השלימו חלב, הוסיפו אבקת חלבון, אבקת חמאת בוטנים ופודינג והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Ice Cream, צרו גומה והוסיפו דגני ריסז פאפס בתוכנית Mix-in.',
+    ],
+    macros: { calories: 351, protein: 41, carbs: 31, fat: 7 },
+    rating: 9.4,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190036000,
+  },
+  {
+    id: 'creami-17',
+    title: 'גלידת ריסז חמאת בוטנים עשירה',
+    image: '/recipes/creami_18.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr17-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr17-2', amount: 225, unit: 'גרם', name: 'חלב שקדים', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr17-3', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
+      { id: 'cr17-4', amount: 30, unit: 'גרם', name: 'אבקת חמאת בוטנים (PB2)', calories: 110, protein: 12, carbs: 8, fat: 2.5 },
+      { id: 'cr17-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג באטרסקוטש / וניל', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr17-6', amount: 1, unit: 'יחידה', name: 'חטיף ריסז קאפ קטן חתוך (Mix-in)', calories: 85, protein: 2, carbs: 9, fat: 5 },
+    ],
+    steps: [
+      'ערבבו את כל מרכיבי הבסיס בעזרת מקציף והקפיאו למשך הלילה.',
+      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
+      'צרו גומה במרכז, הוסיפו את חטיף הריסז הקצוץ והפעילו Mix-in.',
+    ],
+    macros: { calories: 404, protein: 53, carbs: 30, fat: 8 },
+    rating: 9.7,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190037000,
+  },
+  {
+    id: 'creami-18',
+    title: 'גלידת חלב דגנים אוריאו',
+    image: '/recipes/creami_19.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
+    ingredients: [
+      { id: 'cr18-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
+      { id: 'cr18-2', amount: 240, unit: 'גרם', name: 'חלב שקדים', calories: 30, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr18-3', amount: 56, unit: 'גרם', name: 'דגני בוקר אוריאו (להשריה)', calories: 85, protein: 1, carbs: 18, fat: 1.5 },
+      { id: 'cr18-4', amount: 30, unit: 'גרם', name: 'אבקת חלבון שוקולד', calories: 115, protein: 24, carbs: 2, fat: 1 },
+      { id: 'cr18-5', amount: 12, unit: 'גרם', name: 'קקאו כהה (Black Cocoa)', calories: 25, protein: 2, carbs: 2, fat: 1 },
+      { id: 'cr18-6', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr18-7', amount: 2, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Mix-in)', calories: 65, protein: 1, carbs: 10, fat: 2.5 },
+    ],
+    steps: [
+      'השרו את דגני האוריאו בחלב למשך 6 שעות וסננו היטב.',
+      'השלימו חלב, ערבבו עם אבקת החלבון, הקקאו והפודינג והקפיאו ל-24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream, הוסיפו עוגיות אוריאו שבורות והפעילו Mix-in.',
+    ],
+    macros: { calories: 301, protein: 38, carbs: 26, fat: 5 },
+    rating: 9.3,
+    baseServings: 1,
+    favorite: false,
+    createdAt: 1727190038000,
+  },
+  {
+    id: 'creami-19',
+    title: 'גלידת אוריאו עוגיות ושמנת',
+    image: '/recipes/creami_20.jpg',
+    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
+    ingredients: [
+      { id: 'cr19-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
+      { id: 'cr19-2', amount: 225, unit: 'גרם', name: 'חלב שקדים וניל', calories: 25, protein: 1, carbs: 1, fat: 2 },
+      { id: 'cr19-3', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
+      { id: 'cr19-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
+      { id: 'cr19-5', amount: 4, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Mix-in)', calories: 130, protein: 2, carbs: 20, fat: 5 },
+    ],
+    steps: [
+      'ערבבו את רכיבי הבסיס במקציף ידני והקפיאו למשך 24 שעות.',
+      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
+      'צרו גומה במרכז, הוסיפו 4 עוגיות אוריאו דקות שבורות והפעילו Mix-in.',
+    ],
+    macros: { calories: 255, protein: 53, carbs: 30, fat: 8 },
+    rating: 9.6,
+    baseServings: 1,
+    favorite: true,
+    createdAt: 1727190039000,
   },
 ];
 
@@ -2052,7 +2542,7 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
       <ConfirmModal
         open={confirmReset}
         title="איפוס נתונים"
-        message="פעולה זו תמחק את כל השינויים ותחזיר את נתוני הדמו. להמשיך?"
+        message="מתכוני הדמו יוחזרו למצבם המקורי. מתכונים שהוספת לא יימחקו. להמשיך?"
         confirmLabel="איפוס"
         danger
         onCancel={() => setConfirmReset(false)}
@@ -2176,9 +2666,15 @@ export default function RecipeApp() {
     notify('הקטגוריה נוספה');
   }
 
+  // Reset restores demo recipes and default categories but never removes the user's own ones.
   function resetDemo() {
-    setRecipes(DEMO_RECIPES);
-    setCategories(defaultCategories());
+    const demoIds = new Set(DEMO_RECIPES.map((r) => String(r.id)));
+    setRecipes((current) => [...DEMO_RECIPES, ...current.filter((r) => !demoIds.has(String(r.id)))]);
+    setCategories((current) => {
+      const defaults = defaultCategories();
+      const defaultNames = new Set(defaults.map((c) => c.name));
+      return [...defaults, ...current.filter((c) => !defaultNames.has(c.name))];
+    });
     setView('home');
   }
 
