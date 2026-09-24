@@ -1,5 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// Until the deleted_at_ms migration is applied, trash state lives only in the local cache.
+let softDeleteSupported = false;
+
+export function isSoftDeleteSupported() {
+  return softDeleteSupported;
+}
+
+async function detectSoftDelete() {
+  const { error } = await supabase.from("recipes").select("deleted_at_ms").limit(1);
+  softDeleteSupported = !error;
+}
+
 function rowToRecipe(row) {
   return {
     id: row.id,
@@ -14,12 +26,12 @@ function rowToRecipe(row) {
     baseServings: Number(row.base_servings) || 1,
     favorite: !!row.favorite,
     createdAt: Number(row.created_at_ms) || 0,
-
+    deletedAt: row.deleted_at_ms === null || row.deleted_at_ms === undefined ? null : Number(row.deleted_at_ms),
   };
 }
 
 function recipeToRow(recipe) {
-  return {
+  const row = {
     id: String(recipe.id),
     title: recipe.title || "",
     image: recipe.image || "",
@@ -36,9 +48,12 @@ function recipeToRow(recipe) {
 
     created_at_ms: Number(recipe.createdAt) || Date.now(),
   };
+  if (softDeleteSupported) row.deleted_at_ms = recipe.deletedAt ? Number(recipe.deletedAt) : null;
+  return row;
 }
 
 export async function fetchRecipes() {
+  await detectSoftDelete();
   const { data, error } = await supabase
     .from("recipes")
     .select("*")
@@ -53,26 +68,17 @@ export async function upsertRecipes(recipes) {
   if (error) throw error;
 }
 
-export async function deleteRecipes(ids) {
-  if (!ids.length) return;
-  const { error } = await supabase.from("recipes").delete().in("id", ids);
-  if (error) throw error;
-}
-
 function sameRecipe(a, b) {
   return JSON.stringify(recipeToRow(a)) === JSON.stringify(recipeToRow(b));
 }
 
+// Only ever upserts. Rows are never deleted from Supabase; deletion is a soft flag on the row.
 export async function syncRecipes(previous, next) {
+  if (!next.length) return;
   const prevMap = new Map(previous.map((r) => [String(r.id), r]));
-  const nextIds = new Set(next.map((r) => String(r.id)));
-
   const changed = next.filter((r) => {
     const prev = prevMap.get(String(r.id));
     return !prev || !sameRecipe(prev, r);
   });
-  const removed = previous.map((r) => String(r.id)).filter((id) => !nextIds.has(id));
-
   await upsertRecipes(changed);
-  await deleteRecipes(removed);
 }

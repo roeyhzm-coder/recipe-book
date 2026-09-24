@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchRecipes, syncRecipes, upsertRecipes } from '@/lib/recipes-db';
+import { fetchRecipes, syncRecipes, upsertRecipes, isSoftDeleteSupported } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
@@ -14,6 +14,8 @@ import {
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 const MERGED_CATEGORIES_STORAGE_KEY = 'mitbach_merged_categories_v1';
+const SAFETY_BACKUP_KEY = 'recipes_safety_backup';
+const MAX_SAFETY_SNAPSHOTS = 5;
 
 const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
 const DEFAULT_CATEGORY_NAMES = [
@@ -1191,15 +1193,57 @@ function draftFromExtracted(parsed) {
   };
 }
 
-function loadRecipes() {
+function loadLocalRecipes() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {}
-  return DEMO_RECIPES;
+  return [];
+}
+
+function saveLocalRecipes(recipes) {
+  if (!recipes.length) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+  } catch (e) {}
+}
+
+function mergeRecipesById(current, incoming) {
+  const incomingById = new Map(incoming.map((r) => [String(r.id), r]));
+  const currentIds = new Set(current.map((r) => String(r.id)));
+  return [
+    ...current.map((r) => incomingById.get(String(r.id)) ?? r),
+    ...incoming.filter((r) => !currentIds.has(String(r.id))),
+  ];
+}
+
+function loadSafetySnapshots() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SAFETY_BACKUP_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// Newest first; older snapshots are dropped when localStorage runs out of space.
+function saveSafetySnapshot(reason, recipes) {
+  if (!recipes.length) return;
+  let snapshots = [
+    { id: uid(), createdAt: Date.now(), reason, recipes },
+    ...loadSafetySnapshots(),
+  ].slice(0, MAX_SAFETY_SNAPSHOTS);
+  while (snapshots.length) {
+    try {
+      localStorage.setItem(SAFETY_BACKUP_KEY, JSON.stringify(snapshots));
+      return;
+    } catch (e) {
+      snapshots = snapshots.slice(0, -1);
+    }
+  }
 }
 
 /* -------------------------------- small UI -------------------------------- */
@@ -2051,7 +2095,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
       <ConfirmModal
         open={confirmDelete}
         title="מחיקת מתכון"
-        message={`האם למחוק את "${recipe.title}"?`}
+        message={`להעביר את "${recipe.title}" לסל המחזור? אפשר לשחזר אותו בהגדרות.`}
         confirmLabel="מחק"
         danger
         onCancel={() => setConfirmDelete(false)}
@@ -2464,9 +2508,17 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
 /* -------------------------------- settings view -------------------------------- */
 
-function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, notify, onAddCategory, onDeleteCategory, onTogglePinCategory, onMoveCategory }) {
+function formatDateTime(ms) {
+  return new Date(ms).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function SettingsView({
+  recipes, categories, onBack, onImport, onAddMissingSystemRecipes, trashedRecipes, onRestoreRecipe,
+  safetySnapshots, onRestoreSnapshot, notify,
+}) {
   const fileRef = useRef(null);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmAddSystem, setConfirmAddSystem] = useState(false);
+  const [snapshotToRestore, setSnapshotToRestore] = useState(null);
 
   function exportData() {
     const blob = new Blob([JSON.stringify({ recipes, categories }, null, 2)], { type: 'application/json' });
@@ -2532,21 +2584,94 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4">
-          <h2 className="font-serif text-base text-slate-900 mb-1">איפוס נתונים</h2>
-          <button onClick={() => setConfirmReset(true)} className="mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-rose-300 text-rose-700 text-sm font-medium w-full">
-            איפוס לנתוני דמו
+          <h2 className="font-serif text-base text-slate-900 mb-1 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-slate-500" /> סל מחזור
+          </h2>
+          {trashedRecipes.length === 0 ? (
+            <p className="text-sm text-slate-500">סל המחזור ריק.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-slate-100 mt-2">
+              {trashedRecipes.map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-slate-800 truncate">{r.title || 'ללא שם'}</p>
+                    <p className="text-xs text-slate-400">נמחק ב-{formatDateTime(r.deletedAt)}</p>
+                  </div>
+                  <button
+                    onClick={() => onRestoreRecipe(r.id)}
+                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> שחזר
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="font-serif text-base text-slate-900 mb-1">גיבויי בטיחות אוטומטיים</h2>
+          <p className="text-sm text-slate-500">נשמרים במכשיר לפני כל ייבוא, הוספת מתכוני מערכת או שחזור.</p>
+          {safetySnapshots.length === 0 ? (
+            <p className="text-sm text-slate-400 mt-2">אין עדיין גיבויים.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-slate-100 mt-2">
+              {safetySnapshots.map((s) => (
+                <li key={s.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm text-slate-800 truncate">{s.reason}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatDateTime(s.createdAt)} · {s.recipes.length} מתכונים
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setSnapshotToRestore(s)}
+                    className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> שחזר
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200 p-4">
+          <h2 className="font-serif text-base text-slate-900 mb-1">מתכוני מערכת</h2>
+          <button onClick={() => setConfirmAddSystem(true)} className="mt-2 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-medium w-full">
+            <Plus className="w-4 h-4" /> הוסף מתכוני מערכת חסרים
           </button>
         </div>
       </div>
 
       <ConfirmModal
-        open={confirmReset}
-        title="איפוס נתונים"
-        message="מתכוני הדמו יוחזרו למצבם המקורי. מתכונים שהוספת לא יימחקו. להמשיך?"
-        confirmLabel="איפוס"
-        danger
-        onCancel={() => setConfirmReset(false)}
-        onConfirm={() => { setConfirmReset(false); onResetDemo(); notify('הנתונים אופסו'); }}
+        open={confirmAddSystem}
+        title="הוספת מתכוני מערכת"
+        message="מתכוני מערכת שחסרים יתווספו. מתכונים קיימים לא יימחקו ולא ישתנו. להמשיך?"
+        confirmLabel="הוסף"
+        onCancel={() => setConfirmAddSystem(false)}
+        onConfirm={() => {
+          setConfirmAddSystem(false);
+          const added = onAddMissingSystemRecipes();
+          notify(added ? `נוספו ${added} מתכוני מערכת` : 'כל מתכוני המערכת כבר קיימים');
+        }}
+      />
+
+      <ConfirmModal
+        open={!!snapshotToRestore}
+        title="שחזור גיבוי"
+        message={
+          snapshotToRestore
+            ? `המתכונים מהגיבוי (${formatDateTime(snapshotToRestore.createdAt)}) יוחזרו לגרסה השמורה. מתכונים שנוספו מאז לא יימחקו. להמשיך?`
+            : ''
+        }
+        confirmLabel="שחזר"
+        onCancel={() => setSnapshotToRestore(null)}
+        onConfirm={() => {
+          const id = snapshotToRestore.id;
+          setSnapshotToRestore(null);
+          onRestoreSnapshot(id);
+        }}
       />
     </div>
   );
@@ -2556,8 +2681,10 @@ function SettingsView({ recipes, categories, onBack, onImport, onResetDemo, noti
 
 export default function RecipeApp() {
   const [recipes, setRecipes] = useState([]);
-  const [recipesLoaded, setRecipesLoaded] = useState(false);
+  // 'loading' → no writes at all; 'cloud' → local cache + Supabase; 'offline' → local cache only.
+  const [syncMode, setSyncMode] = useState('loading');
   const lastSyncedRef = useRef([]);
+  const [safetySnapshots, setSafetySnapshots] = useState(loadSafetySnapshots);
   const [categories, setCategories] = useState(loadCategories);
 
   const [view, setView] = useState('home');
@@ -2569,23 +2696,30 @@ export default function RecipeApp() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const local = loadLocalRecipes();
       try {
-        const rows = await fetchRecipes();
+        const remote = await fetchRecipes();
         if (cancelled) return;
-        if (rows && rows.length) {
-          lastSyncedRef.current = rows;
-          setRecipes(rows);
-        } else {
-          const seeded = loadRecipes();
-          await upsertRecipes(seeded);
-          if (cancelled) return;
-          lastSyncedRef.current = seeded;
-          setRecipes(seeded);
-        }
+        const remoteIds = new Set(remote.map((r) => String(r.id)));
+        const localById = new Map(local.map((r) => [String(r.id), r]));
+        const fromCloud = isSoftDeleteSupported()
+          ? remote
+          : remote.map((r) => {
+              const cached = localById.get(String(r.id));
+              return cached && cached.deletedAt ? { ...r, deletedAt: cached.deletedAt } : r;
+            });
+        let next = [...fromCloud, ...local.filter((r) => !remoteIds.has(String(r.id)))];
+        if (!next.length) next = DEMO_RECIPES;
+        await upsertRecipes(next.filter((r) => !remoteIds.has(String(r.id))));
+        if (cancelled) return;
+        lastSyncedRef.current = next;
+        setRecipes(next);
+        setSyncMode('cloud');
       } catch (e) {
-        if (!cancelled) setRecipes(loadRecipes());
-      } finally {
-        if (!cancelled) setRecipesLoaded(true);
+        if (cancelled) return;
+        setRecipes(local.length ? local : DEMO_RECIPES);
+        setSyncMode('offline');
+        setToast('אין חיבור לענן — השינויים יישמרו במכשיר בלבד');
       }
     })();
     return () => {
@@ -2594,13 +2728,15 @@ export default function RecipeApp() {
   }, []);
 
   useEffect(() => {
-    if (!recipesLoaded) return;
+    if (syncMode === 'loading') return;
+    saveLocalRecipes(recipes);
+    if (syncMode !== 'cloud' || !recipes.length) return;
     const previous = lastSyncedRef.current;
     lastSyncedRef.current = recipes;
     syncRecipes(previous, recipes).catch(() => {
       setToast('שמירה בענן נכשלה, נסו שוב');
     });
-  }, [recipes, recipesLoaded]);
+  }, [recipes, syncMode]);
 
   useEffect(() => saveCategories(categories), [categories]);
 
@@ -2644,9 +2780,27 @@ export default function RecipeApp() {
   }
 
   function deleteRecipe(id) {
-    setRecipes((rs) => rs.filter((r) => r.id !== id));
-    notify('המתכון נמחק');
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, deletedAt: Date.now() } : r)));
+    notify('המתכון הועבר לסל המחזור');
     setView('home');
+  }
+
+  function restoreRecipe(id) {
+    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, deletedAt: null } : r)));
+    notify('המתכון שוחזר');
+  }
+
+  function takeSafetySnapshot(reason) {
+    saveSafetySnapshot(reason, recipes);
+    setSafetySnapshots(loadSafetySnapshots());
+  }
+
+  function restoreSnapshot(snapshotId) {
+    const snapshot = safetySnapshots.find((s) => s.id === snapshotId);
+    if (!snapshot || !Array.isArray(snapshot.recipes)) return;
+    takeSafetySnapshot('לפני שחזור גיבוי');
+    setRecipes((current) => mergeRecipesById(current, snapshot.recipes));
+    notify('הגיבוי שוחזר');
   }
 
   // Import merges into existing data: same-id recipes are updated, nothing is ever removed.
@@ -2656,11 +2810,10 @@ export default function RecipeApp() {
 
     if (Array.isArray(importedRecipes)) {
       const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null);
-      const importedById = new Map(valid.map((r) => [String(r.id), r]));
-      setRecipes((current) => [
-        ...current.map((r) => importedById.get(String(r.id)) ?? r),
-        ...valid.filter((r) => !current.some((c) => String(c.id) === String(r.id))),
-      ]);
+      if (valid.length) {
+        takeSafetySnapshot('לפני ייבוא');
+        setRecipes((current) => mergeRecipesById(current, valid));
+      }
     }
 
     if (Array.isArray(importedCategories)) {
@@ -2680,16 +2833,23 @@ export default function RecipeApp() {
     notify('הקטגוריה נוספה');
   }
 
-  // Reset restores demo recipes and default categories but never removes the user's own ones.
-  function resetDemo() {
-    const demoIds = new Set(DEMO_RECIPES.map((r) => String(r.id)));
-    setRecipes((current) => [...DEMO_RECIPES, ...current.filter((r) => !demoIds.has(String(r.id)))]);
+  // Appends system recipes and default categories that are missing; existing ones (including trashed) are untouched.
+  function addMissingSystemRecipes() {
+    const existingIds = new Set(recipes.map((r) => String(r.id)));
+    const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id)));
+    if (missing.length) {
+      takeSafetySnapshot('לפני הוספת מתכוני מערכת');
+      setRecipes((current) => {
+        const ids = new Set(current.map((r) => String(r.id)));
+        return [...current, ...missing.filter((r) => !ids.has(String(r.id)))];
+      });
+    }
     setCategories((current) => {
-      const defaults = defaultCategories();
-      const defaultNames = new Set(defaults.map((c) => c.name));
-      return [...defaults, ...current.filter((c) => !defaultNames.has(c.name))];
+      const names = new Set(current.map((c) => c.name));
+      const added = defaultCategories().filter((c) => !names.has(c.name));
+      return added.length ? [...current, ...added] : current;
     });
-    setView('home');
+    return missing.length;
   }
 
   function handleHomeSmartImportExtracted(draft) {
@@ -2698,14 +2858,19 @@ export default function RecipeApp() {
     setView('form');
   }
 
-  const selectedRecipe = recipes.find((r) => r.id === selectedId) || null;
+  const activeRecipes = useMemo(() => recipes.filter((r) => !r.deletedAt), [recipes]);
+  const trashedRecipes = useMemo(
+    () => recipes.filter((r) => r.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt),
+    [recipes]
+  );
+  const selectedRecipe = activeRecipes.find((r) => r.id === selectedId) || null;
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen bg-slate-50 text-slate-900" style={{ fontFamily: "'Assistant', sans-serif" }}>
       <div className="max-w-lg mx-auto min-h-screen bg-slate-50 relative">
         {view === 'home' && (
           <HomeView
-            recipes={recipes}
+            recipes={activeRecipes}
             categories={categories}
             onOpen={openRecipe}
             onToggleFavorite={toggleFavorite}
@@ -2739,7 +2904,11 @@ export default function RecipeApp() {
             categories={categories}
             onBack={() => setView('home')}
             onImport={handleImport}
-            onResetDemo={resetDemo}
+            onAddMissingSystemRecipes={addMissingSystemRecipes}
+            trashedRecipes={trashedRecipes}
+            onRestoreRecipe={restoreRecipe}
+            safetySnapshots={safetySnapshots}
+            onRestoreSnapshot={restoreSnapshot}
             notify={notify}
           />
         )}

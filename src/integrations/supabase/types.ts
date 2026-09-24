@@ -20,6 +20,7 @@ export type Database = {
           categories: Json
           created_at: string
           created_at_ms: number
+          deleted_at_ms: number | null
           equipment: Json
           favorite: boolean
           id: string
@@ -36,6 +37,7 @@ export type Database = {
           categories?: Json
           created_at?: string
           created_at_ms?: number
+          deleted_at_ms?: number | null
           equipment?: Json
           favorite?: boolean
           id: string
@@ -52,6 +54,7 @@ export type Database = {
           categories?: Json
           created_at?: string
           created_at_ms?: number
+          deleted_at_ms?: number | null
           equipment?: Json
           favorite?: boolean
           id?: string
