@@ -94,6 +94,14 @@ const EQUIPMENT_ICON_MAP = [
   { keys: ['סיר', 'מחבת'], icon: Soup },
 ];
 
+// Selecting "גלידות" also matches sub-categories such as "גלידות חלבון".
+const PREFIX_MATCH_CATEGORIES = ['גלידות'];
+
+function recipeCategoryMatches(recipeCategory, selected) {
+  if (recipeCategory === selected) return true;
+  return PREFIX_MATCH_CATEGORIES.includes(selected) && String(recipeCategory).startsWith(selected);
+}
+
 function getEquipmentIcon(name) {
   const found = EQUIPMENT_ICON_MAP.find((e) => e.keys.some((k) => name.toLowerCase().includes(k)));
   return found ? found.icon : Wrench;
@@ -583,7 +591,7 @@ const DEMO_RECIPES = [
     id: 'creami-1',
     title: 'סורבה אבטיח וליים מרענן',
     image: '/recipes/creami_02.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
     ingredients: [
       { id: 'cr1-1', amount: 300, unit: 'גרם', name: 'אבטיח טרי חתוך', calories: 90, protein: 2, carbs: 22, fat: 0 },
@@ -608,7 +616,7 @@ const DEMO_RECIPES = [
     id: 'creami-2',
     title: 'סורבה תותים איטלקי',
     image: '/recipes/creami_03.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
     ingredients: [
       { id: 'cr2-1', amount: 300, unit: 'גרם', name: 'תותים טריים', calories: 96, protein: 2, carbs: 24, fat: 0 },
@@ -632,7 +640,7 @@ const DEMO_RECIPES = [
     id: 'creami-3',
     title: 'גלידת פרוסטד לימונדה חלבון',
     image: '/recipes/creami_04.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr3-1', amount: 220, unit: 'גרם', name: 'דיאט לימונדה', calories: 5, protein: 0, carbs: 1, fat: 0 },
@@ -656,7 +664,7 @@ const DEMO_RECIPES = [
     id: 'creami-4',
     title: 'גלידת וניל קלאסית (75 קלוריות)',
     image: '/recipes/creami_05.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr4-1', amount: 400, unit: 'גרם', name: 'חלב שקדים ללא סוכר בטעם וניל', calories: 40, protein: 2, carbs: 2, fat: 4 },
@@ -679,7 +687,7 @@ const DEMO_RECIPES = [
     id: 'creami-5',
     title: 'גלידת עוגת יום הולדת חלבון',
     image: '/recipes/creami_06.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr5-1', amount: 225, unit: 'גרם', name: 'חלב מועשר בחלבון דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -703,7 +711,7 @@ const DEMO_RECIPES = [
     id: 'creami-6',
     title: "גלידת צ'יזקייק תות חלבון",
     image: '/recipes/creami_07.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
     ingredients: [
       { id: 'cr6-1', amount: 200, unit: 'גרם', name: 'תותים טריים', calories: 65, protein: 1, carbs: 15, fat: 0 },
@@ -729,7 +737,7 @@ const DEMO_RECIPES = [
     id: 'creami-7',
     title: 'גלידת חלב דגנים פרוטי פבלס',
     image: '/recipes/creami_08.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
     ingredients: [
       { id: 'cr7-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -755,7 +763,7 @@ const DEMO_RECIPES = [
     id: 'creami-8',
     title: "גלידת צ'יזקייק סינמון טוסט קראנץ'",
     image: '/recipes/creami_09.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr8-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -780,7 +788,7 @@ const DEMO_RECIPES = [
     id: 'creami-9',
     title: 'גלידת חלב דגנים סינמון טוסט',
     image: '/recipes/creami_10.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
     ingredients: [
       { id: 'cr9-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -806,7 +814,7 @@ const DEMO_RECIPES = [
     id: 'creami-10',
     title: 'גלידת פאי תפוחים חלבון',
     image: '/recipes/creami_11.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr10-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -830,7 +838,7 @@ const DEMO_RECIPES = [
     id: 'creami-11',
     title: 'גלידת פאי דלעת ותבלינים',
     image: '/recipes/creami_12.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
     equipment: ["נינג'ה קרימי", 'משקל מזון'],
     ingredients: [
       { id: 'cr11-1', amount: 60, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 230, protein: 46, carbs: 4, fat: 2 },
@@ -853,7 +861,7 @@ const DEMO_RECIPES = [
     id: 'creami-12',
     title: "גלידת קפה אוריאו שוקולד צ'יפ",
     image: '/recipes/creami_13.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr12-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -878,7 +886,7 @@ const DEMO_RECIPES = [
     id: 'creami-13',
     title: 'גלידת לוטוס בתוספת חלבון',
     image: '/recipes/creami_14.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr13-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -903,7 +911,7 @@ const DEMO_RECIPES = [
     id: 'creami-14',
     title: "גלידת קראנץ' בר חלבון",
     image: '/recipes/creami_15.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון'],
     ingredients: [
       { id: 'cr14-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -928,7 +936,7 @@ const DEMO_RECIPES = [
     id: 'creami-15',
     title: 'גלידת קוסמיק בראוני שוקולד עשיר',
     image: '/recipes/creami_16.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr15-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -953,7 +961,7 @@ const DEMO_RECIPES = [
     id: 'creami-16',
     title: 'גלידת חלב דגנים ריסז פאפס',
     image: '/recipes/creami_17.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
     ingredients: [
       { id: 'cr16-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -979,7 +987,7 @@ const DEMO_RECIPES = [
     id: 'creami-17',
     title: 'גלידת ריסז חמאת בוטנים עשירה',
     image: '/recipes/creami_18.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr17-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -1004,7 +1012,7 @@ const DEMO_RECIPES = [
     id: 'creami-18',
     title: 'גלידת חלב דגנים אוריאו',
     image: '/recipes/creami_19.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
     ingredients: [
       { id: 'cr18-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
@@ -1030,7 +1038,7 @@ const DEMO_RECIPES = [
     id: 'creami-19',
     title: 'גלידת אוריאו עוגיות ושמנת',
     image: '/recipes/creami_20.jpg',
-    categories: ['גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
+    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
     equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
     ingredients: [
       { id: 'cr19-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
@@ -1631,7 +1639,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
     const q = search.trim().toLowerCase();
     return recipes.filter((r) => {
       if (favOnly && !r.favorite) return false;
-      if (category !== 'הכל' && !r.categories.includes(category)) return false;
+      if (category !== 'הכל' && !r.categories.some((c) => recipeCategoryMatches(c, category))) return false;
       if (!q) return true;
       const inTitle = r.title.toLowerCase().includes(q);
       const inIngredients = r.ingredients.some((i) => i.name.toLowerCase().includes(q));
