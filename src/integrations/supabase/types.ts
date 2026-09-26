@@ -68,6 +68,83 @@ export type Database = {
         }
         Relationships: []
       }
+      grocery_lists: {
+        Row: {
+          created_at: string
+          created_at_ms: number
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          updated_at_ms: number
+        }
+        Insert: {
+          created_at?: string
+          created_at_ms?: number
+          id: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          updated_at_ms?: number
+        }
+        Update: {
+          created_at?: string
+          created_at_ms?: number
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          updated_at_ms?: number
+        }
+        Relationships: []
+      }
+      grocery_items: {
+        Row: {
+          checked: boolean
+          created_at: string
+          created_at_ms: number
+          id: string
+          list_id: string
+          name: string
+          sort_order: number
+          source_recipes: Json
+          updated_at: string
+          updated_at_ms: number
+        }
+        Insert: {
+          checked?: boolean
+          created_at?: string
+          created_at_ms?: number
+          id: string
+          list_id: string
+          name?: string
+          sort_order?: number
+          source_recipes?: Json
+          updated_at?: string
+          updated_at_ms?: number
+        }
+        Update: {
+          checked?: boolean
+          created_at?: string
+          created_at_ms?: number
+          id?: string
+          list_id?: string
+          name?: string
+          sort_order?: number
+          source_recipes?: Json
+          updated_at?: string
+          updated_at_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grocery_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "grocery_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

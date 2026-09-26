@@ -6,8 +6,12 @@ import {
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
   Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown, ChevronUp,
-  Dumbbell, Wheat, Droplet, AlertTriangle
+  Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart
 } from 'lucide-react';
+import { useGroceryLists } from '@/hooks/useGroceryLists';
+import BottomNav from '@/components/grocery/BottomNav';
+import GroceryLists from '@/components/grocery/GroceryLists';
+import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -1259,7 +1263,7 @@ function saveSafetySnapshot(reason, recipes) {
 function Toast({ message }) {
   if (!message) return null;
   return (
-    <div className="fixed bottom-24 inset-x-0 flex justify-center z-50 px-4 pointer-events-none">
+    <div className="fixed bottom-32 inset-x-0 flex justify-center z-50 px-4 pointer-events-none">
       <div className="bg-stone-800 text-stone-900 text-sm px-5 py-3 rounded-full shadow-lg border border-stone-200 backdrop-blur-md max-w-xs text-center">
         {message}
       </div>
@@ -1548,7 +1552,7 @@ function ratingBadgeClass(v) {
   return 'bg-amber-50 text-amber-800 border-amber-200';
 }
 
-function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
+function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
   const [imgError, setImgError] = useState(false);
   return (
     <div
@@ -1617,6 +1621,19 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           <MacroBadge icon={Wheat} value={recipe.macros.carbs} label="פחמימות" unit="ג'" />
           <MacroBadge icon={Droplet} value={recipe.macros.fat} label="שומן" unit="ג'" />
         </div>
+        {onAddToGrocery && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToGrocery(recipe);
+            }}
+            className="mt-2 min-h-11 w-full rounded-xl border border-amber-200 bg-amber-50/80 px-2.5 py-2 text-[11px] font-medium text-amber-800 flex items-center justify-center gap-1.5 hover:bg-amber-100 transition"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            + הוסף לרשימת קניות
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1624,7 +1641,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
 
 /* -------------------------------- home view -------------------------------- */
 
-function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpenSettings, onOpenSmartImport, onAddCategory }) {
+function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpenSettings, onOpenSmartImport, onAddCategory, onAddToGrocery }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('הכל');
   const [favOnly, setFavOnly] = useState(false);
@@ -1658,7 +1675,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
   }
 
   return (
-    <div className="pb-28">
+    <div className="pb-36">
       <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200">
         <div className="flex items-center justify-between px-4 pt-5">
           <div>
@@ -1776,7 +1793,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((r) => (
-              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} />
+              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onAddToGrocery={onAddToGrocery} />
             ))}
           </div>
         )}
@@ -1784,7 +1801,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
 
       <button
         onClick={onAdd}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 min-h-11 bg-amber-500 text-amber-950 rounded-full pl-5 pr-4 py-3.5 shadow-lg shadow-amber-200/60 flex items-center gap-2 font-medium active:scale-95 transition z-30 hover:bg-amber-400"
+        className="fixed bottom-24 left-1/2 -translate-x-1/2 min-h-11 bg-amber-500 text-amber-950 rounded-full pl-5 pr-4 py-3.5 shadow-lg shadow-amber-200/60 flex items-center gap-2 font-medium active:scale-95 transition z-30 hover:bg-amber-400"
       >
         <Plus className="w-5 h-5" />
         הוסף מתכון
@@ -1795,7 +1812,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
 
 /* -------------------------------- detail view -------------------------------- */
 
-function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
+function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddToGrocery }) {
   const [multiplier, setMultiplier] = useState(1);
   const [customOpen, setCustomOpen] = useState(false);
   const [checkedEquipment, setCheckedEquipment] = useState({});
@@ -1915,7 +1932,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
   };
 
   return (
-    <div className="pb-16">
+    <div className="pb-28">
       <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200 flex items-center justify-between px-4 py-3">
         <button onClick={onBack} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
           <ArrowRight className="w-5 h-5 text-stone-600" />
@@ -1975,6 +1992,16 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             <MacroBadge icon={Wheat} value={scaledMacros.carbs} label="פחמימות" unit="ג'" />
             <MacroBadge icon={Droplet} value={scaledMacros.fat} label="שומן" unit="ג'" />
           </div>
+          {onAddToGrocery && (
+            <button
+              type="button"
+              onClick={() => onAddToGrocery(recipe)}
+              className="mt-4 min-h-11 w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-800 flex items-center justify-center gap-2 hover:bg-amber-100 transition"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              + הוסף לרשימת קניות
+            </button>
+          )}
         </div>
 
         {/* portion scaler */}
@@ -2700,6 +2727,9 @@ export default function RecipeApp() {
   const [editingRecipe, setEditingRecipe] = useState(null);
   const [toast, setToast] = useState('');
   const [showSmartImportHome, setShowSmartImportHome] = useState(false);
+  const [appScreen, setAppScreen] = useState('recipes');
+  const [groceryRecipe, setGroceryRecipe] = useState(null);
+  const grocery = useGroceryLists();
 
   useEffect(() => {
     let cancelled = false;
@@ -2866,6 +2896,30 @@ export default function RecipeApp() {
     setView('form');
   }
 
+  function openAddToGrocery(recipe) {
+    setGroceryRecipe(recipe);
+  }
+
+  function confirmAddToGrocery(listId) {
+    if (!groceryRecipe) return;
+    const result = grocery.addRecipeToList(groceryRecipe, listId);
+    const listName = grocery.lists.find((list) => list.id === listId)?.name || 'הרשימה';
+    const parts = [];
+    if (result.added) parts.push(`${result.added} חדשים`);
+    if (result.merged) parts.push(`${result.merged} אוחדו`);
+    notify(parts.length ? `נוסף ל${listName} (${parts.join(', ')})` : `המצרכים כבר ב${listName}`);
+    setGroceryRecipe(null);
+  }
+
+  function changeAppScreen(screen) {
+    setAppScreen(screen);
+    if (screen === 'recipes' && (view === 'form' || view === 'settings')) {
+      setView('home');
+    }
+  }
+
+  const showBottomNav = appScreen === 'grocery' || view === 'home' || view === 'detail';
+
   const activeRecipes = useMemo(() => recipes.filter((r) => !r.deletedAt), [recipes]);
   const trashedRecipes = useMemo(
     () => recipes.filter((r) => r.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt),
@@ -2876,6 +2930,24 @@ export default function RecipeApp() {
   return (
     <div dir="rtl" lang="he" className="min-h-screen bg-stone-50 text-stone-900" style={{ fontFamily: "'Assistant', sans-serif" }}>
       <div className="max-w-lg mx-auto min-h-screen bg-stone-50 relative bg-[radial-gradient(ellipse_at_top,_rgba(245,158,11,0.08),_transparent_55%)]">
+        {appScreen === 'grocery' ? (
+          <GroceryLists
+            lists={grocery.lists}
+            activeList={grocery.activeList}
+            activeItems={grocery.activeItems}
+            onSelectList={grocery.setActiveListId}
+            onAddList={grocery.addList}
+            onRenameList={grocery.renameList}
+            onDeleteList={grocery.deleteList}
+            onAddManualItem={grocery.addManualItem}
+            onToggleItem={grocery.toggleItem}
+            onDeleteItem={grocery.deleteItem}
+            onClearChecked={grocery.clearChecked}
+            onClearList={grocery.clearList}
+            onNotify={notify}
+          />
+        ) : (
+          <>
         {view === 'home' && (
           <HomeView
             recipes={activeRecipes}
@@ -2886,6 +2958,7 @@ export default function RecipeApp() {
             onOpenSettings={() => setView('settings')}
             onOpenSmartImport={() => setShowSmartImportHome(true)}
             onAddCategory={addCategory}
+            onAddToGrocery={openAddToGrocery}
           />
         )}
         {view === 'detail' && selectedRecipe && (
@@ -2895,6 +2968,7 @@ export default function RecipeApp() {
             onEdit={startEdit}
             onDelete={deleteRecipe}
             onToggleFavorite={toggleFavorite}
+            onAddToGrocery={openAddToGrocery}
           />
         )}
         {view === 'form' && (
@@ -2920,7 +2994,21 @@ export default function RecipeApp() {
             notify={notify}
           />
         )}
+          </>
+        )}
+        {showBottomNav && (
+          <BottomNav active={appScreen} onChange={changeAppScreen} />
+        )}
       </div>
+
+      <AddToGroceryModal
+        open={!!groceryRecipe}
+        recipe={groceryRecipe}
+        lists={grocery.lists}
+        defaultListId={grocery.lastUsedListId || grocery.activeListId}
+        onClose={() => setGroceryRecipe(null)}
+        onConfirm={confirmAddToGrocery}
+      />
 
       <SmartImportModal
         open={showSmartImportHome}
