@@ -36,13 +36,13 @@ function normalizeRating(value) {
 
 function getRatingCardClass(rating) {
   const value = Number(rating);
-  if (!Number.isFinite(value)) return 'bg-slate-900/70';
-  if (value > 9.5) return 'bg-sky-950/55';
-  if (value > 9.0) return 'bg-teal-950/55';
-  if (value > 8.0) return 'bg-emerald-950/50';
-  if (value > 7.0) return 'bg-lime-950/40';
-  if (value > 5.0) return 'bg-amber-950/45';
-  return 'bg-rose-950/45';
+  if (!Number.isFinite(value)) return 'bg-white';
+  if (value > 9.5) return 'bg-sky-50';
+  if (value > 9.0) return 'bg-teal-50';
+  if (value > 8.0) return 'bg-emerald-50';
+  if (value > 7.0) return 'bg-lime-50';
+  if (value > 5.0) return 'bg-amber-50';
+  return 'bg-rose-50';
 }
 
 function defaultCategories() {
@@ -1260,7 +1260,7 @@ function Toast({ message }) {
   if (!message) return null;
   return (
     <div className="fixed bottom-24 inset-x-0 flex justify-center z-50 px-4 pointer-events-none">
-      <div className="bg-slate-800/90 text-slate-50 text-sm px-5 py-3 rounded-full shadow-lg shadow-black/30 border border-slate-700/80 backdrop-blur-md max-w-xs text-center">
+      <div className="bg-stone-800 text-stone-900 text-sm px-5 py-3 rounded-full shadow-lg border border-stone-200 backdrop-blur-md max-w-xs text-center">
         {message}
       </div>
     </div>
@@ -1270,21 +1270,21 @@ function Toast({ message }) {
 function ConfirmModal({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-4">
-      <div className="bg-slate-900/90 rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-800/80 backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200 backdrop-blur-xl">
         <div className="flex items-start gap-3 mb-2">
-          <div className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-rose-950/70 flex items-center justify-center shrink-0 border border-rose-800/60">
-            <AlertTriangle className="w-5 h-5 text-rose-400" />
+          <div className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-200">
+            <AlertTriangle className="w-5 h-5 text-rose-600" />
           </div>
           <div>
-            <h3 className="font-serif text-lg text-slate-100">{title}</h3>
-            <p className="text-sm text-slate-400 mt-1 leading-relaxed">{message}</p>
+            <h3 className="font-serif text-lg text-stone-900">{title}</h3>
+            <p className="text-sm text-stone-500 mt-1 leading-relaxed">{message}</p>
           </div>
         </div>
         <div className="flex gap-3 mt-5">
           <button
             onClick={onCancel}
-            className="flex-1 min-h-11 py-2.5 rounded-xl border border-slate-700 text-slate-200 text-sm font-medium active:scale-95 transition hover:bg-slate-800/80"
+            className="flex-1 min-h-11 py-2.5 rounded-xl border border-stone-200 text-stone-800 text-sm font-medium active:scale-95 transition hover:bg-stone-100"
           >
             ביטול
           </button>
@@ -1367,36 +1367,36 @@ function SmartImportModal({ open, onClose, onExtracted }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-slate-900/90 rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto border border-slate-800/80 backdrop-blur-xl"
+        className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
         style={{ maxHeight: '85vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-serif text-xl text-slate-100">✨ ייבוא חכם עם AI</h3>
+          <h3 className="font-serif text-xl text-stone-900">✨ ייבוא חכם עם AI</h3>
           <button
             onClick={handleClose}
             disabled={loading}
-            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center disabled:opacity-40 shrink-0"
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center disabled:opacity-40 shrink-0"
           >
-            <X className="w-4 h-4 text-slate-400" />
+            <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
-        <p className="text-sm text-slate-400 mb-5 leading-relaxed">הדביקו פוסט או טקסט מתכון, או העלו צילום מסך — ה-AI ימלא עבורכם את כל השדות.</p>
+        <p className="text-sm text-stone-500 mb-5 leading-relaxed">הדביקו פוסט או טקסט מתכון, או העלו צילום מסך — ה-AI ימלא עבורכם את כל השדות.</p>
 
-        <div className="flex bg-slate-800/70 rounded-xl p-1 mb-4">
+        <div className="flex bg-stone-100 rounded-xl p-1 mb-4">
           <button
             onClick={() => setTab('text')}
-            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition ${tab === 'text' ? 'bg-amber-500 text-amber-950 shadow-sm' : 'text-slate-400'}`}
+            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition ${tab === 'text' ? 'bg-amber-500 text-amber-950 shadow-sm' : 'text-stone-500'}`}
           >
             הדבקת טקסט
           </button>
           <button
             onClick={() => setTab('image')}
-            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition ${tab === 'image' ? 'bg-amber-500 text-amber-950 shadow-sm' : 'text-slate-400'}`}
+            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-medium transition ${tab === 'image' ? 'bg-amber-500 text-amber-950 shadow-sm' : 'text-stone-500'}`}
           >
             צילום מסך
           </button>
@@ -1408,24 +1408,24 @@ function SmartImportModal({ open, onClose, onExtracted }) {
             onChange={(e) => setPastedText(e.target.value)}
             placeholder="הדביקו כאן פוסט מאינסטגרם, מתכון מאתר, או כל טקסט חופשי..."
             rows={7}
-            className="w-full min-h-11 bg-slate-950/50 border border-slate-700 rounded-xl px-3.5 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-3 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
           />
         ) : (
           <div>
             {imageData ? (
               <div className="relative">
-                <img src={imageData.previewUrl} alt="תצוגה מקדימה" className="w-full h-48 object-cover rounded-xl border border-slate-800/80" />
+                <img src={imageData.previewUrl} alt="תצוגה מקדימה" className="w-full h-48 object-cover rounded-xl border border-stone-200" />
                 <button
                   onClick={() => setImageData(null)}
-                  className="absolute top-2 left-2 min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/85 border border-slate-700 flex items-center justify-center shadow"
+                  className="absolute top-2 left-2 min-h-11 min-w-11 w-11 h-11 rounded-full bg-white/90 border border-stone-200 flex items-center justify-center shadow"
                 >
-                  <X className="w-3.5 h-3.5 text-slate-300" />
+                  <X className="w-3.5 h-3.5 text-stone-600" />
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => fileRef.current && fileRef.current.click()}
-                className="w-full h-40 rounded-xl border-2 border-dashed border-slate-700 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-amber-500/50 hover:text-amber-300 transition"
+                className="w-full h-40 rounded-xl border-2 border-dashed border-stone-200 flex flex-col items-center justify-center gap-2 text-stone-500 hover:border-amber-400 hover:text-amber-700 transition"
               >
                 <ImagePlus className="w-6 h-6" />
                 <span className="text-sm">העלאת צילום מסך</span>
@@ -1436,7 +1436,7 @@ function SmartImportModal({ open, onClose, onExtracted }) {
         )}
 
         {error && (
-          <p className="text-sm text-rose-300 mt-3 whitespace-pre-wrap break-words border border-rose-800/70 bg-rose-950/50 rounded-xl p-3">
+          <p className="text-sm text-rose-700 mt-3 whitespace-pre-wrap break-words border border-rose-200 bg-rose-50 rounded-xl p-3">
             {error}
           </p>
         )}
@@ -1463,11 +1463,11 @@ function SmartImportModal({ open, onClose, onExtracted }) {
 function MacroBadge({ icon: Icon, value, label, unit = '' }) {
   return (
     <div className="flex flex-col items-center justify-center py-2 px-1 min-w-0">
-      <Icon className="w-3.5 h-3.5 text-emerald-400/80 mb-1 shrink-0" />
-      <span className="text-xs font-bold text-emerald-100 tabular-nums truncate">
+      <Icon className="w-3.5 h-3.5 text-emerald-700 mb-1 shrink-0" />
+      <span className="text-xs font-bold text-emerald-800 tabular-nums truncate">
         {value === '' || value === undefined ? '—' : `${value}${unit}`}
       </span>
-      <span className="text-[10px] text-emerald-400/70 truncate">{label}</span>
+      <span className="text-[10px] text-emerald-600 truncate">{label}</span>
     </div>
   );
 }
@@ -1481,7 +1481,7 @@ function CategoryPill({ label, active, onClick, small }) {
       } ${
         active
           ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
-          : 'bg-slate-900/70 border-slate-700 text-slate-300 hover:border-slate-500'
+          : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
       }`}
     >
       {label}
@@ -1494,18 +1494,18 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
   const all = ['הכל', ...categories];
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900/90 rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-slate-800/80 backdrop-blur-xl"
+        className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
         style={{ maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-serif text-xl text-slate-100">כל הקטגוריות</h3>
-          <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center">
-            <X className="w-4 h-4 text-slate-400" />
+          <h3 className="font-serif text-xl text-stone-900">כל הקטגוריות</h3>
+          <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+            <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -1514,7 +1514,7 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
               key={c}
               onClick={() => { onSelect(c); onClose(); }}
               className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
-                active === c ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-slate-950/40 border-slate-800/80 text-slate-300 hover:border-slate-600'
+                active === c ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
               }`}
             >
               {c}
@@ -1539,13 +1539,13 @@ function formatRating(v) {
 
 function ratingBadgeClass(v) {
   const n = Number(v);
-  if (!isFinite(n)) return 'bg-slate-800/80 text-slate-300 border-slate-700';
-  if (n <= 5.0) return 'bg-rose-950/80 text-rose-300 border-rose-800/70';
-  if (n <= 7.0) return 'bg-amber-950/80 text-amber-300 border-amber-800/70';
-  if (n <= 8.0) return 'bg-lime-950/70 text-lime-300 border-lime-800/70';
-  if (n <= 9.0) return 'bg-emerald-950/80 text-emerald-300 border-emerald-800/70';
-  if (n <= 9.5) return 'bg-teal-950/80 text-teal-300 border-teal-800/70';
-  return 'bg-amber-950/80 text-amber-200 border-amber-700/70';
+  if (!isFinite(n)) return 'bg-stone-100 text-stone-600 border-stone-200';
+  if (n <= 5.0) return 'bg-rose-50 text-rose-700 border-rose-200';
+  if (n <= 7.0) return 'bg-amber-50 text-amber-800 border-amber-200';
+  if (n <= 8.0) return 'bg-lime-50 text-lime-800 border-lime-200';
+  if (n <= 9.0) return 'bg-emerald-50 text-emerald-800 border-emerald-200';
+  if (n <= 9.5) return 'bg-teal-50 text-teal-800 border-teal-200';
+  return 'bg-amber-50 text-amber-800 border-amber-200';
 }
 
 function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
@@ -1561,9 +1561,9 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
           onOpen(recipe.id);
         }
       }}
-      className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} backdrop-blur-md rounded-2xl border border-slate-800/80 overflow-hidden flex flex-col active:scale-[0.98] transition-all duration-200 shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 hover:border-slate-700`}
+      className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} rounded-2xl border border-stone-200 overflow-hidden flex flex-col active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-md`}
     >
-      <div className="relative bg-slate-800" style={{ aspectRatio: '4 / 3' }}>
+      <div className="relative bg-stone-100" style={{ aspectRatio: '4 / 3' }}>
         {!imgError && recipe.image ? (
           <img
             src={recipe.image}
@@ -1572,8 +1572,8 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-950">
-            <ChefHat className="w-10 h-10 text-slate-600" />
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-50 to-stone-100">
+            <ChefHat className="w-10 h-10 text-stone-400" />
           </div>
         )}
         <button
@@ -1581,9 +1581,9 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
             e.stopPropagation();
             onToggleFavorite(recipe.id);
           }}
-          className="absolute top-2 left-2 min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-950/70 backdrop-blur-md border border-slate-700/80 flex items-center justify-center shadow-sm"
+          className="absolute top-2 left-2 min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-900/40 backdrop-blur-md border border-stone-200 flex items-center justify-center shadow-sm"
         >
-          <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
+          <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-stone-500'}`} />
         </button>
         {hasRating(recipe.rating) && (
           <span
@@ -1595,23 +1595,23 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite }) {
       </div>
 
       <div className="p-3.5 flex flex-col gap-2.5 flex-1">
-        <h3 className="font-serif text-base leading-snug text-slate-100 line-clamp-2">{recipe.title}</h3>
+        <h3 className="font-serif text-base leading-snug text-stone-900 line-clamp-2">{recipe.title}</h3>
         {hasRating(recipe.rating) && (
-          <div className="flex items-center gap-1 text-sm font-semibold text-slate-200">
+          <div className="flex items-center gap-1 text-sm font-semibold text-stone-800">
             <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
             <span>{formatRating(recipe.rating)}</span>
-            <span className="text-xs font-normal text-slate-500">/ 10</span>
+            <span className="text-xs font-normal text-stone-500">/ 10</span>
           </div>
         )}
 
         <div className="flex flex-wrap gap-1.5">
           {recipe.categories.slice(0, 2).map((c) => (
-            <span key={c} className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+            <span key={c} className="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
               {c}
             </span>
           ))}
         </div>
-        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-slate-800/80 border-t border-slate-800/80 pt-2 -mx-1">
+        <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-stone-200 border-t border-stone-200 pt-2 -mx-1">
           <MacroBadge icon={Flame} value={recipe.macros.calories} label="קלוריות" />
           <MacroBadge icon={Dumbbell} value={recipe.macros.protein} label="חלבון" unit="ג'" />
           <MacroBadge icon={Wheat} value={recipe.macros.carbs} label="פחמימות" unit="ג'" />
@@ -1659,36 +1659,36 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
 
   return (
     <div className="pb-28">
-      <div className="sticky top-0 z-20 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80">
+      <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200">
         <div className="flex items-center justify-between px-4 pt-5">
           <div>
-            <p className="text-xs tracking-wide text-amber-400/80">ברוכים הבאים</p>
-            <h1 className="font-serif text-3xl text-slate-50 mt-0.5">המתכונים שלי</h1>
+            <p className="text-xs tracking-wide text-amber-700">ברוכים הבאים</p>
+            <h1 className="font-serif text-3xl text-stone-900 mt-0.5">המתכונים שלי</h1>
           </div>
           <button
             onClick={onOpenSettings}
-            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center backdrop-blur-md"
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center backdrop-blur-md"
           >
-            <Settings className="w-5 h-5 text-slate-300" />
+            <Settings className="w-5 h-5 text-stone-600" />
           </button>
         </div>
         <div className="flex items-center gap-3 px-4 py-4">
           <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-500 absolute top-1/2 -translate-y-1/2 right-3.5" />
+            <Search className="w-4 h-4 text-stone-500 absolute top-1/2 -translate-y-1/2 right-3.5" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="חיפוש לפי שם או מצרך..."
-              className="w-full min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-full py-2.5 pr-10 pl-4 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500/50 backdrop-blur-md"
+              className="w-full min-h-11 bg-white border border-stone-200 rounded-full py-2.5 pr-10 pl-4 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500/50 backdrop-blur-md"
             />
           </div>
           <button
             onClick={() => setFavOnly((v) => !v)}
             className={`min-h-11 min-w-11 w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition ${
-              favOnly ? 'bg-amber-500 border-amber-500' : 'bg-slate-900/70 border-slate-800/80'
+              favOnly ? 'bg-amber-500 border-amber-500' : 'bg-white border-stone-200'
             }`}
           >
-            <Star className={`w-5 h-5 ${favOnly ? 'fill-amber-950 text-amber-950' : 'text-slate-400'}`} />
+            <Star className={`w-5 h-5 ${favOnly ? 'fill-amber-950 text-amber-950' : 'text-stone-500'}`} />
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
@@ -1701,7 +1701,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
             className={`shrink-0 rounded-full border transition whitespace-nowrap min-h-11 px-4 py-2 text-sm flex items-center gap-1.5 ${
               category !== 'הכל' && !pinnedNames.includes(category)
                 ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
-                : 'bg-slate-900/70 border-slate-700 text-slate-300'
+                : 'bg-white border-stone-200 text-stone-600'
             }`}
           >
             {category !== 'הכל' && !pinnedNames.includes(category) ? category : 'כל הקטגוריות'}
@@ -1709,7 +1709,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
           </button>
           <button
             onClick={() => setShowQuickCategory(true)}
-            className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 min-h-11 px-4 py-2 text-sm text-amber-300 flex items-center gap-1"
+            className="shrink-0 rounded-full border border-amber-300 bg-amber-50 min-h-11 px-4 py-2 text-sm text-amber-800 flex items-center gap-1"
           >
             + קטגוריה
           </button>
@@ -1717,16 +1717,16 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
       </div>
 
       {showQuickCategory && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-4" onClick={() => setShowQuickCategory(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={() => setShowQuickCategory(false)}>
           <form
             onSubmit={submitQuickCategory}
             onClick={(e) => e.stopPropagation()}
-            className="bg-slate-900/90 rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-800/80 backdrop-blur-xl"
+            className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200 backdrop-blur-xl"
           >
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-serif text-xl text-slate-100">קטגוריה חדשה</h3>
-              <button type="button" onClick={() => setShowQuickCategory(false)} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center">
-                <X className="w-4 h-4 text-slate-400" />
+              <h3 className="font-serif text-xl text-stone-900">קטגוריה חדשה</h3>
+              <button type="button" onClick={() => setShowQuickCategory(false)} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+                <X className="w-4 h-4 text-stone-500" />
               </button>
             </div>
             <input
@@ -1734,7 +1734,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
               value={quickCategoryName}
               onChange={(e) => setQuickCategoryName(e.target.value)}
               placeholder="לדוגמה: ללא גלוטן"
-              className="w-full min-h-11 bg-slate-950/50 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+              className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
             />
             <button type="submit" disabled={!quickCategoryName.trim()} className="w-full min-h-11 mt-4 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium disabled:opacity-40 hover:bg-amber-400 transition">
               הוסף קטגוריה
@@ -1754,11 +1754,11 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
       <div className="px-4 mt-5">
         <button
           onClick={onOpenSmartImport}
-          className="w-full min-h-11 flex items-center justify-between gap-3 bg-slate-900/70 border border-amber-500/25 rounded-2xl px-4 py-3.5 text-right backdrop-blur-md"
+          className="w-full min-h-11 flex items-center justify-between gap-3 bg-white border border-amber-200 rounded-2xl px-4 py-3.5 text-right backdrop-blur-md"
         >
           <div>
-            <p className="text-sm font-medium text-amber-200">✨ ייבוא חכם עם AI</p>
-            <p className="text-xs text-amber-400/80 mt-0.5">הדביקו טקסט או תמונה ואנחנו נמלא את המתכון</p>
+            <p className="text-sm font-medium text-amber-800">✨ ייבוא חכם עם AI</p>
+            <p className="text-xs text-amber-700 mt-0.5">הדביקו טקסט או תמונה ואנחנו נמלא את המתכון</p>
           </div>
           <ChevronDown className="w-4 h-4 text-amber-400 shrink-0" style={{ transform: 'rotate(90deg)' }} />
         </button>
@@ -1767,11 +1767,11 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
       <div className="px-4 mt-5">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-24 gap-3">
-            <div className="w-16 h-16 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center">
-              <ChefHat className="w-7 h-7 text-slate-500" />
+            <div className="w-16 h-16 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+              <ChefHat className="w-7 h-7 text-stone-500" />
             </div>
-            <p className="text-slate-200 font-medium">לא נמצאו מתכונים</p>
-            <p className="text-slate-500 text-sm max-w-xs">נסו לשנות את החיפוש או לבטל סינונים</p>
+            <p className="text-stone-800 font-medium">לא נמצאו מתכונים</p>
+            <p className="text-stone-500 text-sm max-w-xs">נסו לשנות את החיפוש או לבטל סינונים</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1784,7 +1784,7 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
 
       <button
         onClick={onAdd}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 min-h-11 bg-amber-500 text-amber-950 rounded-full pl-5 pr-4 py-3.5 shadow-lg shadow-amber-900/30 flex items-center gap-2 font-medium active:scale-95 transition z-30 hover:bg-amber-400"
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 min-h-11 bg-amber-500 text-amber-950 rounded-full pl-5 pr-4 py-3.5 shadow-lg shadow-amber-200/60 flex items-center gap-2 font-medium active:scale-95 transition z-30 hover:bg-amber-400"
       >
         <Plus className="w-5 h-5" />
         הוסף מתכון
@@ -1880,10 +1880,10 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             onClick={() => toggleTimer(key, seconds)}
             className={`inline-flex items-center gap-1 min-h-11 px-3 py-1 rounded-full border text-sm transition ${
               finished
-                ? 'bg-amber-500/15 border-amber-500/40 text-amber-200'
+                ? 'bg-amber-100 border-amber-300 text-amber-800'
                 : running
                 ? 'bg-amber-500 border-amber-500 text-amber-950'
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-200'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -1893,9 +1893,9 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
           {t && t.remaining !== t.total && (
             <button
               onClick={(e) => resetTimer(key, seconds, e)}
-              className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center"
+              className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center"
             >
-              <RotateCcw className="w-3 h-3 text-slate-400" />
+              <RotateCcw className="w-3 h-3 text-stone-500" />
             </button>
           )}
         </span>
@@ -1916,33 +1916,33 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
 
   return (
     <div className="pb-16">
-      <div className="sticky top-0 z-20 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-4 py-3">
-        <button onClick={onBack} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center">
-          <ArrowRight className="w-5 h-5 text-slate-300" />
+      <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200 flex items-center justify-between px-4 py-3">
+        <button onClick={onBack} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+          <ArrowRight className="w-5 h-5 text-stone-600" />
         </button>
         <div className="flex items-center gap-2">
           <button
             onClick={() => onToggleFavorite(recipe.id)}
-            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center"
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center"
           >
-            <Star className={`w-5 h-5 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-slate-400'}`} />
+            <Star className={`w-5 h-5 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-stone-500'}`} />
           </button>
           <button
             onClick={() => onEdit(recipe)}
-            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center"
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center"
           >
-            <Pencil className="w-4 h-4 text-slate-300" />
+            <Pencil className="w-4 h-4 text-stone-600" />
           </button>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center"
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center"
           >
-            <Trash2 className="w-4 h-4 text-rose-400" />
+            <Trash2 className="w-4 h-4 text-rose-600" />
           </button>
         </div>
       </div>
 
-      <div className="relative bg-slate-800" style={{ aspectRatio: '16 / 10' }}>
+      <div className="relative bg-stone-100" style={{ aspectRatio: '16 / 10' }}>
         <img
           src={recipe.image}
           alt={recipe.title}
@@ -1952,11 +1952,11 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
       </div>
 
       <div className="px-4 -mt-6 relative">
-        <div className="bg-slate-900/80 rounded-3xl border border-slate-800/80 p-5 shadow-xl backdrop-blur-xl">
-          <h1 className="font-serif text-3xl text-slate-50 leading-tight">{recipe.title}</h1>
+        <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xl backdrop-blur-xl">
+          <h1 className="font-serif text-3xl text-stone-900 leading-tight">{recipe.title}</h1>
           <div className="flex flex-wrap gap-2 mt-3">
             {recipe.categories.map((c) => (
-              <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                 {c}
               </span>
             ))}
@@ -1969,7 +1969,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             </div>
           )}
 
-          <div className="mt-5 grid grid-cols-4 divide-x divide-x-reverse divide-slate-800/80 border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950/40">
+          <div className="mt-5 grid grid-cols-4 divide-x divide-x-reverse divide-stone-200 border border-stone-200 rounded-2xl overflow-hidden bg-stone-50">
             <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
             <MacroBadge icon={Dumbbell} value={scaledMacros.protein} label="חלבון" unit="ג'" />
             <MacroBadge icon={Wheat} value={scaledMacros.carbs} label="פחמימות" unit="ג'" />
@@ -1978,15 +1978,15 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
         </div>
 
         {/* portion scaler */}
-        <div className="mt-5 flex items-center justify-between bg-slate-900/70 rounded-2xl border border-slate-800/80 p-4 backdrop-blur-md gap-3">
-          <span className="text-sm text-slate-300">כמות מנות</span>
-          <div className="inline-flex bg-slate-800/80 rounded-full p-1">
+        <div className="mt-5 flex items-center justify-between bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md gap-3">
+          <span className="text-sm text-stone-600">כמות מנות</span>
+          <div className="inline-flex bg-stone-100 rounded-full p-1">
             {[1, 1.5, 2].map((p) => (
               <button
                 key={p}
                 onClick={() => { setMultiplier(p); setCustomOpen(false); }}
                 className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${
-                  multiplier === p && !customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-slate-400'
+                  multiplier === p && !customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'
                 }`}
               >
                 {p}x
@@ -1994,22 +1994,22 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
             ))}
             <button
               onClick={() => setCustomOpen((v) => !v)}
-              className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-slate-400'}`}
+              className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'}`}
             >
               מותאם
             </button>
           </div>
         </div>
         {customOpen && (
-          <div className="mt-3 flex items-center gap-3 bg-slate-900/70 rounded-2xl border border-slate-800/80 p-4 backdrop-blur-md">
-            <span className="text-sm text-slate-400 shrink-0">מכפיל אישי:</span>
+          <div className="mt-3 flex items-center gap-3 bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
+            <span className="text-sm text-stone-500 shrink-0">מכפיל אישי:</span>
             <input
               type="number"
               min="0.25"
               step="0.25"
               value={multiplier}
               onChange={(e) => setMultiplier(Math.max(0.25, parseFloat(e.target.value) || 1))}
-              className="w-24 min-h-11 bg-slate-950/50 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center text-slate-100"
+              className="w-24 min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center text-stone-900"
             />
           </div>
         )}
@@ -2017,7 +2017,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
         {/* equipment */}
         {recipe.equipment.length > 0 && (
           <section className="mt-8">
-            <h2 className="font-serif text-xl text-slate-50 mb-3">ציוד ומכשור נדרש</h2>
+            <h2 className="font-serif text-xl text-stone-900 mb-3">ציוד ומכשור נדרש</h2>
             <div className="grid grid-cols-2 gap-3">
               {recipe.equipment.map((eq, i) => {
                 const Icon = getEquipmentIcon(eq);
@@ -2027,11 +2027,11 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
                     key={i}
                     onClick={() => setCheckedEquipment((prev) => ({ ...prev, [i]: !prev[i] }))}
                     className={`flex items-center gap-2.5 rounded-xl border min-h-11 p-3 text-sm text-right transition ${
-                      checked ? 'bg-amber-500/10 border-amber-500/40 text-amber-200' : 'bg-slate-900/70 border-slate-800/80 text-slate-300'
+                      checked ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-stone-200 text-stone-600'
                     }`}
                   >
-                    <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${checked ? 'bg-amber-500' : 'bg-slate-800'}`}>
-                      {checked ? <Check className="w-3.5 h-3.5 text-amber-950" /> : <Icon className="w-3.5 h-3.5 text-slate-400" />}
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${checked ? 'bg-amber-500' : 'bg-stone-100'}`}>
+                      {checked ? <Check className="w-3.5 h-3.5 text-amber-950" /> : <Icon className="w-3.5 h-3.5 text-stone-500" />}
                     </span>
                     <span className="leading-tight">{eq}</span>
                   </button>
@@ -2043,25 +2043,25 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
 
         {/* ingredients */}
         <section className="mt-8">
-          <h2 className="font-serif text-xl text-slate-50 mb-3">מצרכים וערכים</h2>
-          <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 divide-y divide-slate-800/80 backdrop-blur-md">
+          <h2 className="font-serif text-xl text-stone-900 mb-3">מצרכים וערכים</h2>
+          <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-200 backdrop-blur-md">
             {recipe.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
               return (
                 <div key={ing.id} className="flex items-center justify-between px-4 py-3.5 gap-3">
-                  <span className="text-sm text-slate-200 leading-relaxed">{ing.name}</span>
+                  <span className="text-sm text-stone-800 leading-relaxed">{ing.name}</span>
                   <div className="text-left shrink-0">
-                    <span className="text-sm font-medium text-slate-50 tabular-nums">
+                    <span className="text-sm font-medium text-stone-900 tabular-nums">
                       {scaleAmount(ing.amount, multiplier)} {ing.unit}
                       {householdConversion(Number(ing.amount || 0) * multiplier, ing.unit) && (
-                        <span className="text-xs text-slate-500 font-normal">
+                        <span className="text-xs text-stone-500 font-normal">
                           {' '}({householdConversion(Number(ing.amount || 0) * multiplier, ing.unit)})
                         </span>
                       )}
                     </span>
 
                     {hasMacro && (
-                      <div className="text-xs text-emerald-400/80 tabular-nums mt-0.5">
+                      <div className="text-xs text-emerald-700 tabular-nums mt-0.5">
                         {ing.calories !== '' && `${scaleMacro(ing.calories, multiplier)} קק"ל `}
                         {ing.protein !== '' && `· ${scaleMacro(ing.protein, multiplier)}ג' חלבון`}
                       </div>
@@ -2076,11 +2076,11 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
         {/* steps */}
         <section className="mt-8">
           <div className="flex items-center justify-between mb-3 gap-3">
-            <h2 className="font-serif text-xl text-slate-50">אופן ההכנה</h2>
+            <h2 className="font-serif text-xl text-stone-900">אופן ההכנה</h2>
             <button
               onClick={toggleWakeLock}
               className={`flex items-center gap-1.5 rounded-full min-h-11 px-3.5 py-1.5 text-xs border transition ${
-                wakeLockOn ? 'bg-amber-500 border-amber-500 text-amber-950' : 'bg-slate-900/70 border-slate-700 text-slate-300'
+                wakeLockOn ? 'bg-amber-500 border-amber-500 text-amber-950' : 'bg-white border-stone-200 text-stone-600'
               }`}
             >
               {wakeLockOn ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
@@ -2089,11 +2089,11 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite }) {
           </div>
           <ol className="flex flex-col gap-4">
             {recipe.steps.map((step, i) => (
-              <li key={i} className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-4 backdrop-blur-md">
-                <span className="inline-block text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-0.5 mb-2.5">
+              <li key={i} className="bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
+                <span className="inline-block text-xs font-medium text-amber-800 bg-amber-50 border border-amber-500/20 rounded-full px-2.5 py-0.5 mb-2.5">
                   שלב {i + 1}
                 </span>
-                <p className="text-sm text-slate-200 leading-loose">{renderStepWithTimers(step, `s${i}`)}</p>
+                <p className="text-sm text-stone-800 leading-loose">{renderStepWithTimers(step, `s${i}`)}</p>
               </li>
             ))}
           </ol>
@@ -2249,58 +2249,58 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
   return (
     <div className="pb-28">
-      <div className="sticky top-0 z-20 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-4 py-3">
-        <button onClick={onCancel} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center">
-          <X className="w-5 h-5 text-slate-300" />
+      <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200 flex items-center justify-between px-4 py-3">
+        <button onClick={onCancel} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+          <X className="w-5 h-5 text-stone-600" />
         </button>
-        <h1 className="font-serif text-xl text-slate-50">{initial ? 'עריכת מתכון' : 'מתכון חדש'}</h1>
+        <h1 className="font-serif text-xl text-stone-900">{initial ? 'עריכת מתכון' : 'מתכון חדש'}</h1>
         <div className="w-11" />
       </div>
 
       <div className="px-4 mt-5 flex flex-col gap-7">
         <button
           onClick={() => setShowSmartImport(true)}
-          className="w-full min-h-11 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-amber-500/40 bg-amber-500/10 text-amber-200 text-sm font-medium"
+          className="w-full min-h-11 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium"
         >
           ✨ ייבוא חכם עם AI — מלאו את הטופס אוטומטית
         </button>
 
         {/* title & image */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">שם המתכון</label>
+          <label className="text-sm text-stone-500 mb-2 block">שם המתכון</label>
           <input
             value={form.title}
             onChange={(e) => update('title', e.target.value)}
             placeholder="לדוגמה: פסטו תרד ביתי"
-            className="w-full min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
           />
         </div>
 
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">תמונה</label>
+          <label className="text-sm text-stone-500 mb-2 block">תמונה</label>
           <div className="flex gap-2">
             <input
               value={form.image}
               onChange={(e) => update('image', e.target.value)}
               placeholder="הדביקו כתובת URL של תמונה"
-              className="flex-1 min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+              className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
             />
             <button
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-center shrink-0"
+              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0"
             >
-              <ImagePlus className="w-5 h-5 text-slate-300" />
+              <ImagePlus className="w-5 h-5 text-stone-600" />
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
           </div>
           {form.image && (
-            <img src={form.image} alt="תצוגה מקדימה" className="mt-3 w-full h-32 object-cover rounded-xl border border-slate-800/80" />
+            <img src={form.image} alt="תצוגה מקדימה" className="mt-3 w-full h-32 object-cover rounded-xl border border-stone-200" />
           )}
         </div>
 
         {/* categories */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">קטגוריות</label>
+          <label className="text-sm text-stone-500 mb-2 block">קטגוריות</label>
           <div className="flex flex-wrap gap-2.5">
             {categories.map((c) => (
               <CategoryPill key={c} label={c} active={form.categories.includes(c)} onClick={() => toggleCategory(c)} />
@@ -2312,7 +2312,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               onChange={(e) => setCategoryInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
               placeholder="קטגוריה חדשה"
-              className="flex-1 min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+              className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
             />
             <button onClick={addCategory} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0" aria-label="הוסף קטגוריה">
               <Plus className="w-5 h-5" />
@@ -2322,7 +2322,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
         {/* rating */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">דירוג המתכון (1 עד 10)</label>
+          <label className="text-sm text-stone-500 mb-2 block">דירוג המתכון (1 עד 10)</label>
           <input
             type="number"
             min="1"
@@ -2331,13 +2331,13 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             value={form.rating}
             onChange={(e) => update('rating', e.target.value === '' ? '' : normalizeRating(e.target.value))}
             placeholder="לדוגמה: 8.5"
-            className="w-full min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
         </div>
 
         {/* macros */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">ערכים תזונתיים כוללים (למנה בסיסית x1)</label>
+          <label className="text-sm text-stone-500 mb-2 block">ערכים תזונתיים כוללים (למנה בסיסית x1)</label>
           <div className="grid grid-cols-4 gap-2.5">
             {[
               ['calories', 'קלוריות'],
@@ -2350,9 +2350,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                   type="number"
                   value={form.macros[key]}
                   onChange={(e) => update('macros', { ...form.macros, [key]: e.target.value })}
-                  className="w-full min-h-11 bg-slate-900/70 border border-emerald-800/40 rounded-xl px-2 py-2 text-sm text-center text-emerald-100"
+                  className="w-full min-h-11 bg-white border border-emerald-200 rounded-xl px-2 py-2 text-sm text-center text-emerald-800"
                 />
-                <p className="text-xs text-emerald-400/80 text-center mt-1.5">{label}</p>
+                <p className="text-xs text-emerald-700 text-center mt-1.5">{label}</p>
               </div>
             ))}
           </div>
@@ -2360,14 +2360,14 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
         {/* equipment */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">ציוד ומכשור נדרש</label>
+          <label className="text-sm text-stone-500 mb-2 block">ציוד ומכשור נדרש</label>
           <div className="flex gap-2 mb-3">
             <input
               value={equipInput}
               onChange={(e) => setEquipInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addEquipment())}
               placeholder="מכשור מרכזי בלבד (נינג'ה גריל, בלנדר, משקל מזון)"
-              className="flex-1 min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+              className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
             />
             <button onClick={addEquipment} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0">
               <Plus className="w-5 h-5" />
@@ -2375,10 +2375,10 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
           </div>
           <div className="flex flex-wrap gap-2">
             {form.equipment.map((eq, i) => (
-              <span key={i} className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 rounded-full pl-2 pr-3 py-1.5 text-sm text-slate-200">
+              <span key={i} className="flex items-center gap-1.5 bg-stone-100 border border-stone-200 rounded-full pl-2 pr-3 py-1.5 text-sm text-stone-800">
                 {eq}
                 <button onClick={() => removeEquipment(i)}>
-                  <X className="w-3.5 h-3.5 text-slate-400" />
+                  <X className="w-3.5 h-3.5 text-stone-500" />
                 </button>
               </span>
             ))}
@@ -2387,32 +2387,32 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
         {/* ingredients */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">מצרכים</label>
+          <label className="text-sm text-stone-500 mb-2 block">מצרכים</label>
           <textarea
             value={ingPaste}
             onChange={(e) => setIngPaste(e.target.value)}
             placeholder={'הדביקו רשימת מצרכים (שורה לכל מצרך)'}
             rows={3}
-            className="w-full min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
-          <button onClick={applyIngredientPaste} className="mt-2 min-h-11 text-sm text-amber-300 font-medium">
+          <button onClick={applyIngredientPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
             פרק לרשימה מובנית ←
           </button>
 
           <div className="flex flex-col gap-3 mt-4">
             {form.ingredients.map((ing) => (
-              <div key={ing.id} className="border border-slate-800/80 bg-slate-900/70 rounded-xl p-3 backdrop-blur-md">
+              <div key={ing.id} className="border border-stone-200 bg-white rounded-xl p-3 backdrop-blur-md">
                 <div className="flex gap-2 items-center">
                   <input
                     type="number"
                     value={ing.amount}
                     onChange={(e) => updateIngredient(ing.id, 'amount', parseFloat(e.target.value) || 0)}
-                    className="w-16 min-h-11 bg-slate-950/50 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-center text-slate-100"
+                    className="w-16 min-h-11 bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center text-stone-900"
                   />
                   <select
                     value={ing.unit}
                     onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
-                    className="min-h-11 bg-slate-950/50 border border-slate-700 rounded-lg px-1.5 py-1.5 text-sm text-slate-100"
+                    className="min-h-11 bg-white border border-stone-200 rounded-lg px-1.5 py-1.5 text-sm text-stone-900"
                   >
                     {UNIT_LIST.map((u) => (
                       <option key={u} value={u}>{u}</option>
@@ -2422,16 +2422,16 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                     value={ing.name}
                     onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
                     placeholder="שם המצרך"
-                    className="flex-1 min-h-11 bg-slate-950/50 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+                    className="flex-1 min-h-11 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400"
                   />
                   <button
                     onClick={() => setExpandedIng((prev) => ({ ...prev, [ing.id]: !prev[ing.id] }))}
-                    className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-slate-800/80 border border-slate-700 flex items-center justify-center shrink-0"
+                    className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0"
                   >
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition ${expandedIng[ing.id] ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-4 h-4 text-stone-500 transition ${expandedIng[ing.id] ? 'rotate-180' : ''}`} />
                   </button>
-                  <button onClick={() => removeIngredient(ing.id)} className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-950/50 border border-rose-800/60 flex items-center justify-center shrink-0">
-                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <button onClick={() => removeIngredient(ing.id)} className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   </button>
                 </div>
                 {expandedIng[ing.id] && (
@@ -2443,7 +2443,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                         value={ing[k]}
                         onChange={(e) => updateIngredient(ing.id, k, e.target.value)}
                         placeholder={k === 'calories' ? 'קק"ל' : k === 'protein' ? "חלבון" : k === 'carbs' ? "פחמימות" : "שומן"}
-                        className="min-h-11 bg-slate-950/50 border border-emerald-800/40 rounded-lg px-1.5 py-1.5 text-xs text-center text-emerald-100 placeholder:text-emerald-700"
+                        className="min-h-11 bg-white border border-emerald-200 rounded-lg px-1.5 py-1.5 text-xs text-center text-emerald-800 placeholder:text-emerald-400"
                       />
                     ))}
                   </div>
@@ -2451,49 +2451,49 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               </div>
             ))}
           </div>
-          <button onClick={addBlankIngredient} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-slate-300">
+          <button onClick={addBlankIngredient} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
             <Plus className="w-4 h-4" /> הוסף מצרך ידנית
           </button>
         </div>
 
         {/* steps */}
         <div>
-          <label className="text-sm text-slate-400 mb-2 block">אופן ההכנה</label>
+          <label className="text-sm text-stone-500 mb-2 block">אופן ההכנה</label>
           <textarea
             value={stepPaste}
             onChange={(e) => setStepPaste(e.target.value)}
             placeholder={'הדביקו את שלבי ההכנה (שורה לכל שלב)'}
             rows={3}
-            className="w-full min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
-          <button onClick={applyStepPaste} className="mt-2 min-h-11 text-sm text-amber-300 font-medium">
+          <button onClick={applyStepPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
             פרק לרשימת שלבים ←
           </button>
 
           <div className="flex flex-col gap-3 mt-4">
             {form.steps.map((s, i) => (
               <div key={i} className="flex items-start gap-2">
-                <span className="mt-2 text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full px-2.5 py-1 shrink-0">{i + 1}</span>
+                <span className="mt-2 text-xs font-medium text-amber-800 bg-amber-50 border border-amber-500/20 rounded-full px-2.5 py-1 shrink-0">{i + 1}</span>
                 <textarea
                   value={s}
                   onChange={(e) => updateStep(i, e.target.value)}
                   rows={2}
-                  className="flex-1 min-h-11 bg-slate-900/70 border border-slate-800/80 rounded-xl px-3 py-2.5 text-sm text-slate-100"
+                  className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-sm text-stone-900"
                 />
-                <button onClick={() => removeStep(i)} className="min-h-11 min-w-11 w-11 h-11 mt-1 rounded-lg bg-rose-950/50 border border-rose-800/60 flex items-center justify-center shrink-0">
-                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                <button onClick={() => removeStep(i)} className="min-h-11 min-w-11 w-11 h-11 mt-1 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                 </button>
               </div>
             ))}
           </div>
-          <button onClick={addBlankStep} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-slate-300">
+          <button onClick={addBlankStep} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
             <Plus className="w-4 h-4" /> הוסף שלב ידנית
           </button>
         </div>
       </div>
 
-      <div className="fixed bottom-0 inset-x-0 bg-slate-950/90 backdrop-blur-xl border-t border-slate-800/80 p-4 flex gap-3">
-        <button onClick={onCancel} className="flex-1 min-h-11 py-3 rounded-xl border border-slate-700 text-slate-200 font-medium hover:bg-slate-800/70 transition">
+      <div className="fixed bottom-0 inset-x-0 bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 p-4 flex gap-3">
+        <button onClick={onCancel} className="flex-1 min-h-11 py-3 rounded-xl border border-stone-200 text-stone-800 font-medium hover:bg-stone-100 transition">
           ביטול
         </button>
         <button
@@ -2560,30 +2560,30 @@ function SettingsView({
 
   return (
     <div className="pb-16">
-      <div className="sticky top-0 z-20 bg-slate-950/85 backdrop-blur-xl border-b border-slate-800/80 flex items-center gap-3 px-4 py-3">
-        <button onClick={onBack} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-slate-900/70 border border-slate-800/80 flex items-center justify-center">
-          <ArrowRight className="w-5 h-5 text-slate-300" />
+      <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200 flex items-center gap-3 px-4 py-3">
+        <button onClick={onBack} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+          <ArrowRight className="w-5 h-5 text-stone-600" />
         </button>
-        <h1 className="font-serif text-xl text-slate-50">הגדרות</h1>
+        <h1 className="font-serif text-xl text-stone-900">הגדרות</h1>
       </div>
 
       <div className="px-4 mt-5 flex flex-col gap-4">
-        <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-slate-50 mb-1.5">ייבוא חכם עם AI</h2>
-          <p className="text-sm text-slate-400 leading-relaxed">
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5">ייבוא חכם עם AI</h2>
+          <p className="text-sm text-stone-500 leading-relaxed">
             הייבוא החכם פועל דרך השרת של האפליקציה — אין צורך במפתח אישי.
           </p>
         </div>
 
-        <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-slate-50 mb-1.5">גיבוי ושחזור</h2>
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5">גיבוי ושחזור</h2>
           <div className="flex flex-col gap-2.5 mt-4">
             <button onClick={exportData} className="min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium hover:bg-amber-400 transition">
               <Download className="w-4 h-4" /> ייצוא נתונים
             </button>
             <button
               onClick={() => fileRef.current && fileRef.current.click()}
-              className="min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-700 text-slate-200 text-sm font-medium hover:bg-slate-800/70 transition"
+              className="min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 text-sm font-medium hover:bg-stone-100 transition"
             >
               <Upload className="w-4 h-4" /> ייבוא נתונים
             </button>
@@ -2591,23 +2591,23 @@ function SettingsView({
           </div>
         </div>
 
-        <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-slate-50 mb-1.5 flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-slate-400" /> סל מחזור
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-stone-500" /> סל מחזור
           </h2>
           {trashedRecipes.length === 0 ? (
-            <p className="text-sm text-slate-400">סל המחזור ריק.</p>
+            <p className="text-sm text-stone-500">סל המחזור ריק.</p>
           ) : (
-            <ul className="flex flex-col divide-y divide-slate-800/80 mt-2">
+            <ul className="flex flex-col divide-y divide-stone-200 mt-2">
               {trashedRecipes.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
-                    <p className="text-sm text-slate-200 truncate">{r.title || 'ללא שם'}</p>
-                    <p className="text-xs text-slate-500">נמחק ב-{formatDateTime(r.deletedAt)}</p>
+                    <p className="text-sm text-stone-800 truncate">{r.title || 'ללא שם'}</p>
+                    <p className="text-xs text-stone-500">נמחק ב-{formatDateTime(r.deletedAt)}</p>
                   </div>
                   <button
                     onClick={() => onRestoreRecipe(r.id)}
-                    className="shrink-0 min-h-11 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 text-xs font-medium"
+                    className="shrink-0 min-h-11 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 text-stone-800 text-xs font-medium"
                   >
                     <RotateCcw className="w-3.5 h-3.5" /> שחזר
                   </button>
@@ -2617,24 +2617,24 @@ function SettingsView({
           )}
         </div>
 
-        <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-slate-50 mb-1.5">גיבויי בטיחות אוטומטיים</h2>
-          <p className="text-sm text-slate-400 leading-relaxed">נשמרים במכשיר לפני כל ייבוא, הוספת מתכוני מערכת או שחזור.</p>
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5">גיבויי בטיחות אוטומטיים</h2>
+          <p className="text-sm text-stone-500 leading-relaxed">נשמרים במכשיר לפני כל ייבוא, הוספת מתכוני מערכת או שחזור.</p>
           {safetySnapshots.length === 0 ? (
-            <p className="text-sm text-slate-500 mt-2">אין עדיין גיבויים.</p>
+            <p className="text-sm text-stone-500 mt-2">אין עדיין גיבויים.</p>
           ) : (
-            <ul className="flex flex-col divide-y divide-slate-800/80 mt-2">
+            <ul className="flex flex-col divide-y divide-stone-200 mt-2">
               {safetySnapshots.map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
-                    <p className="text-sm text-slate-200 truncate">{s.reason}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm text-stone-800 truncate">{s.reason}</p>
+                    <p className="text-xs text-stone-500">
                       {formatDateTime(s.createdAt)} · {s.recipes.length} מתכונים
                     </p>
                   </div>
                   <button
                     onClick={() => setSnapshotToRestore(s)}
-                    className="shrink-0 min-h-11 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-200 text-xs font-medium"
+                    className="shrink-0 min-h-11 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 text-stone-800 text-xs font-medium"
                   >
                     <RotateCcw className="w-3.5 h-3.5" /> שחזר
                   </button>
@@ -2644,9 +2644,9 @@ function SettingsView({
           )}
         </div>
 
-        <div className="bg-slate-900/70 rounded-2xl border border-slate-800/80 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-slate-50 mb-1.5">מתכוני מערכת</h2>
-          <button onClick={() => setConfirmAddSystem(true)} className="mt-3 min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-700 text-slate-200 text-sm font-medium w-full hover:bg-slate-800/70 transition">
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5">מתכוני מערכת</h2>
+          <button onClick={() => setConfirmAddSystem(true)} className="mt-3 min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 text-sm font-medium w-full hover:bg-stone-100 transition">
             <Plus className="w-4 h-4" /> הוסף מתכוני מערכת חסרים
           </button>
         </div>
@@ -2874,8 +2874,8 @@ export default function RecipeApp() {
   const selectedRecipe = activeRecipes.find((r) => r.id === selectedId) || null;
 
   return (
-    <div dir="rtl" lang="he" className="min-h-screen bg-slate-950 text-slate-100" style={{ fontFamily: "'Assistant', sans-serif" }}>
-      <div className="max-w-lg mx-auto min-h-screen bg-slate-950 relative bg-[radial-gradient(ellipse_at_top,_rgba(245,158,11,0.08),_transparent_55%)]">
+    <div dir="rtl" lang="he" className="min-h-screen bg-stone-50 text-stone-900" style={{ fontFamily: "'Assistant', sans-serif" }}>
+      <div className="max-w-lg mx-auto min-h-screen bg-stone-50 relative bg-[radial-gradient(ellipse_at_top,_rgba(245,158,11,0.08),_transparent_55%)]">
         {view === 'home' && (
           <HomeView
             recipes={activeRecipes}

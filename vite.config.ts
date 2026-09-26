@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: ["favicon.ico", "favicon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       outDir: ".output/public",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,woff2,jpg,jpeg,webp}"],
@@ -26,8 +26,8 @@ export default defineConfig({
         name: "Recipe Book",
         short_name: "Recipes",
         description: "Personal Digital Recipe Book",
-        theme_color: "#0f172a",
-        background_color: "#0f172a",
+        theme_color: "#fafaf9",
+        background_color: "#fafaf9",
         display: "standalone",
         orientation: "portrait",
         icons: [

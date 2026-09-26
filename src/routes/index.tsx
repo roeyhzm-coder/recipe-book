@@ -31,14 +31,14 @@ function Index() {
 
   if (!mounted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-stone-50 text-stone-500">
         טוען…
       </div>
     );
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-950">
+    <div dir="rtl" className="min-h-screen bg-stone-50">
       <RecipeApp />
     </div>
   );
