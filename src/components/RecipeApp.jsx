@@ -2900,9 +2900,9 @@ export default function RecipeApp() {
     setGroceryRecipe(recipe);
   }
 
-  function confirmAddToGrocery(listId) {
+  function confirmAddToGrocery(listId, servings = 1) {
     if (!groceryRecipe) return;
-    const result = grocery.addRecipeToList(groceryRecipe, listId);
+    const result = grocery.addRecipeToList(groceryRecipe, listId, servings);
     const listName = grocery.lists.find((list) => list.id === listId)?.name || 'הרשימה';
     const parts = [];
     if (result.added) parts.push(`${result.added} חדשים`);
@@ -2944,6 +2944,7 @@ export default function RecipeApp() {
             onDeleteItem={grocery.deleteItem}
             onClearChecked={grocery.clearChecked}
             onClearList={grocery.clearList}
+            onSubstituteItem={grocery.substituteItem}
             onNotify={notify}
           />
         ) : (
@@ -3005,7 +3006,7 @@ export default function RecipeApp() {
         open={!!groceryRecipe}
         recipe={groceryRecipe}
         lists={grocery.lists}
-        defaultListId={grocery.lastUsedListId || grocery.activeListId}
+        defaultListId={grocery.activeListId || grocery.lastUsedListId}
         onClose={() => setGroceryRecipe(null)}
         onConfirm={confirmAddToGrocery}
       />

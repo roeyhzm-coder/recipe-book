@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Check, Pencil, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import { Check, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, X } from 'lucide-react';
+import { formatQuantityLabel } from '@/lib/grocery-utils';
+import { getGrocerySubstitutions } from '@/lib/grocery-substitutions';
 
 function ConfirmDialog({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
@@ -73,11 +75,13 @@ function NameDialog({ open, title, initialValue = '', placeholder, confirmLabel,
   );
 }
 
-function GroceryItemRow({ item, onToggle, onDelete }) {
+function GroceryItemRow({ item, onToggle, onDelete, onSubstitute }) {
   const sources = (item.sourceRecipes || []).map((source) => source.title).filter(Boolean);
+  const quantity = formatQuantityLabel(item.quantities);
+  const substitutions = getGrocerySubstitutions(item);
 
   return (
-    <div className={`group flex items-start gap-3 bg-white rounded-2xl border border-stone-200 px-3.5 py-3 shadow-sm ${item.checked ? 'opacity-70' : ''}`}>
+    <div className={`group flex items-start gap-2.5 bg-white rounded-2xl border border-stone-200 px-3 py-3 shadow-sm ${item.checked ? 'opacity-70' : ''}`}>
       <button
         type="button"
         onClick={() => onToggle(item.id)}
@@ -92,15 +96,32 @@ function GroceryItemRow({ item, onToggle, onDelete }) {
         <Check className="w-4 h-4" />
       </button>
       <div className="flex-1 min-w-0 pt-1.5">
-        <p className={`text-sm text-stone-900 leading-snug ${item.checked ? 'line-through text-stone-400' : ''}`}>
-          {item.name}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className={`text-sm text-stone-900 leading-snug ${item.checked ? 'line-through text-stone-400' : ''}`}>
+            {item.name}
+          </p>
+          {quantity && (
+            <p className={`text-sm font-semibold tabular-nums shrink-0 ${item.checked ? 'line-through text-stone-400' : 'text-stone-900'}`}>
+              {quantity}
+            </p>
+          )}
+        </div>
         {sources.length > 0 && (
           <p className="text-[11px] text-stone-400 mt-1 leading-relaxed">
             {sources.join(' · ')}
           </p>
         )}
       </div>
+      {substitutions.length > 0 && (
+        <button
+          type="button"
+          onClick={() => onSubstitute(item, substitutions)}
+          className="mt-0.5 min-h-11 min-w-11 w-11 h-11 rounded-xl text-stone-300 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center shrink-0"
+          aria-label="הצג תחליפים"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onDelete(item.id)}
@@ -109,6 +130,49 @@ function GroceryItemRow({ item, onToggle, onDelete }) {
       >
         <Trash2 className="w-4 h-4" />
       </button>
+    </div>
+  );
+}
+
+function SubstituteDialog({ open, item, options, onPick, onClose }) {
+  if (!open || !item) return null;
+  const context = (item.sourceRecipes || []).map((source) => source.title).filter(Boolean);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200"
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 className="font-serif text-lg text-stone-900">תחליפים</h3>
+            <p className="text-sm text-stone-500 mt-1">במקום "{item.name}"</p>
+            {context.length > 0 && (
+              <p className="text-[11px] text-stone-400 mt-1">מותאם ל: {context.join(' · ')}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center"
+          >
+            <X className="w-4 h-4 text-stone-500" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          {options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onPick(option)}
+              className="min-h-11 w-full rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-sm text-stone-800 text-right hover:bg-amber-50 hover:border-amber-200 transition"
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -126,11 +190,13 @@ export default function GroceryLists({
   onDeleteItem,
   onClearChecked,
   onClearList,
+  onSubstituteItem,
   onNotify,
 }) {
   const [draft, setDraft] = useState('');
   const [nameDialog, setNameDialog] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [substitute, setSubstitute] = useState(null);
 
   const checkedCount = activeItems.filter((item) => item.checked).length;
 
@@ -259,6 +325,7 @@ export default function GroceryLists({
               item={item}
               onToggle={onToggleItem}
               onDelete={onDeleteItem}
+              onSubstitute={(current, options) => setSubstitute({ item: current, options })}
             />
           ))
         )}
@@ -312,6 +379,17 @@ export default function GroceryLists({
           if (activeList) onRenameList(activeList.id, name);
           setNameDialog(null);
           onNotify('שם הרשימה עודכן');
+        }}
+      />
+      <SubstituteDialog
+        open={!!substitute}
+        item={substitute?.item}
+        options={substitute?.options || []}
+        onClose={() => setSubstitute(null)}
+        onPick={(name) => {
+          const result = onSubstituteItem?.(substitute.item.id, name);
+          setSubstitute(null);
+          onNotify(result?.merged ? `עודכן ואוחד עם "${name}"` : `הוחלף ל${name}`);
         }}
       />
       <ConfirmDialog

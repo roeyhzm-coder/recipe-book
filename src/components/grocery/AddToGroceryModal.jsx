@@ -1,18 +1,29 @@
 import { useEffect, useState } from 'react';
-import { ShoppingCart, X } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, X } from 'lucide-react';
+
+const QUICK_SERVINGS = [1, 2, 4, 6];
 
 export default function AddToGroceryModal({ open, recipe, lists, defaultListId, onClose, onConfirm }) {
   const [listId, setListId] = useState(defaultListId || lists[0]?.id || '');
+  const [servings, setServings] = useState(1);
 
   useEffect(() => {
-    if (open) setListId(defaultListId || lists[0]?.id || '');
-  }, [open, defaultListId, lists]);
+    if (!open) return;
+    setListId(defaultListId || lists[0]?.id || '');
+    const base = Number(recipe?.baseServings);
+    setServings(Number.isFinite(base) && base > 0 ? base : 1);
+  }, [open, defaultListId, lists, recipe]);
 
   if (!open || !recipe) return null;
 
   const count = Array.isArray(recipe.ingredients)
     ? recipe.ingredients.filter((item) => String(item?.name || '').trim()).length
     : 0;
+  const baseServings = Number(recipe.baseServings) || 1;
+
+  function bump(delta) {
+    setServings((current) => Math.max(1, Math.min(24, Number(current) + delta)));
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
@@ -59,13 +70,55 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
           ))}
         </div>
 
+        <p className="text-xs text-stone-500 mb-2">מספר מנות</p>
+        <div className="bg-stone-50 border border-stone-200 rounded-2xl p-3 mb-5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => bump(-1)}
+              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
+              aria-label="הפחת מנה"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <div className="text-center">
+              <p className="font-serif text-3xl text-stone-900 tabular-nums leading-none">{servings}</p>
+              <p className="text-[11px] text-stone-400 mt-1">בסיס המתכון: {baseServings}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => bump(1)}
+              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
+              aria-label="הוסף מנה"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {QUICK_SERVINGS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setServings(value)}
+                className={`min-h-11 rounded-xl border text-sm transition ${
+                  servings === value
+                    ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
+                    : 'bg-white border-stone-200 text-stone-600'
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           type="button"
           disabled={!listId || count === 0}
-          onClick={() => onConfirm(listId)}
+          onClick={() => onConfirm(listId, servings)}
           className="w-full min-h-11 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium disabled:opacity-40 hover:bg-amber-400 transition"
         >
-          הוסף מצרכים לרשימה
+          הוסף {servings} מנות לרשימה
         </button>
       </div>
     </div>

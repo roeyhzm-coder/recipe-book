@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createDefaultGroceryState, DEFAULT_GROCERY_LIST_NAMES } from '@/lib/grocery-utils';
+import { createDefaultGroceryState, DEFAULT_GROCERY_LIST_NAMES, hydrateGroceryItem } from '@/lib/grocery-utils';
 
 export const GROCERY_STORAGE_KEY = 'mitbach_grocery_v1';
 
@@ -30,7 +30,7 @@ function listToRow(list) {
 }
 
 function rowToItem(row) {
-  return {
+  return hydrateGroceryItem({
     id: String(row.id),
     listId: String(row.list_id),
     name: row.name || '',
@@ -39,7 +39,7 @@ function rowToItem(row) {
     createdAt: Number(row.created_at_ms) || 0,
     updatedAt: Number(row.updated_at_ms) || Number(row.created_at_ms) || 0,
     sortOrder: Number(row.sort_order) || 0,
-  };
+  });
 }
 
 function itemToRow(item) {
@@ -66,7 +66,7 @@ function normalizeState(raw) {
   const lastUsedListId = listIds.has(String(raw.lastUsedListId)) ? String(raw.lastUsedListId) : activeListId;
   return {
     lists,
-    items: items.filter((item) => listIds.has(String(item.listId))),
+    items: items.filter((item) => listIds.has(String(item.listId))).map(hydrateGroceryItem),
     activeListId,
     lastUsedListId,
   };

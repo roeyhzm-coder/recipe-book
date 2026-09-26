@@ -12,6 +12,7 @@ import {
   addRecipeIngredientsToItems,
   createList,
   sortGroceryItems,
+  substituteItemName,
 } from '@/lib/grocery-utils';
 
 export function useGroceryLists() {
@@ -124,15 +125,24 @@ export function useGroceryLists() {
     return result;
   }
 
-  function addRecipeToList(recipe, listId) {
-    const targetId = listId || state.lastUsedListId || state.activeListId;
+  function addRecipeToList(recipe, listId, servings = 1) {
+    const targetId = listId || state.activeListId || state.lastUsedListId;
     if (!targetId || !recipe) return { added: 0, merged: 0, listId: targetId };
     let result = { added: 0, merged: 0, items: state.items };
     updateState((current) => {
-      result = addRecipeIngredientsToItems(current.items, targetId, recipe);
-      return { items: result.items, lastUsedListId: targetId, activeListId: targetId };
+      result = addRecipeIngredientsToItems(current.items, targetId, recipe, servings);
+      return { items: result.items, lastUsedListId: targetId };
     });
     return { added: result.added, merged: result.merged, listId: targetId };
+  }
+
+  function substituteItem(itemId, name) {
+    let result = { merged: false };
+    updateState((current) => {
+      result = substituteItemName(current.items, itemId, name);
+      return { items: result.items };
+    });
+    return result;
   }
 
   function toggleItem(itemId) {
@@ -175,6 +185,7 @@ export function useGroceryLists() {
     deleteList,
     addManualItem,
     addRecipeToList,
+    substituteItem,
     toggleItem,
     deleteItem,
     clearChecked,
