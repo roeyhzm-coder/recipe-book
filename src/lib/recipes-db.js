@@ -12,7 +12,33 @@ async function detectSoftDelete() {
   softDeleteSupported = !error;
 }
 
+function parseStoredMinutes(value) {
+  if (value === '' || value === null || value === undefined) return '';
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : '';
+}
+
+function displayMacros(macros) {
+  const raw = macros && typeof macros === 'object' ? macros : {};
+  return {
+    calories: raw.calories ?? '',
+    protein: raw.protein ?? '',
+    carbs: raw.carbs ?? '',
+    fat: raw.fat ?? '',
+  };
+}
+
+function persistMacros(recipe) {
+  const macros = displayMacros(recipe.macros);
+  const prepTime = parseStoredMinutes(recipe.prepTime);
+  const cookTime = parseStoredMinutes(recipe.cookTime);
+  if (prepTime !== '') macros.prepTime = prepTime;
+  if (cookTime !== '') macros.cookTime = cookTime;
+  return macros;
+}
+
 function rowToRecipe(row) {
+  const rawMacros = row.macros && typeof row.macros === "object" ? row.macros : {};
   return {
     id: row.id,
     title: row.title || "",
@@ -21,7 +47,9 @@ function rowToRecipe(row) {
     equipment: Array.isArray(row.equipment) ? row.equipment : [],
     ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
     steps: Array.isArray(row.steps) ? row.steps : [],
-    macros: row.macros && typeof row.macros === "object" ? row.macros : {},
+    macros: displayMacros(rawMacros),
+    prepTime: parseStoredMinutes(rawMacros.prepTime),
+    cookTime: parseStoredMinutes(rawMacros.cookTime),
     rating: row.rating === null || row.rating === undefined ? '' : Number(row.rating),
     baseServings: Number(row.base_servings) || 1,
     favorite: !!row.favorite,
@@ -39,7 +67,7 @@ function recipeToRow(recipe) {
     equipment: recipe.equipment || [],
     ingredients: recipe.ingredients || [],
     steps: recipe.steps || [],
-    macros: recipe.macros || {},
+    macros: persistMacros(recipe),
     rating: recipe.rating === '' || recipe.rating === undefined || recipe.rating === null
       ? null
       : Number(recipe.rating),

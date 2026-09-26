@@ -13,6 +13,7 @@ import BottomNav from '@/components/grocery/BottomNav';
 import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 import { MEAL_PREP_RECIPES } from '@/data/meal-prep-recipes';
+import { SIDE_DISH_RECIPES } from '@/data/side-dishes';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -23,10 +24,12 @@ const SAFETY_BACKUP_KEY = 'recipes_safety_backup';
 const MAX_SAFETY_SNAPSHOTS = 5;
 
 const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
-const AUTO_MERGED_CATEGORY_NAMES = [...ICE_CREAM_CATEGORY_NAMES, 'עוף'];
+const QUICK_SIDE_CATEGORY_NAMES = ['מהיר וקליל', 'תוספות בריאות'];
+const AUTO_MERGED_CATEGORY_NAMES = [...ICE_CREAM_CATEGORY_NAMES, 'עוף', ...QUICK_SIDE_CATEGORY_NAMES];
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep', 'עוף',
+  ...QUICK_SIDE_CATEGORY_NAMES,
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
 const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון'];
@@ -1065,12 +1068,73 @@ const DEMO_RECIPES = [
     createdAt: 1727190039000,
   },
   ...MEAL_PREP_RECIPES,
+  ...SIDE_DISH_RECIPES,
 ];
 
-function appendMissingMealPrepRecipes(recipes) {
+const MERGED_SYSTEM_RECIPES = [...MEAL_PREP_RECIPES, ...SIDE_DISH_RECIPES];
+
+function parseMinutes(value) {
+  if (value === '' || value === null || value === undefined) return '';
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : '';
+}
+
+function guessRecipeTimes(recipe) {
+  const hay = [recipe.id, recipe.title, ...(recipe.categories || []), ...(recipe.equipment || [])]
+    .join(' ')
+    .toLowerCase();
+  if (hay.includes('קרימי') || hay.includes('גליד') || hay.includes('creami')) return { prepTime: 8, cookTime: 3 };
+  if (hay.includes('overnight') || hay.includes('קרה')) return { prepTime: 5, cookTime: 0 };
+  if (hay.includes('ארוחת בוקר')) return { prepTime: 5, cookTime: 5 };
+  if (hay.includes('אייר') || hay.includes('נינג')) return { prepTime: 8, cookTime: 12 };
+  if (hay.includes('meal prep')) return { prepTime: 15, cookTime: 25 };
+  if (hay.includes('ארוחת ערב')) return { prepTime: 8, cookTime: 10 };
+  if (hay.includes('נשנוש') || String(recipe.id || '').startsWith('snack')) return { prepTime: 5, cookTime: 3 };
+  return { prepTime: 10, cookTime: 15 };
+}
+
+function ensureRecipeTimes(recipe) {
+  const prepTime = parseMinutes(recipe.prepTime);
+  const cookTime = parseMinutes(recipe.cookTime);
+  if (prepTime !== '' && cookTime !== '') return { ...recipe, prepTime, cookTime };
+  const guessed = guessRecipeTimes(recipe);
+  return {
+    ...recipe,
+    prepTime: prepTime === '' ? guessed.prepTime : prepTime,
+    cookTime: cookTime === '' ? guessed.cookTime : cookTime,
+  };
+}
+
+function totalRecipeMinutes(recipe) {
+  const prep = Number(recipe?.prepTime);
+  const cook = Number(recipe?.cookTime);
+  const total = (Number.isFinite(prep) ? prep : 0) + (Number.isFinite(cook) ? cook : 0);
+  return total > 0 ? total : null;
+}
+
+function isGenericRecipeImage(image) {
+  const value = String(image || '');
+  return !value || value.includes('unsplash.com');
+}
+
+function patchSystemRecipes(recipes) {
+  const byId = new Map(MERGED_SYSTEM_RECIPES.map((recipe) => [String(recipe.id), recipe]));
+  return recipes.map((recipe) => {
+    const system = byId.get(String(recipe.id));
+    if (!system) return ensureRecipeTimes(recipe);
+    return ensureRecipeTimes({
+      ...recipe,
+      image: isGenericRecipeImage(recipe.image) ? system.image : recipe.image,
+      prepTime: parseMinutes(recipe.prepTime) === '' ? system.prepTime : recipe.prepTime,
+      cookTime: parseMinutes(recipe.cookTime) === '' ? system.cookTime : recipe.cookTime,
+    });
+  });
+}
+
+function appendMissingSystemRecipes(recipes) {
   const existingIds = new Set(recipes.map((r) => String(r.id)));
-  const missing = MEAL_PREP_RECIPES.filter((r) => !existingIds.has(String(r.id)));
-  return missing.length ? [...recipes, ...missing] : recipes;
+  const missing = MERGED_SYSTEM_RECIPES.filter((r) => !existingIds.has(String(r.id)));
+  return patchSystemRecipes(missing.length ? [...recipes, ...missing] : recipes);
 }
 
 /* --------------------------------- helpers --------------------------------- */
@@ -1605,6 +1669,12 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
             {formatRating(recipe.rating)}
           </span>
         )}
+        {totalRecipeMinutes(recipe) != null && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/90 text-stone-800 border border-stone-200 shadow-sm">
+            <Clock className="w-3.5 h-3.5 text-amber-700" />
+            {totalRecipeMinutes(recipe)} דק׳
+          </span>
+        )}
       </div>
 
       <div className="p-3.5 flex flex-col gap-2.5 flex-1">
@@ -1980,6 +2050,27 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
       <div className="px-4 -mt-6 relative">
         <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xl backdrop-blur-xl">
           <h1 className="font-serif text-3xl text-stone-900 leading-tight">{recipe.title}</h1>
+          {(parseMinutes(recipe.prepTime) !== '' || parseMinutes(recipe.cookTime) !== '') && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {parseMinutes(recipe.prepTime) !== '' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-900 border border-amber-200">
+                  <Clock className="w-4 h-4" />
+                  הכנה {recipe.prepTime} דק׳
+                </span>
+              )}
+              {parseMinutes(recipe.cookTime) !== '' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-stone-100 text-stone-800 border border-stone-200">
+                  <Flame className="w-4 h-4 text-amber-700" />
+                  בישול / נינג׳ה {recipe.cookTime} דק׳
+                </span>
+              )}
+              {totalRecipeMinutes(recipe) != null && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white text-stone-800 border border-stone-200">
+                  סה״כ {totalRecipeMinutes(recipe)} דק׳
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 mt-3">
             {recipe.categories.map((c) => (
               <span key={c} className="text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
@@ -2161,6 +2252,8 @@ function emptyRecipeForm() {
     ingredients: [],
     steps: [],
     macros: { calories: '', protein: '', carbs: '', fat: '' },
+    prepTime: '',
+    cookTime: '',
     rating: '',
     baseServings: 1,
     favorite: false,
@@ -2276,6 +2369,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
+      prepTime: parseMinutes(form.prepTime),
+      cookTime: parseMinutes(form.cookTime),
       ingredients: form.ingredients.filter((i) => i.name.trim()),
       steps: form.steps.filter((s) => s.trim()),
       createdAt: form.createdAt || Date.now(),
@@ -2369,6 +2464,36 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             placeholder="לדוגמה: 8.5"
             className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
+        </div>
+
+        <div>
+          <label className="text-sm text-stone-500 mb-2 block">זמני עבודה</label>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.prepTime}
+                onChange={(e) => update('prepTime', e.target.value === '' ? '' : parseMinutes(e.target.value))}
+                placeholder="0"
+                className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-center text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+              />
+              <p className="text-xs text-stone-500 text-center mt-1.5">זמן הכנה (דקות)</p>
+            </div>
+            <div>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={form.cookTime}
+                onChange={(e) => update('cookTime', e.target.value === '' ? '' : parseMinutes(e.target.value))}
+                placeholder="0"
+                className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-center text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+              />
+              <p className="text-xs text-stone-500 text-center mt-1.5">זמן בישול / נינג׳ה (דקות)</p>
+            </div>
+          </div>
         </div>
 
         {/* macros */}
@@ -2756,16 +2881,24 @@ export default function RecipeApp() {
               return cached && cached.deletedAt ? { ...r, deletedAt: cached.deletedAt } : r;
             });
         let next = [...fromCloud, ...local.filter((r) => !remoteIds.has(String(r.id)))];
-        if (!next.length) next = DEMO_RECIPES;
-        else next = appendMissingMealPrepRecipes(next);
-        await upsertRecipes(next.filter((r) => !remoteIds.has(String(r.id))));
+        next = appendMissingSystemRecipes(next.length ? next : DEMO_RECIPES);
+        const remoteById = new Map(fromCloud.map((r) => [String(r.id), r]));
+        await upsertRecipes(next.filter((r) => {
+          const prev = remoteById.get(String(r.id));
+          if (!prev) return true;
+          return (
+            prev.image !== r.image
+            || parseMinutes(prev.prepTime) === ''
+            || parseMinutes(prev.cookTime) === ''
+          );
+        }));
         if (cancelled) return;
         lastSyncedRef.current = next;
         setRecipes(next);
         setSyncMode('cloud');
       } catch (e) {
         if (cancelled) return;
-        setRecipes(appendMissingMealPrepRecipes(local.length ? local : DEMO_RECIPES));
+        setRecipes(appendMissingSystemRecipes(local.length ? local : DEMO_RECIPES));
         setSyncMode('offline');
         setToast('אין חיבור לענן — השינויים יישמרו במכשיר בלבד');
       }
@@ -2857,7 +2990,7 @@ export default function RecipeApp() {
     const importedCategories = Array.isArray(parsed) ? null : parsed?.categories;
 
     if (Array.isArray(importedRecipes)) {
-      const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null);
+      const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null).map(ensureRecipeTimes);
       if (valid.length) {
         takeSafetySnapshot('לפני ייבוא');
         setRecipes((current) => mergeRecipesById(current, valid));
@@ -2884,7 +3017,7 @@ export default function RecipeApp() {
   // Appends system recipes and default categories that are missing; existing ones (including trashed) are untouched.
   function addMissingSystemRecipes() {
     const existingIds = new Set(recipes.map((r) => String(r.id)));
-    const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id)));
+    const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id))).map(ensureRecipeTimes);
     if (missing.length) {
       takeSafetySnapshot('לפני הוספת מתכוני מערכת');
       setRecipes((current) => {

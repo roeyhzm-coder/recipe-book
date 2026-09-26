@@ -2,7 +2,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-salt-pepper-chicken',
     title: "עוף מלח-פלפל פריך עם צ'יפס (Crispy Salt N Pepper Chicken & Chips)",
-    image: 'https://images.unsplash.com/photo-1562967914-608f82629710?w=800&q=80',
+    image: '/recipes/salt-pepper-chicken.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['איירפרייר', 'תנור', 'מחבת', 'משקל מזון'],
     ingredients: [
@@ -32,6 +32,8 @@ export const MEAL_PREP_RECIPES = [
       'חלקו ל-4 מנות שוות יחד עם העוף הפריך. בחימום חוזר צרבו את הצ׳יפס במחבת או באייר פרייר.',
     ],
     macros: { calories: 436, protein: 40, carbs: 47, fat: 10 },
+    prepTime: 15,
+    cookTime: 25,
     rating: 9.2,
     baseServings: 4,
     favorite: false,
@@ -40,7 +42,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-lemon-garlic-chicken',
     title: 'עוף לימון-שום עם תפוחי אדמה פריכים (Lemon Garlic Chicken & Crispy Potatoes)',
-    image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=800&q=80',
+    image: '/recipes/lemon-garlic-chicken.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['איירפרייר', 'תנור', 'משקל מזון'],
     ingredients: [
@@ -66,6 +68,8 @@ export const MEAL_PREP_RECIPES = [
       'חלקו ל-5 מנות עם תפוחי האדמה, ושפכו מעל את המיצים שנשארו בתבנית. בחימום חוזר חממו במחבת 5 דקות או באייר פרייר.',
     ],
     macros: { calories: 495, protein: 47, carbs: 39, fat: 16 },
+    prepTime: 15,
+    cookTime: 28,
     rating: 9.3,
     baseServings: 5,
     favorite: false,
@@ -74,7 +78,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-honey-bbq-mac',
     title: "מק אנד צ'יז עם עוף דבש ברביקיו (Honey BBQ Chicken Mac n Cheese v2)",
-    image: 'https://images.unsplash.com/photo-1543352634-99a5d50ae78e?w=800&q=80',
+    image: '/recipes/honey-bbq-mac.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['סיר', 'מחבת', 'משקל מזון'],
     ingredients: [
@@ -104,6 +108,8 @@ export const MEAL_PREP_RECIPES = [
       'הוסיפו את המקרוני, ערבבו וחלקו ל-4 מנות לצד עוף הברביקיו.',
     ],
     macros: { calories: 564, protein: 57, carbs: 59, fat: 12 },
+    prepTime: 12,
+    cookTime: 20,
     rating: 9.4,
     baseServings: 4,
     favorite: false,
@@ -112,7 +118,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-garlic-herb-bowls',
     title: 'קערות אורז עם עוף שום ועשבי תיבול (Garlic Herb Chicken Rice Bowls)',
-    image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=800&q=80',
+    image: '/recipes/garlic-herb-bowls.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['מחבת', 'סיר', 'משקל מזון'],
     ingredients: [
@@ -142,6 +148,8 @@ export const MEAL_PREP_RECIPES = [
       'חתכו את העוף לקוביות, פזרו פטרוזיליה טרייה וחלקו ל-4 קערות.',
     ],
     macros: { calories: 485, protein: 48, carbs: 43, fat: 13 },
+    prepTime: 15,
+    cookTime: 20,
     rating: 9.3,
     baseServings: 4,
     favorite: false,
@@ -150,7 +158,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-chicken-gyros',
     title: 'קערות גיירוס עוף (Chicken Gyros Bowls)',
-    image: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&q=80',
+    image: '/recipes/chicken-gyros.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['איירפרייר', 'מחבת', 'משקל מזון'],
     ingredients: [
@@ -182,6 +190,8 @@ export const MEAL_PREP_RECIPES = [
       'חלקו ל-4 מנות עם צ׳יפס, נאן וטזטזיקי. בחימום חוזר הפרידו את הסלט וחממו באייר פרייר 5 דקות.',
     ],
     macros: { calories: 525, protein: 50, carbs: 53, fat: 12 },
+    prepTime: 20,
+    cookTime: 20,
     rating: 9.4,
     baseServings: 4,
     favorite: false,
@@ -190,7 +200,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-korean-fried-chicken',
     title: 'עוף מטוגן קוריאני (Korean Fried Chicken)',
-    image: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=800&q=80',
+    image: '/recipes/korean-fried-chicken.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['מחבת', 'סיר', 'משקל מזון'],
     ingredients: [
@@ -218,6 +228,8 @@ export const MEAL_PREP_RECIPES = [
       'למלפפון כבוש: פרסו דק, ערבבו עם 20 מ״ל רוטב סויה, חומץ אורז, אבקת שום ושומשום. הגישו קר בנפרד לצד העוף והאורז החם. חלקו ל-4 מנות.',
     ],
     macros: { calories: 452, protein: 40, carbs: 51, fat: 10 },
+    prepTime: 12,
+    cookTime: 18,
     rating: 9.2,
     baseServings: 4,
     favorite: false,
@@ -226,7 +238,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-dynamite-fries',
     title: "צ'יפס עמוס בעוף דינמייט (Dynamite Chicken Loaded Fries)",
-    image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&q=80',
+    image: '/recipes/dynamite-fries.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['איירפרייר', 'מחבת', 'משקל מזון'],
     ingredients: [
@@ -258,6 +270,8 @@ export const MEAL_PREP_RECIPES = [
       'חלקו צ׳יפס ועוף ל-4 מנות. פזרו בצל ירוק ושומשום.',
     ],
     macros: { calories: 510, protein: 45, carbs: 50, fat: 14 },
+    prepTime: 12,
+    cookTime: 20,
     rating: 9.3,
     baseServings: 4,
     favorite: false,
@@ -266,7 +280,7 @@ export const MEAL_PREP_RECIPES = [
   {
     id: 'mealprep-orange-chicken-noodles',
     title: 'נודלס עם עוף כתום פריך (Crispy Orange Chicken Noodles)',
-    image: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800&q=80',
+    image: '/recipes/orange-chicken-noodles.jpg',
     categories: ['Meal Prep', 'עוף'],
     equipment: ['מחבת', 'סיר', 'משקל מזון'],
     ingredients: [
@@ -297,6 +311,8 @@ export const MEAL_PREP_RECIPES = [
       'החזירו את העוף, הוסיפו נודלס ובצל ירוק וערבבו. פזרו שומשום וחלקו ל-4 מנות.',
     ],
     macros: { calories: 523, protein: 47, carbs: 59, fat: 10 },
+    prepTime: 12,
+    cookTime: 18,
     rating: 9.3,
     baseServings: 4,
     favorite: false,
