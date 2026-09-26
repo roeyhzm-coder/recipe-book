@@ -30,11 +30,15 @@ function Index() {
   useEffect(() => setMounted(true), []);
 
   if (!mounted) {
-    return <div className="flex min-h-screen items-center justify-center">טוען…</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
+        טוען…
+      </div>
+    );
   }
 
   return (
-    <div dir="rtl">
+    <div dir="rtl" className="min-h-screen bg-slate-950">
       <RecipeApp />
     </div>
   );
