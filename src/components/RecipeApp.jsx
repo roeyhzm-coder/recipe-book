@@ -12,6 +12,7 @@ import { useGroceryLists } from '@/hooks/useGroceryLists';
 import BottomNav from '@/components/grocery/BottomNav';
 import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
+import { MEAL_PREP_RECIPES } from '@/data/meal-prep-recipes';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -22,9 +23,10 @@ const SAFETY_BACKUP_KEY = 'recipes_safety_backup';
 const MAX_SAFETY_SNAPSHOTS = 5;
 
 const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
+const AUTO_MERGED_CATEGORY_NAMES = [...ICE_CREAM_CATEGORY_NAMES, 'עוף'];
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
-  'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep',
+  'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep', 'עוף',
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
 const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון'];
@@ -59,11 +61,11 @@ function mergeNewCategories(categories) {
   try {
     merged = JSON.parse(localStorage.getItem(MERGED_CATEGORIES_STORAGE_KEY) || '[]');
   } catch (e) {}
-  const pending = ICE_CREAM_CATEGORY_NAMES.filter(
+  const pending = AUTO_MERGED_CATEGORY_NAMES.filter(
     (name) => !merged.includes(name) && !categories.some((c) => c.name === name)
   );
   try {
-    localStorage.setItem(MERGED_CATEGORIES_STORAGE_KEY, JSON.stringify([...new Set([...merged, ...ICE_CREAM_CATEGORY_NAMES])]));
+    localStorage.setItem(MERGED_CATEGORIES_STORAGE_KEY, JSON.stringify([...new Set([...merged, ...AUTO_MERGED_CATEGORY_NAMES])]));
   } catch (e) {}
   if (!pending.length) return categories;
   return [...categories, ...pending.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }))];
@@ -1062,7 +1064,14 @@ const DEMO_RECIPES = [
     favorite: true,
     createdAt: 1727190039000,
   },
+  ...MEAL_PREP_RECIPES,
 ];
+
+function appendMissingMealPrepRecipes(recipes) {
+  const existingIds = new Set(recipes.map((r) => String(r.id)));
+  const missing = MEAL_PREP_RECIPES.filter((r) => !existingIds.has(String(r.id)));
+  return missing.length ? [...recipes, ...missing] : recipes;
+}
 
 /* --------------------------------- helpers --------------------------------- */
 
@@ -2748,6 +2757,7 @@ export default function RecipeApp() {
             });
         let next = [...fromCloud, ...local.filter((r) => !remoteIds.has(String(r.id)))];
         if (!next.length) next = DEMO_RECIPES;
+        else next = appendMissingMealPrepRecipes(next);
         await upsertRecipes(next.filter((r) => !remoteIds.has(String(r.id))));
         if (cancelled) return;
         lastSyncedRef.current = next;
@@ -2755,7 +2765,7 @@ export default function RecipeApp() {
         setSyncMode('cloud');
       } catch (e) {
         if (cancelled) return;
-        setRecipes(local.length ? local : DEMO_RECIPES);
+        setRecipes(appendMissingMealPrepRecipes(local.length ? local : DEMO_RECIPES));
         setSyncMode('offline');
         setToast('אין חיבור לענן — השינויים יישמרו במכשיר בלבד');
       }
