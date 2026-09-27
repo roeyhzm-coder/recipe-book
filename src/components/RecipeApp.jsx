@@ -14,6 +14,7 @@ import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 import { MEAL_PREP_RECIPES } from '@/data/meal-prep-recipes';
 import { SIDE_DISH_RECIPES } from '@/data/side-dishes';
+import { WEEKEND_CATEGORY, WEEKEND_RECIPES } from '@/data/weekend-recipes';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -25,14 +26,15 @@ const MAX_SAFETY_SNAPSHOTS = 5;
 
 const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
 const QUICK_SIDE_CATEGORY_NAMES = ['מהיר וקליל', 'תוספות בריאות'];
-const AUTO_MERGED_CATEGORY_NAMES = [...ICE_CREAM_CATEGORY_NAMES, 'עוף', ...QUICK_SIDE_CATEGORY_NAMES];
+const AUTO_MERGED_CATEGORY_NAMES = [...ICE_CREAM_CATEGORY_NAMES, 'עוף', ...QUICK_SIDE_CATEGORY_NAMES, WEEKEND_CATEGORY];
 const DEFAULT_CATEGORY_NAMES = [
   'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', 'גלידות',
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep', 'עוף',
+  WEEKEND_CATEGORY,
   ...QUICK_SIDE_CATEGORY_NAMES,
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
-const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון'];
+const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון', WEEKEND_CATEGORY];
 const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'יחידה', 'חופן', 'קורט'];
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -1069,9 +1071,10 @@ const DEMO_RECIPES = [
   },
   ...MEAL_PREP_RECIPES,
   ...SIDE_DISH_RECIPES,
+  ...WEEKEND_RECIPES,
 ];
 
-const MERGED_SYSTEM_RECIPES = [...MEAL_PREP_RECIPES, ...SIDE_DISH_RECIPES];
+const MERGED_SYSTEM_RECIPES = [...MEAL_PREP_RECIPES, ...SIDE_DISH_RECIPES, ...WEEKEND_RECIPES];
 
 function parseMinutes(value) {
   if (value === '' || value === null || value === undefined) return '';
