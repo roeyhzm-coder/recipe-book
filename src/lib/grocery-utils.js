@@ -2,6 +2,58 @@ export const DEFAULT_GROCERY_LIST_NAMES = ['קניות שבועיות', 'מוצ�
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
+/** Common pantry staples that should never land on a grocery list. */
+export const PANTRY_STAPLES = [
+  'מים',
+  'מלח',
+  'פלפל שחור',
+  'שמן לטיגון',
+  'שמן זית',
+  'שמן קנולה',
+  'ספריי שמן',
+  'סוכר',
+];
+
+export const GROCERY_AISLES = [
+  { id: 'produce', label: 'ירקות ופירות' },
+  { id: 'meat', label: 'קצביה, בשר ודגים' },
+  { id: 'dairy', label: 'מקרר ומוצרי חלב' },
+  { id: 'pantry', label: 'יבשים, מזווה ומאפים' },
+  { id: 'snacks', label: 'תוספים וחטיפים' },
+];
+
+const AISLE_KEYWORDS = {
+  produce: [
+    'עגבני', 'מלפפון', 'בצל', 'שום', 'פלפל אדום', 'פלפל ירוק', 'פלפל צהוב', 'פלפל חריף',
+    'גזר', 'תפוח אדמה', 'תפוחי אדמה', 'בטטה', 'קישוא', 'חציל', 'כרובית', 'ברוקולי',
+    'חסה', 'כרוב', 'תרד', 'פטרוזיליה', 'כוסברה', 'שמיר', 'בזיליקום', 'נענע', 'בצל ירוק',
+    'לימון', 'ליים', 'תפוח', 'בננה', 'תות', 'מנגו', 'אבוקדו', 'עגבניות שרי', 'פטריות',
+    'תירס', 'אפונה', 'שעועית ירוקה', 'אדממה', 'פירות יער', 'אוכמני', 'אפרסק', 'אגס',
+    'אננס', 'אבטיח', 'מלון', 'רימון', 'סלרי', 'כרישה', 'קולורבי', 'דלעת', 'דלורית',
+    'ירק', 'פירות', 'עשבי תיבול',
+  ],
+  meat: [
+    'עוף', 'חזה עוף', 'שוקי', 'פרגית', 'הודו', 'בקר', 'בשר', 'טחון', 'סטייק', 'כבש',
+    'דג', 'סלמון', 'טונה', 'פילה', 'שרימפ', 'פירות ים', 'נקניק', 'בייקון', 'פסטרמה',
+  ],
+  dairy: [
+    'חלב', 'יוגורט', 'גבינה', 'קוטג', 'קוטג׳', 'שמנת', 'חמאה', 'ביצ', 'מוצרלה',
+    'פטה', 'צ׳דר', 'צדר', 'מסקרפונה', 'ריקוטה', 'לבנה', 'סקיר', 'קפיר', 'קרם',
+  ],
+  snacks: [
+    'אבקת חלבון', 'חלבון', 'פרוטאין', 'חטיף', 'חטיפים', 'גרנולה', 'אגוז', 'שקדים',
+    'קשיו', 'בוטנים', 'חמאת בוטנים', 'חמאת שקדים', 'שוקולד', 'קקאו', 'וופל', 'ביסקוויט',
+    'חמוציות', 'צימוקים', 'גרעינים', 'תוסף', 'ויטמין', 'קריאטין', 'בר חלבון',
+  ],
+  pantry: [
+    'אורז', 'פסטה', 'מקרוני', 'קוסקוס', 'קינואה', 'שיבולת', 'קוואקר', 'קמח', 'לחם',
+    'פיתה', 'טורטי', 'מחמצת', 'שימורים', 'רוטב', 'קטשופ', 'מיונז', 'חרדל', 'חומוס',
+    'טחינה', 'שעועית', 'עדשים', 'גרגירי', 'חומוס יבש', 'סויה', 'טופו', 'אבקת',
+    'תבלין', 'פפריקה', 'כמון', 'כורכום', 'אורגנו', 'דבש', 'סילאן', 'סירופ', 'חומץ',
+    'שמרים', 'אבקת אפיה', 'סודה לשתייה', 'פודינג', 'ג׳לי', 'גלידה', 'קרח',
+  ],
+};
+
 const PREP_PHRASES = [
   'חתוך לקוביות', 'חתוכה לקוביות', 'חתוכים לקוביות', 'חתוכות לקוביות',
   'חתוך דק', 'חתוכה דק', 'חתוך גס', 'חתוכה גס',
@@ -64,6 +116,8 @@ const UNIT_FAMILIES = {
   קורט: { family: 'pinch', toBase: 1, label: 'קורט' },
 };
 
+export const UNIT_LIST = Object.keys(UNIT_FAMILIES);
+
 const DISPLAY_UNIT = {
   mass: [
     { unit: 'ק"ג', factor: 1000 },
@@ -106,6 +160,57 @@ export function normalizeItemName(name) {
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** True for pantry staples (water, salt, basic oils, sugar, black pepper). */
+export function isPantryStaple(name) {
+  const key = normalizeItemName(name);
+  if (!key) return false;
+
+  for (const staple of PANTRY_STAPLES) {
+    const stapleKey = normalizeItemName(staple);
+    if (!stapleKey) continue;
+    if (key === stapleKey || key.startsWith(`${stapleKey} `)) return true;
+  }
+  return false;
+}
+
+function nameMatchesKeyword(normalizedName, keyword) {
+  const key = normalizeItemName(keyword);
+  if (!key || !normalizedName) return false;
+  return normalizedName === key
+    || normalizedName.startsWith(`${key} `)
+    || normalizedName.endsWith(` ${key}`)
+    || normalizedName.includes(` ${key} `);
+}
+
+export function getItemAisleId(name) {
+  const key = normalizeItemName(name);
+  if (!key) return 'pantry';
+
+  // Prefer more specific aisles before the broad pantry catch-all.
+  for (const aisleId of ['produce', 'meat', 'dairy', 'snacks', 'pantry']) {
+    const keywords = AISLE_KEYWORDS[aisleId] || [];
+    if (keywords.some((keyword) => nameMatchesKeyword(key, keyword))) {
+      return aisleId;
+    }
+  }
+  return 'pantry';
+}
+
+export function groupItemsByAisle(items) {
+  const buckets = new Map(GROCERY_AISLES.map((aisle) => [aisle.id, []]));
+  (items || []).forEach((item) => {
+    const aisleId = getItemAisleId(item?.name);
+    const bucket = buckets.get(aisleId) || buckets.get('pantry');
+    bucket.push(item);
+  });
+  return GROCERY_AISLES
+    .map((aisle) => ({
+      ...aisle,
+      items: sortGroceryItems(buckets.get(aisle.id) || []),
+    }))
+    .filter((group) => group.items.length > 0);
 }
 
 export function scaleGroceryAmount(amount, multiplier) {
@@ -276,10 +381,15 @@ export function addRecipeIngredientsToItems(items, listId, recipe, servings = 1)
   let next = items.slice();
   let added = 0;
   let merged = 0;
+  let skipped = 0;
 
   ingredients.forEach((ingredient) => {
     const name = sanitizeGroceryName(ingredient?.name);
     if (!name) return;
+    if (isPantryStaple(name) || isPantryStaple(ingredient?.name)) {
+      skipped += 1;
+      return;
+    }
     const amount = scaleGroceryAmount(ingredient?.amount, multiplier);
     const unit = normalizeGroceryUnit(ingredient?.unit);
     const existing = findMatchingItem(next, name, listId);
@@ -293,7 +403,30 @@ export function addRecipeIngredientsToItems(items, listId, recipe, servings = 1)
     added += 1;
   });
 
-  return { items: next, added, merged };
+  return { items: next, added, merged, skipped };
+}
+
+export function setItemQuantity(items, itemId, amount, unit) {
+  const part = toQuantityPart(amount, unit);
+  return items.map((item) => {
+    if (item.id !== itemId) return item;
+    const sources = Array.isArray(item.sourceRecipes) ? item.sourceRecipes : [];
+    const nextSources = sources.length
+      ? sources.map((source, index) => (
+        index === 0
+          ? { ...source, amount: part?.amount ?? null, unit: part?.unit || '' }
+          : { ...source, amount: null, unit: '' }
+      ))
+      : (part
+        ? [{ id: 'manual', title: 'עריכה ידנית', amount: part.amount, unit: part.unit, categories: [] }]
+        : []);
+    return {
+      ...item,
+      sourceRecipes: nextSources,
+      quantities: deriveQuantities(nextSources, part ? [part] : []),
+      updatedAt: Date.now(),
+    };
+  });
 }
 
 export function addManualItemToItems(items, listId, name) {

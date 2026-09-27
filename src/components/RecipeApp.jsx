@@ -6,7 +6,7 @@ import {
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
   Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown, ChevronUp,
-  Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart
+  Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart, Pin, EyeOff, Eye, GripVertical
 } from 'lucide-react';
 import { useGroceryLists } from '@/hooks/useGroceryLists';
 import BottomNav from '@/components/grocery/BottomNav';
@@ -21,8 +21,10 @@ import { WEEKEND_CATEGORY, WEEKEND_RECIPES } from '@/data/weekend-recipes';
 const STORAGE_KEY = 'mitbach_recipes_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 const MERGED_CATEGORIES_STORAGE_KEY = 'mitbach_merged_categories_v1';
+const HOME_CATEGORY_STORAGE_KEY = 'mitbach_home_category_v1';
 const SAFETY_BACKUP_KEY = 'recipes_safety_backup';
 const MAX_SAFETY_SNAPSHOTS = 5;
+const PROTEIN_SCOOP_GRAMS = 25;
 
 const ICE_CREAM_CATEGORY_NAMES = ['גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'];
 const QUICK_SIDE_CATEGORY_NAMES = ['מהיר וקליל', 'תוספות בריאות'];
@@ -57,7 +59,12 @@ function getRatingCardClass(rating) {
 }
 
 function defaultCategories() {
-  return DEFAULT_CATEGORY_NAMES.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }));
+  return DEFAULT_CATEGORY_NAMES.map((name) => ({
+    id: uid(),
+    name,
+    pinned: PINNED_BY_DEFAULT.includes(name),
+    hidden: false,
+  }));
 }
 
 // Categories added after a user's list was saved are merged in once, so deleting them later sticks.
@@ -72,8 +79,26 @@ function mergeNewCategories(categories) {
   try {
     localStorage.setItem(MERGED_CATEGORIES_STORAGE_KEY, JSON.stringify([...new Set([...merged, ...AUTO_MERGED_CATEGORY_NAMES])]));
   } catch (e) {}
-  if (!pending.length) return categories;
-  return [...categories, ...pending.map((name) => ({ id: uid(), name, pinned: PINNED_BY_DEFAULT.includes(name) }))];
+  if (!pending.length) return categories.map(normalizeCategory);
+  return [
+    ...categories.map(normalizeCategory),
+    ...pending.map((name) => ({
+      id: uid(),
+      name,
+      pinned: PINNED_BY_DEFAULT.includes(name),
+      hidden: false,
+    })),
+  ];
+}
+
+function normalizeCategory(category) {
+  if (!category || typeof category !== 'object') return null;
+  return {
+    id: category.id || uid(),
+    name: String(category.name || '').trim(),
+    pinned: !!category.pinned,
+    hidden: !!category.hidden,
+  };
 }
 
 function loadCategories() {
@@ -81,7 +106,9 @@ function loadCategories() {
     const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return mergeNewCategories(parsed);
+      if (Array.isArray(parsed)) {
+        return mergeNewCategories(parsed.map(normalizeCategory).filter((c) => c && c.name));
+      }
     }
   } catch (e) {}
   return defaultCategories();
@@ -90,6 +117,20 @@ function loadCategories() {
 function saveCategories(categories) {
   try {
     localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
+  } catch (e) {}
+}
+
+function loadHomeCategory() {
+  try {
+    const raw = sessionStorage.getItem(HOME_CATEGORY_STORAGE_KEY);
+    if (raw) return raw;
+  } catch (e) {}
+  return 'הכל';
+}
+
+function saveHomeCategory(category) {
+  try {
+    sessionStorage.setItem(HOME_CATEGORY_STORAGE_KEY, category || 'הכל');
   } catch (e) {}
 }
 
@@ -1183,6 +1224,39 @@ function householdConversion(value, unit) {
   return 'פחות מכפית';
 }
 
+function isProteinPowderName(name) {
+  const text = String(name || '').toLowerCase();
+  return /אבקת\s*חלבון|חלבון\s*(וניל|שוקולד|איזולט|טבע|בננה|תות)|protein\s*powder|whey/.test(text);
+}
+
+function amountToGrams(amount, unit) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  const u = String(unit || '').trim();
+  if (u === 'גרם' || u === "ג'") return value;
+  if (u === 'ק"ג' || u === 'ק״ג') return value * 1000;
+  return null;
+}
+
+/** MyProtein scoop standard: 1 scoop = 25g. */
+function proteinScoopLabel(amount, unit, name) {
+  if (!isProteinPowderName(name)) return '';
+  const grams = amountToGrams(amount, unit);
+  if (grams == null) return '';
+  const scoops = Math.round((grams / PROTEIN_SCOOP_GRAMS) * 10) / 10;
+  if (scoops <= 0) return '';
+  const whole = Number.isInteger(scoops);
+  const formatted = whole ? String(scoops) : String(scoops);
+  if (whole && scoops === 1) return '1 סקופ';
+  return whole ? `${formatted} סקופ` : `כ-${formatted} סקופ`;
+}
+
+function ingredientSecondaryLabel(amount, unit, name) {
+  const scoop = proteinScoopLabel(amount, unit, name);
+  if (scoop) return scoop;
+  return householdConversion(amount, unit);
+}
+
 function compressImageFile(file, maxDim = 900, quality = 0.7) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1569,9 +1643,11 @@ function CategoryPill({ label, active, onClick, small }) {
   );
 }
 
-function CategoryModal({ open, categories, active, onSelect, onClose }) {
+function CategoryModal({ open, categories, active, onSelect, onClose, onManage, manageMode }) {
   if (!open) return null;
-  const all = ['הכל', ...categories];
+  const visible = categories.filter((c) => !c.hidden);
+  const all = manageMode ? categories : [{ id: 'all', name: 'הכל', pinned: false, hidden: false }, ...visible];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
@@ -1582,25 +1658,94 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
         style={{ maxHeight: '80vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-serif text-xl text-stone-900">כל הקטגוריות</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-serif text-xl text-stone-900">
+            {manageMode ? 'ניהול קטגוריות' : 'כל הקטגוריות'}
+          </h3>
           <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
             <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          {all.map((c) => (
-            <button
-              key={c}
-              onClick={() => { onSelect(c); onClose(); }}
-              className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
-                active === c ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {onManage && (
+          <button
+            type="button"
+            onClick={() => onManage(!manageMode)}
+            className="mb-4 text-xs text-amber-700 hover:text-amber-800"
+          >
+            {manageMode ? '← חזרה לבחירה' : 'ניהול: נעיצה, הסתרה וסידור'}
+          </button>
+        )}
+
+        {manageMode ? (
+          <div className="flex flex-col gap-2">
+            {categories.map((c, index) => (
+              <div
+                key={c.id || c.name}
+                className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${
+                  c.hidden ? 'bg-stone-50 border-stone-100 opacity-60' : 'bg-stone-50 border-stone-200'
+                }`}
+              >
+                <GripVertical className="w-4 h-4 text-stone-300 shrink-0" />
+                <span className="flex-1 text-sm text-stone-800 truncate">{c.name}</span>
+                <button
+                  type="button"
+                  disabled={index === 0}
+                  onClick={() => onManage('reorder', c.name, index - 1)}
+                  className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
+                  aria-label="הזז למעלה"
+                >
+                  <ChevronUp className="w-4 h-4 text-stone-600" />
+                </button>
+                <button
+                  type="button"
+                  disabled={index === categories.length - 1}
+                  onClick={() => onManage('reorder', c.name, index + 1)}
+                  className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
+                  aria-label="הזז למטה"
+                >
+                  <ChevronDown className="w-4 h-4 text-stone-600" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onManage('toggle-pin', c.name)}
+                  className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
+                    c.pinned ? 'bg-amber-100 border-amber-300 text-amber-800' : 'border-stone-200 text-stone-400'
+                  }`}
+                  aria-label={c.pinned ? 'בטל נעיצה' : 'נעץ'}
+                >
+                  <Pin className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onManage('toggle-hidden', c.name)}
+                  className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
+                    c.hidden ? 'bg-stone-200 border-stone-300 text-stone-600' : 'border-stone-200 text-stone-400'
+                  }`}
+                  aria-label={c.hidden ? 'הצג' : 'הסתר'}
+                >
+                  {c.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {all.map((c) => {
+              const label = typeof c === 'string' ? c : c.name;
+              return (
+                <button
+                  key={label}
+                  onClick={() => { onSelect(label); onClose(); }}
+                  className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
+                    active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1723,16 +1868,31 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
 
 /* -------------------------------- home view -------------------------------- */
 
-function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpenSettings, onOpenSmartImport, onAddCategory, onAddToGrocery }) {
+function HomeView({
+  recipes,
+  categories,
+  category,
+  onCategoryChange,
+  onManageCategories,
+  onOpen,
+  onToggleFavorite,
+  onAdd,
+  onOpenSettings,
+  onOpenSmartImport,
+  onAddCategory,
+  onAddToGrocery,
+}) {
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('הכל');
   const [favOnly, setFavOnly] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [manageMode, setManageMode] = useState(false);
   const [showQuickCategory, setShowQuickCategory] = useState(false);
   const [quickCategoryName, setQuickCategoryName] = useState('');
 
-  const pinnedNames = useMemo(() => categories.filter((c) => c.pinned).map((c) => c.name), [categories]);
-  const allNames = useMemo(() => categories.map((c) => c.name), [categories]);
+  const pinnedNames = useMemo(
+    () => categories.filter((c) => c.pinned && !c.hidden).map((c) => c.name),
+    [categories]
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -1751,9 +1911,17 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
     const name = quickCategoryName.trim();
     if (!name) return;
     onAddCategory(name);
-    setCategory(name);
+    onCategoryChange(name);
     setQuickCategoryName('');
     setShowQuickCategory(false);
+  }
+
+  function handleManage(action, name, toIndex) {
+    if (action === true || action === false) {
+      setManageMode(action);
+      return;
+    }
+    onManageCategories?.(action, name, toIndex);
   }
 
   return (
@@ -1791,12 +1959,12 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
-          <CategoryPill label="הכל" active={category === 'הכל'} onClick={() => setCategory('הכל')} />
+          <CategoryPill label="הכל" active={category === 'הכל'} onClick={() => onCategoryChange('הכל')} />
           {pinnedNames.map((c) => (
-            <CategoryPill key={c} label={c} active={category === c} onClick={() => setCategory(c)} />
+            <CategoryPill key={c} label={c} active={category === c} onClick={() => onCategoryChange(c)} />
           ))}
           <button
-            onClick={() => setShowCategoryModal(true)}
+            onClick={() => { setManageMode(false); setShowCategoryModal(true); }}
             className={`shrink-0 rounded-full border transition whitespace-nowrap min-h-11 px-4 py-2 text-sm flex items-center gap-1.5 ${
               category !== 'הכל' && !pinnedNames.includes(category)
                 ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
@@ -1844,10 +2012,12 @@ function HomeView({ recipes, categories, onOpen, onToggleFavorite, onAdd, onOpen
 
       <CategoryModal
         open={showCategoryModal}
-        categories={allNames}
+        categories={categories}
         active={category}
-        onSelect={setCategory}
-        onClose={() => setShowCategoryModal(false)}
+        manageMode={manageMode}
+        onSelect={onCategoryChange}
+        onManage={handleManage}
+        onClose={() => { setShowCategoryModal(false); setManageMode(false); }}
       />
 
       <div className="px-4 mt-5">
@@ -1902,6 +2072,10 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
   const [wakeLockOn, setWakeLockOn] = useState(false);
   const wakeLockRef = useRef(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [recipe?.id]);
 
   useEffect(() => {
     const hasRunning = Object.values(timers).some((t) => t.running && t.remaining > 0);
@@ -2177,15 +2351,17 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-200 backdrop-blur-md">
             {recipe.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
+              const scaledAmount = Number(ing.amount || 0) * multiplier;
+              const secondary = ingredientSecondaryLabel(scaledAmount, ing.unit, ing.name);
               return (
                 <div key={ing.id} className="flex items-center justify-between px-4 py-3.5 gap-3">
                   <span className="text-sm text-stone-800 leading-relaxed">{ing.name}</span>
                   <div className="text-left shrink-0">
                     <span className="text-sm font-medium text-stone-900 tabular-nums">
                       {scaleAmount(ing.amount, multiplier)} {ing.unit}
-                      {householdConversion(Number(ing.amount || 0) * multiplier, ing.unit) && (
+                      {secondary && (
                         <span className="text-xs text-stone-500 font-normal">
-                          {' '}({householdConversion(Number(ing.amount || 0) * multiplier, ing.unit)})
+                          {' '}({secondary})
                         </span>
                       )}
                     </span>
@@ -2858,6 +3034,7 @@ export default function RecipeApp() {
   const lastSyncedRef = useRef([]);
   const [safetySnapshots, setSafetySnapshots] = useState(loadSafetySnapshots);
   const [categories, setCategories] = useState(loadCategories);
+  const [homeCategory, setHomeCategory] = useState(loadHomeCategory);
 
   const [view, setView] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
@@ -2923,6 +3100,12 @@ export default function RecipeApp() {
   }, [recipes, syncMode]);
 
   useEffect(() => saveCategories(categories), [categories]);
+  useEffect(() => saveHomeCategory(homeCategory), [homeCategory]);
+  useEffect(() => {
+    if (homeCategory === 'הכל') return;
+    const match = categories.find((c) => c.name === homeCategory);
+    if (match?.hidden) setHomeCategory('הכל');
+  }, [categories, homeCategory]);
 
   useEffect(() => {
     if (!toast) return;
@@ -3004,7 +3187,12 @@ export default function RecipeApp() {
       setCategories((current) => {
         const names = new Set(current.map((c) => c.name));
         const added = importedCategories.filter((c) => c && c.name && !names.has(c.name));
-        return [...current, ...added.map((c) => ({ id: c.id || uid(), name: c.name, pinned: !!c.pinned }))];
+        return [...current, ...added.map((c) => ({
+          id: c.id || uid(),
+          name: c.name,
+          pinned: !!c.pinned,
+          hidden: !!c.hidden,
+        }))];
       });
     }
   }
@@ -3012,9 +3200,31 @@ export default function RecipeApp() {
   function addCategory(name) {
     setCategories((current) => {
       if (current.some((category) => category.name.toLowerCase() === name.toLowerCase())) return current;
-      return [...current, { id: uid(), name, pinned: false }];
+      return [...current, { id: uid(), name, pinned: false, hidden: false }];
     });
     notify('הקטגוריה נוספה');
+  }
+
+  function manageCategories(action, name, toIndex) {
+    setCategories((current) => {
+      if (action === 'toggle-pin') {
+        return current.map((c) => (c.name === name ? { ...c, pinned: !c.pinned } : c));
+      }
+      if (action === 'toggle-hidden') {
+        return current.map((c) => (
+          c.name === name ? { ...c, hidden: !c.hidden, pinned: c.hidden ? c.pinned : false } : c
+        ));
+      }
+      if (action === 'reorder' && typeof toIndex === 'number') {
+        const fromIndex = current.findIndex((c) => c.name === name);
+        if (fromIndex < 0 || toIndex < 0 || toIndex >= current.length) return current;
+        const next = current.slice();
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return next;
+      }
+      return current;
+    });
   }
 
   // Appends system recipes and default categories that are missing; existing ones (including trashed) are untouched.
@@ -3053,6 +3263,7 @@ export default function RecipeApp() {
     const parts = [];
     if (result.added) parts.push(`${result.added} חדשים`);
     if (result.merged) parts.push(`${result.merged} אוחדו`);
+    if (result.skipped) parts.push(`${result.skipped} בסיסיים דולגו`);
     notify(parts.length ? `נוסף ל${listName} (${parts.join(', ')})` : `המצרכים כבר ב${listName}`);
     setGroceryRecipe(null);
   }
@@ -3091,6 +3302,7 @@ export default function RecipeApp() {
             onClearChecked={grocery.clearChecked}
             onClearList={grocery.clearList}
             onSubstituteItem={grocery.substituteItem}
+            onUpdateItemQuantity={grocery.updateItemQuantity}
             onNotify={notify}
           />
         ) : (
@@ -3099,6 +3311,9 @@ export default function RecipeApp() {
           <HomeView
             recipes={activeRecipes}
             categories={categories}
+            category={homeCategory}
+            onCategoryChange={setHomeCategory}
+            onManageCategories={manageCategories}
             onOpen={openRecipe}
             onToggleFavorite={toggleFavorite}
             onAdd={startAdd}

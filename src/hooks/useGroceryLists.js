@@ -11,6 +11,7 @@ import {
   addManualItemToItems,
   addRecipeIngredientsToItems,
   createList,
+  setItemQuantity,
   sortGroceryItems,
   substituteItemName,
 } from '@/lib/grocery-utils';
@@ -127,13 +128,24 @@ export function useGroceryLists() {
 
   function addRecipeToList(recipe, listId, servings = 1) {
     const targetId = listId || state.activeListId || state.lastUsedListId;
-    if (!targetId || !recipe) return { added: 0, merged: 0, listId: targetId };
-    let result = { added: 0, merged: 0, items: state.items };
+    if (!targetId || !recipe) return { added: 0, merged: 0, skipped: 0, listId: targetId };
+    let result = { added: 0, merged: 0, skipped: 0, items: state.items };
     updateState((current) => {
       result = addRecipeIngredientsToItems(current.items, targetId, recipe, servings);
       return { items: result.items, lastUsedListId: targetId };
     });
-    return { added: result.added, merged: result.merged, listId: targetId };
+    return {
+      added: result.added,
+      merged: result.merged,
+      skipped: result.skipped || 0,
+      listId: targetId,
+    };
+  }
+
+  function updateItemQuantity(itemId, amount, unit) {
+    updateState((current) => ({
+      items: setItemQuantity(current.items, itemId, amount, unit),
+    }));
   }
 
   function substituteItem(itemId, name) {
@@ -185,6 +197,7 @@ export function useGroceryLists() {
     deleteList,
     addManualItem,
     addRecipeToList,
+    updateItemQuantity,
     substituteItem,
     toggleItem,
     deleteItem,
