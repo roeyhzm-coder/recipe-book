@@ -126,7 +126,7 @@ const DEMO_RECIPES = [
   {
     id: 'breakfast-1',
     title: 'קערת אסאי וחלבון',
-    image: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['בלנדר', 'משקל מזון'],
     ingredients: [
@@ -150,7 +150,7 @@ const DEMO_RECIPES = [
   {
     id: 'breakfast-2',
     title: "קערת יוגורט וגרנולה קראנצ'ית",
-    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['משקל מזון'],
     ingredients: [
@@ -174,7 +174,7 @@ const DEMO_RECIPES = [
   {
     id: 'breakfast-3',
     title: 'שיבולת שועל קרה (Overnight Oats)',
-    image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת בוקר', 'Meal Prep', 'עתיר חלבון'],
     equipment: ['משקל מזון', 'מקרר'],
     ingredients: [
@@ -198,7 +198,7 @@ const DEMO_RECIPES = [
   {
     id: 'breakfast-4',
     title: 'טוסט חמאת בוטנים ובננה לצד שייק חלבון',
-    image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת בוקר', 'מהיר להכנה'],
     equipment: ['טוסטר', 'משקל מזון', 'שייקר'],
     ingredients: [
@@ -221,7 +221,7 @@ const DEMO_RECIPES = [
   {
     id: 'breakfast-5',
     title: 'דייסת שיבולת שועל חמה במיקרוגל',
-    image: 'https://images.unsplash.com/photo-1584776296944-ab6fb57b0bdd?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1584776296944-ab6fb57b0bdd?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['משקל מזון'],
     ingredients: [
@@ -245,7 +245,7 @@ const DEMO_RECIPES = [
   {
     id: 'lunch-1',
     title: "חזה עוף עסיסי בנינג'ה גריל ואורז",
-    image: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
     equipment: ["נינג'ה גריל", 'משקל מזון'],
     ingredients: [
@@ -269,7 +269,7 @@ const DEMO_RECIPES = [
   {
     id: 'lunch-2',
     title: 'פרגיות באייר פרייר עם תפוחי אדמה קריספיים',
-    image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי'],
     equipment: ['איירפרייר', 'משקל מזון'],
     ingredients: [
@@ -292,7 +292,7 @@ const DEMO_RECIPES = [
   {
     id: 'lunch-3',
     title: 'פסטה בולונז בקר קלאסית (Meal Prep)',
-    image: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281699?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281024?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
     equipment: ['סיר', 'מחבת', 'משקל מזון'],
     ingredients: [
@@ -316,7 +316,7 @@ const DEMO_RECIPES = [
   {
     id: 'lunch-4',
     title: "שניצל קראנצ'י באייר פרייר ופירה",
-    image: 'https://images.unsplash.com/photo-1599921841143-8190253a93bb?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1599921841143-8190e5a557aa?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'מהיר להכנה'],
     equipment: ['איירפרייר', 'משקל מזון'],
     ingredients: [
@@ -340,7 +340,7 @@ const DEMO_RECIPES = [
   {
     id: 'lunch-5',
     title: "שווארמה הודו נקבה בנינג'ה עם פיתה וטחינה",
-    image: 'https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
     equipment: ["נינג'ה גריל", 'משקל מזון'],
     ingredients: [
@@ -364,7 +364,7 @@ const DEMO_RECIPES = [
   {
     id: 'dinner-1',
     title: "טוסט חלבון מושחת (צהובה 9% וקוטג')",
-    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['טוסטר לחיצה', 'משקל מזון'],
     ingredients: [
@@ -388,7 +388,7 @@ const DEMO_RECIPES = [
   {
     id: 'dinner-2',
     title: 'טורטיית ביצה, מוצרלה וירקות במחבת',
-    image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80',
     categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['מחבת', 'משקל מזון'],
     ingredients: [
@@ -533,7 +533,7 @@ const DEMO_RECIPES = [
   {
     id: 'snack-3',
     title: 'שלישיית פריכיות אורז עם חמאת בוטנים ובננה',
-    image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&w=800&q=80',
     categories: ['נשנושים', 'מהיר להכנה'],
     equipment: ['משקל מזון'],
     ingredients: [
@@ -556,7 +556,7 @@ const DEMO_RECIPES = [
   {
     id: 'snack-4',
     title: 'קערת פרו שוקולד עם תותים ואגוזי מלך',
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&w=800&q=80',
     categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['משקל מזון'],
     ingredients: [
@@ -578,7 +578,7 @@ const DEMO_RECIPES = [
   {
     id: 'snack-5',
     title: 'תפוח מקורמל בקינמון באייר פרייר עם יוגורט וניל',
-    image: 'https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?auto=format&fit=crop&w=800&q=80',
     categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
     equipment: ['איירפרייר', 'משקל מזון'],
     ingredients: [
@@ -1121,7 +1121,7 @@ function isGenericRecipeImage(image) {
 }
 
 function patchSystemRecipes(recipes) {
-  const byId = new Map(MERGED_SYSTEM_RECIPES.map((recipe) => [String(recipe.id), recipe]));
+  const byId = new Map(DEMO_RECIPES.map((recipe) => [String(recipe.id), recipe]));
   return recipes.map((recipe) => {
     const system = byId.get(String(recipe.id));
     if (!system) return ensureRecipeTimes(recipe);

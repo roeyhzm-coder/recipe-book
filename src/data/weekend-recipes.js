@@ -62,7 +62,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-oven-potatoes',
     title: 'תפוחי אדמה אפויים בתנור',
-    image: 'https://images.unsplash.com/photo-1568584711271-6c929fb49b60?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1592417817098-8f3d69109853?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY],
     equipment: ['תנור'],
     ingredients: [
@@ -90,7 +90,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-shabbat-challah',
     title: 'לחם / חלת שבת',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY],
     equipment: ['תנור', 'מיקסר'],
     ingredients: [
@@ -153,7 +153,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-beef-meatballs-tomato',
     title: 'קציצות בקר ברוטב עגבניות',
-    image: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1515516969-d4008cc6241a?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY, 'בשרי'],
     equipment: ['סיר', 'מחבת'],
     ingredients: [
@@ -186,7 +186,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-salad-pine-nuts',
     title: 'סלט ירקות עשיר עם צנוברים',
-    image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY, 'סלטים'],
     equipment: [],
     ingredients: [
@@ -216,7 +216,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-grandma-fried-meatballs',
     title: 'קציצות מטוגנות של סבתא',
-    image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY, 'בשרי'],
     equipment: ['מחבת'],
     ingredients: [
@@ -246,7 +246,7 @@ export const WEEKEND_RECIPES = [
   {
     id: 'weekend-thin-schnitzel',
     title: 'שניצלים דקים קריספיים',
-    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1599921841143-8190e5a557aa?auto=format&fit=crop&w=800&q=80',
     categories: [WEEKEND_CATEGORY, 'עוף', 'בשרי'],
     equipment: ['מחבת'],
     ingredients: [

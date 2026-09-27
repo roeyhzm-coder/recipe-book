@@ -2,7 +2,7 @@ export const SIDE_DISH_RECIPES = [
   {
     id: 'side-edamame-lemon',
     title: 'אדממה עם מלח גס ולימון',
-    image: 'https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1546549032-9571cd6b27df?auto=format&fit=crop&w=800&q=80',
     categories: ['מהיר וקליל', 'תוספות בריאות'],
     equipment: ["נינג'ה גריל", 'איירפרייר'],
     ingredients: [
@@ -26,7 +26,7 @@ export const SIDE_DISH_RECIPES = [
   {
     id: 'side-green-beans-ninja',
     title: "שעועית ירוקה פריכה בנינג'ה / אייר פרייר",
-    image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=800&q=80',
+    image: 'https://images.unsplash.com/photo-1567375698348-5d9d5ae99de0?auto=format&fit=crop&w=800&q=80',
     categories: ['מהיר וקליל', 'תוספות בריאות'],
     equipment: ["נינג'ה גריל", 'איירפרייר'],
     ingredients: [
