@@ -3263,7 +3263,8 @@ export default function RecipeApp() {
     const parts = [];
     if (result.added) parts.push(`${result.added} חדשים`);
     if (result.merged) parts.push(`${result.merged} אוחדו`);
-    if (result.skipped) parts.push(`${result.skipped} בסיסיים דולגו`);
+    if (result.stapled) parts.push(`${result.stapled} במזווה הביתי`);
+    else if (result.skipped) parts.push(`${result.skipped} בסיסיים דולגו`);
     notify(parts.length ? `נוסף ל${listName} (${parts.join(', ')})` : `המצרכים כבר ב${listName}`);
     setGroceryRecipe(null);
   }
@@ -3292,6 +3293,7 @@ export default function RecipeApp() {
             lists={grocery.lists}
             activeList={grocery.activeList}
             activeItems={grocery.activeItems}
+            pantryDrawerItems={grocery.pantryDrawerItems}
             onSelectList={grocery.setActiveListId}
             onAddList={grocery.addList}
             onRenameList={grocery.renameList}
@@ -3303,6 +3305,8 @@ export default function RecipeApp() {
             onClearList={grocery.clearList}
             onSubstituteItem={grocery.substituteItem}
             onUpdateItemQuantity={grocery.updateItemQuantity}
+            onPromoteStaple={grocery.promoteStaple}
+            onDemoteStaple={grocery.demoteStaple}
             onNotify={notify}
           />
         ) : (

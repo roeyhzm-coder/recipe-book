@@ -11,6 +11,8 @@ import {
   addManualItemToItems,
   addRecipeIngredientsToItems,
   createList,
+  demotePantryStaple,
+  promotePantryStaple,
   setItemQuantity,
   sortGroceryItems,
   substituteItemName,
@@ -64,7 +66,16 @@ export function useGroceryLists() {
 
   const activeItems = useMemo(() => {
     if (!activeList) return [];
-    return sortGroceryItems(state.items.filter((item) => item.listId === activeList.id));
+    return sortGroceryItems(
+      state.items.filter((item) => item.listId === activeList.id && !item.pantryDrawer)
+    );
+  }, [state.items, activeList]);
+
+  const pantryDrawerItems = useMemo(() => {
+    if (!activeList) return [];
+    return sortGroceryItems(
+      state.items.filter((item) => item.listId === activeList.id && item.pantryDrawer)
+    );
   }, [state.items, activeList]);
 
   function updateState(updater) {
@@ -128,8 +139,8 @@ export function useGroceryLists() {
 
   function addRecipeToList(recipe, listId, servings = 1) {
     const targetId = listId || state.activeListId || state.lastUsedListId;
-    if (!targetId || !recipe) return { added: 0, merged: 0, skipped: 0, listId: targetId };
-    let result = { added: 0, merged: 0, skipped: 0, items: state.items };
+    if (!targetId || !recipe) return { added: 0, merged: 0, skipped: 0, stapled: 0, listId: targetId };
+    let result = { added: 0, merged: 0, skipped: 0, stapled: 0, items: state.items };
     updateState((current) => {
       result = addRecipeIngredientsToItems(current.items, targetId, recipe, servings);
       return { items: result.items, lastUsedListId: targetId };
@@ -138,6 +149,7 @@ export function useGroceryLists() {
       added: result.added,
       merged: result.merged,
       skipped: result.skipped || 0,
+      stapled: result.stapled || 0,
       listId: targetId,
     };
   }
@@ -166,14 +178,40 @@ export function useGroceryLists() {
   }
 
   function deleteItem(itemId) {
-    updateState((current) => ({
-      items: current.items.filter((item) => item.id !== itemId),
-    }));
+    let demoted = false;
+    updateState((current) => {
+      const target = current.items.find((item) => item.id === itemId);
+      if (target?.isStaple && !target.pantryDrawer) {
+        const result = demotePantryStaple(current.items, itemId);
+        demoted = result.demoted;
+        return { items: result.items };
+      }
+      return { items: current.items.filter((item) => item.id !== itemId) };
+    });
+    return { demoted };
+  }
+
+  function promoteStaple(itemId) {
+    let result = { item: null };
+    updateState((current) => {
+      result = promotePantryStaple(current.items, itemId);
+      return { items: result.items };
+    });
+    return result;
+  }
+
+  function demoteStaple(itemId) {
+    let result = { demoted: false };
+    updateState((current) => {
+      result = demotePantryStaple(current.items, itemId);
+      return { items: result.items };
+    });
+    return result;
   }
 
   function clearChecked(listId = state.activeListId) {
     updateState((current) => ({
-      items: current.items.filter((item) => item.listId !== listId || !item.checked),
+      items: current.items.filter((item) => item.listId !== listId || !item.checked || item.pantryDrawer),
     }));
   }
 
@@ -188,6 +226,7 @@ export function useGroceryLists() {
     items: state.items,
     activeList,
     activeItems,
+    pantryDrawerItems,
     activeListId: activeList?.id || null,
     lastUsedListId: state.lastUsedListId,
     syncMode,
@@ -201,6 +240,8 @@ export function useGroceryLists() {
     substituteItem,
     toggleItem,
     deleteItem,
+    promoteStaple,
+    demoteStaple,
     clearChecked,
     clearList,
   };

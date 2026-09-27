@@ -1,5 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createDefaultGroceryState, DEFAULT_GROCERY_LIST_NAMES, hydrateGroceryItem } from '@/lib/grocery-utils';
+import {
+  createDefaultGroceryState,
+  DEFAULT_GROCERY_LIST_NAMES,
+  hydrateGroceryItem,
+  serializeGroceryItem,
+} from '@/lib/grocery-utils';
 
 export const GROCERY_STORAGE_KEY = 'mitbach_grocery_v1';
 
@@ -43,15 +48,16 @@ function rowToItem(row) {
 }
 
 function itemToRow(item) {
+  const serialized = serializeGroceryItem(item);
   return {
-    id: String(item.id),
-    list_id: String(item.listId),
-    name: item.name || '',
-    checked: !!item.checked,
-    source_recipes: item.sourceRecipes || [],
-    created_at_ms: Number(item.createdAt) || Date.now(),
-    updated_at_ms: Number(item.updatedAt) || Date.now(),
-    sort_order: Number(item.sortOrder) || 0,
+    id: String(serialized.id),
+    list_id: String(serialized.listId),
+    name: serialized.name || '',
+    checked: !!serialized.checked,
+    source_recipes: serialized.sourceRecipes || [],
+    created_at_ms: Number(serialized.createdAt) || Date.now(),
+    updated_at_ms: Number(serialized.updatedAt) || Date.now(),
+    sort_order: Number(serialized.sortOrder) || 0,
   };
 }
 
@@ -84,7 +90,11 @@ export function loadLocalGrocery() {
 
 export function saveLocalGrocery(state) {
   try {
-    localStorage.setItem(GROCERY_STORAGE_KEY, JSON.stringify(normalizeState(state)));
+    const normalized = normalizeState(state);
+    localStorage.setItem(GROCERY_STORAGE_KEY, JSON.stringify({
+      ...normalized,
+      items: normalized.items.map(serializeGroceryItem),
+    }));
   } catch (error) {
     // Quota or private-mode failures should never break the UI.
   }

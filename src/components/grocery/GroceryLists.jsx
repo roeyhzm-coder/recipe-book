@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, X } from 'lucide-react';
 import { formatQuantityLabel, groupItemsByAisle, UNIT_LIST } from '@/lib/grocery-utils';
 import { getGrocerySubstitutions } from '@/lib/grocery-substitutions';
 
@@ -144,7 +144,7 @@ function QuantityDialog({ open, item, onConfirm, onCancel }) {
   );
 }
 
-function GroceryItemRow({ item, onToggle, onDelete, onSubstitute, onEditQuantity }) {
+function GroceryItemRow({ item, onToggle, onDelete, onSubstitute, onEditQuantity, onDemoteStaple }) {
   const sources = (item.sourceRecipes || []).map((source) => source.title).filter(Boolean);
   const quantity = formatQuantityLabel(item.quantities);
   const substitutions = getGrocerySubstitutions(item);
@@ -166,9 +166,16 @@ function GroceryItemRow({ item, onToggle, onDelete, onSubstitute, onEditQuantity
       </button>
       <div className="flex-1 min-w-0 pt-1.5">
         <div className="flex items-start justify-between gap-3">
-          <p className={`text-sm text-stone-900 leading-snug ${item.checked ? 'line-through text-stone-400' : ''}`}>
+          <button
+            type="button"
+            onClick={() => {
+              if (item.isStaple && onDemoteStaple) onDemoteStaple(item.id);
+            }}
+            className={`text-sm text-stone-900 leading-snug text-right ${item.checked ? 'line-through text-stone-400' : ''} ${item.isStaple ? 'hover:text-amber-800' : ''}`}
+            title={item.isStaple ? 'החזר ל"כנראה שיש בבית"' : undefined}
+          >
             {item.name}
-          </p>
+          </button>
           <button
             type="button"
             onClick={() => onEditQuantity(item)}
@@ -201,11 +208,54 @@ function GroceryItemRow({ item, onToggle, onDelete, onSubstitute, onEditQuantity
         type="button"
         onClick={() => onDelete(item.id)}
         className="mt-0.5 min-h-11 min-w-11 w-11 h-11 rounded-xl text-stone-300 hover:text-rose-500 hover:bg-rose-50 flex items-center justify-center shrink-0"
-        aria-label="מחק פריט"
+        aria-label={item.isStaple ? 'החזר למזווה' : 'מחק פריט'}
       >
         <Trash2 className="w-4 h-4" />
       </button>
     </div>
+  );
+}
+
+function PantryStaplesDrawer({ items, onPromote }) {
+  const [open, setOpen] = useState(true);
+  if (!items.length) return null;
+
+  return (
+    <section className="rounded-2xl border border-dashed border-stone-300 bg-stone-100/70 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="w-full min-h-11 flex items-center justify-between gap-3 px-4 py-3 text-right"
+        aria-expanded={open}
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-stone-800">כנראה שיש בבית</p>
+          <p className="text-[11px] text-stone-500 mt-0.5">לחץ כדי להוסיף לקניות</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[11px] text-stone-400 tabular-nums">{items.length}</span>
+          <ChevronDown className={`w-4 h-4 text-stone-500 transition ${open ? 'rotate-180' : ''}`} />
+        </div>
+      </button>
+      {open && (
+        <div className="px-3 pb-3 flex flex-wrap gap-2">
+          {items.map((item) => {
+            const quantity = formatQuantityLabel(item.quantities);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onPromote(item.id)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 transition shadow-sm"
+              >
+                <span>{item.name}</span>
+                {quantity ? <span className="text-[11px] text-stone-400 tabular-nums">{quantity}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -256,6 +306,7 @@ export default function GroceryLists({
   lists,
   activeList,
   activeItems,
+  pantryDrawerItems = [],
   onSelectList,
   onAddList,
   onRenameList,
@@ -267,6 +318,8 @@ export default function GroceryLists({
   onClearList,
   onSubstituteItem,
   onUpdateItemQuantity,
+  onPromoteStaple,
+  onDemoteStaple,
   onNotify,
 }) {
   const [draft, setDraft] = useState('');
@@ -277,6 +330,7 @@ export default function GroceryLists({
 
   const checkedCount = activeItems.filter((item) => item.checked).length;
   const aisleGroups = useMemo(() => groupItemsByAisle(activeItems), [activeItems]);
+  const hasContent = activeItems.length > 0 || pantryDrawerItems.length > 0;
 
   function submitManual(event) {
     event.preventDefault();
@@ -285,6 +339,21 @@ export default function GroceryLists({
     const result = onAddManualItem(name);
     setDraft('');
     onNotify(result?.merged ? 'המוצר כבר ברשימה — עודכן' : 'המוצר נוסף לרשימה');
+  }
+
+  function handleDelete(itemId) {
+    const result = onDeleteItem(itemId);
+    if (result?.demoted) onNotify('הוחזר ל"כנראה שיש בבית"');
+  }
+
+  function handleDemote(itemId) {
+    const result = onDemoteStaple?.(itemId);
+    if (result?.demoted) onNotify('הוחזר ל"כנראה שיש בבית"');
+  }
+
+  function handlePromote(itemId) {
+    const result = onPromoteStaple?.(itemId);
+    if (result?.item) onNotify(`נוסף לרשימה: ${result.item.name}`);
   }
 
   return (
@@ -388,7 +457,7 @@ export default function GroceryLists({
       )}
 
       <div className="px-4 mt-4 flex flex-col gap-5">
-        {activeItems.length === 0 ? (
+        {!hasContent ? (
           <div className="flex flex-col items-center justify-center text-center py-20 gap-3">
             <div className="w-16 h-16 rounded-full bg-white border border-stone-200 flex items-center justify-center">
               <ShoppingCart className="w-7 h-7 text-stone-400" />
@@ -397,26 +466,30 @@ export default function GroceryLists({
             <p className="text-stone-500 text-sm max-w-xs">הוסיפו מצרכים ממתכון או כתבו מוצר בשורה למטה</p>
           </div>
         ) : (
-          aisleGroups.map((group) => (
-            <section key={group.id}>
-              <div className="flex items-center gap-2 mb-2.5 px-0.5">
-                <h3 className="font-serif text-base text-stone-800">{group.label}</h3>
-                <span className="text-[11px] text-stone-400 tabular-nums">{group.items.length}</span>
-              </div>
-              <div className="flex flex-col gap-2.5">
-                {group.items.map((item) => (
-                  <GroceryItemRow
-                    key={item.id}
-                    item={item}
-                    onToggle={onToggleItem}
-                    onDelete={onDeleteItem}
-                    onSubstitute={(current, options) => setSubstitute({ item: current, options })}
-                    onEditQuantity={setQuantityItem}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
+          <>
+            {aisleGroups.map((group) => (
+              <section key={group.id}>
+                <div className="flex items-center gap-2 mb-2.5 px-0.5">
+                  <h3 className="font-serif text-base text-stone-800">{group.label}</h3>
+                  <span className="text-[11px] text-stone-400 tabular-nums">{group.items.length}</span>
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {group.items.map((item) => (
+                    <GroceryItemRow
+                      key={item.id}
+                      item={item}
+                      onToggle={onToggleItem}
+                      onDelete={handleDelete}
+                      onDemoteStaple={handleDemote}
+                      onSubstitute={(current, options) => setSubstitute({ item: current, options })}
+                      onEditQuantity={setQuantityItem}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+            <PantryStaplesDrawer items={pantryDrawerItems} onPromote={handlePromote} />
+          </>
         )}
       </div>
 
