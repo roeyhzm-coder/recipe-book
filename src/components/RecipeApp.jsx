@@ -37,9 +37,14 @@ const DEFAULT_CATEGORY_NAMES = [
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
 const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון', WEEKEND_CATEGORY];
+const PROTECTED_CATEGORY_NAMES = new Set(['הכל', ...PINNED_BY_DEFAULT]);
 const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'יחידה', 'חופן', 'קורט'];
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+
+function isProtectedCategory(name) {
+  return PROTECTED_CATEGORY_NAMES.has(String(name || ''));
+}
 
 function normalizeRating(value) {
   const rating = Number(value);
@@ -1462,7 +1467,7 @@ function Toast({ message }) {
 function ConfirmModal({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200 backdrop-blur-xl">
         <div className="flex items-start gap-3 mb-2">
           <div className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-200">
@@ -1682,110 +1687,155 @@ function CategoryPill({ label, active, onClick, small }) {
 }
 
 function CategoryModal({ open, categories, active, onSelect, onClose, onManage, manageMode }) {
+  const [pendingDelete, setPendingDelete] = useState(null);
+
+  useEffect(() => {
+    if (!open) setPendingDelete(null);
+  }, [open]);
+
   if (!open) return null;
   const visible = categories.filter((c) => !c.hidden);
   const all = manageMode ? categories : [{ id: 'all', name: 'הכל', pinned: false, hidden: false }, ...visible];
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
-        style={{ maxHeight: '80vh' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-serif text-xl text-stone-900">
-            {manageMode ? 'ניהול קטגוריות' : 'כל הקטגוריות'}
-          </h3>
-          <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
-            <X className="w-4 h-4 text-stone-500" />
-          </button>
-        </div>
-        {onManage && (
-          <button
-            type="button"
-            onClick={() => onManage(!manageMode)}
-            className="mb-4 text-xs text-amber-700 hover:text-amber-800"
-          >
-            {manageMode ? '← חזרה לבחירה' : 'ניהול: נעיצה, הסתרה וסידור'}
-          </button>
-        )}
+  function requestDelete(name) {
+    if (isProtectedCategory(name)) return;
+    setPendingDelete(name);
+  }
 
-        {manageMode ? (
-          <div className="flex flex-col gap-2">
-            {categories.map((c, index) => (
-              <div
-                key={c.id || c.name}
-                className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${
-                  c.hidden ? 'bg-stone-50 border-stone-100 opacity-60' : 'bg-stone-50 border-stone-200'
-                }`}
-              >
-                <GripVertical className="w-4 h-4 text-stone-300 shrink-0" />
-                <span className="flex-1 text-sm text-stone-800 truncate">{c.name}</span>
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  onClick={() => onManage('reorder', c.name, index - 1)}
-                  className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
-                  aria-label="הזז למעלה"
-                >
-                  <ChevronUp className="w-4 h-4 text-stone-600" />
-                </button>
-                <button
-                  type="button"
-                  disabled={index === categories.length - 1}
-                  onClick={() => onManage('reorder', c.name, index + 1)}
-                  className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
-                  aria-label="הזז למטה"
-                >
-                  <ChevronDown className="w-4 h-4 text-stone-600" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onManage('toggle-pin', c.name)}
-                  className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
-                    c.pinned ? 'bg-amber-100 border-amber-300 text-amber-800' : 'border-stone-200 text-stone-400'
-                  }`}
-                  aria-label={c.pinned ? 'בטל נעיצה' : 'נעץ'}
-                >
-                  <Pin className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onManage('toggle-hidden', c.name)}
-                  className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
-                    c.hidden ? 'bg-stone-200 border-stone-300 text-stone-600' : 'border-stone-200 text-stone-400'
-                  }`}
-                  aria-label={c.hidden ? 'הצג' : 'הסתר'}
-                >
-                  {c.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-            ))}
+  function confirmDelete() {
+    if (!pendingDelete || isProtectedCategory(pendingDelete)) {
+      setPendingDelete(null);
+      return;
+    }
+    onManage?.('delete', pendingDelete);
+    setPendingDelete(null);
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
+        onClick={onClose}
+      >
+        <div
+          className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
+          style={{ maxHeight: '80vh' }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-serif text-xl text-stone-900">
+              {manageMode ? 'ניהול קטגוריות' : 'כל הקטגוריות'}
+            </h3>
+            <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+              <X className="w-4 h-4 text-stone-500" />
+            </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {all.map((c) => {
-              const label = typeof c === 'string' ? c : c.name;
-              return (
-                <button
-                  key={label}
-                  onClick={() => { onSelect(label); onClose(); }}
-                  className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
-                    active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+          {onManage && (
+            <button
+              type="button"
+              onClick={() => onManage(!manageMode)}
+              className="mb-4 text-xs text-amber-700 hover:text-amber-800"
+            >
+              {manageMode ? '← חזרה לבחירה' : 'ניהול: נעיצה, הסתרה, סידור ומחיקה'}
+            </button>
+          )}
+
+          {manageMode ? (
+            <div className="flex flex-col gap-2">
+              {categories.map((c, index) => {
+                const protectedCategory = isProtectedCategory(c.name);
+                return (
+                  <div
+                    key={c.id || c.name}
+                    className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${
+                      c.hidden ? 'bg-stone-50 border-stone-100 opacity-60' : 'bg-stone-50 border-stone-200'
+                    }`}
+                  >
+                    <GripVertical className="w-4 h-4 text-stone-300 shrink-0" />
+                    <span className="flex-1 text-sm text-stone-800 truncate">{c.name}</span>
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      onClick={() => onManage('reorder', c.name, index - 1)}
+                      className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
+                      aria-label="הזז למעלה"
+                    >
+                      <ChevronUp className="w-4 h-4 text-stone-600" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === categories.length - 1}
+                      onClick={() => onManage('reorder', c.name, index + 1)}
+                      className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
+                      aria-label="הזז למטה"
+                    >
+                      <ChevronDown className="w-4 h-4 text-stone-600" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onManage('toggle-pin', c.name)}
+                      className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
+                        c.pinned ? 'bg-amber-100 border-amber-300 text-amber-800' : 'border-stone-200 text-stone-400'
+                      }`}
+                      aria-label={c.pinned ? 'בטל נעיצה' : 'נעץ'}
+                    >
+                      <Pin className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onManage('toggle-hidden', c.name)}
+                      className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
+                        c.hidden ? 'bg-stone-200 border-stone-300 text-stone-600' : 'border-stone-200 text-stone-400'
+                      }`}
+                      aria-label={c.hidden ? 'הצג' : 'הסתר'}
+                    >
+                      {c.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={protectedCategory}
+                      onClick={() => requestDelete(c.name)}
+                      className="min-h-9 min-w-9 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                      aria-label={protectedCategory ? 'קטגוריית מערכת — לא ניתן למחוק' : `מחק קטגוריה ${c.name}`}
+                      title={protectedCategory ? 'קטגוריית מערכת — לא ניתן למחוק' : 'מחק קטגוריה'}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {all.map((c) => {
+                const label = typeof c === 'string' ? c : c.name;
+                return (
+                  <button
+                    key={label}
+                    onClick={() => { onSelect(label); onClose(); }}
+                    className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
+                      active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <ConfirmModal
+        open={!!pendingDelete}
+        title="מחיקת קטגוריה"
+        message={`האם אתה בטוח שברצונך למחוק את הקטגוריה '${pendingDelete || ''}'?`}
+        confirmLabel="מחק"
+        danger
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDelete}
+      />
+    </>
   );
 }
 
@@ -3142,7 +3192,7 @@ export default function RecipeApp() {
   useEffect(() => {
     if (homeCategory === 'הכל') return;
     const match = categories.find((c) => c.name === homeCategory);
-    if (match?.hidden) setHomeCategory('הכל');
+    if (!match || match.hidden) setHomeCategory('הכל');
   }, [categories, homeCategory]);
 
   useEffect(() => {
@@ -3244,6 +3294,12 @@ export default function RecipeApp() {
   }
 
   function manageCategories(action, name, toIndex) {
+    if (action === 'delete') {
+      if (!name || isProtectedCategory(name)) return;
+      setCategories((current) => current.filter((c) => c.name !== name));
+      notify(`הקטגוריה "${name}" נמחקה`);
+      return;
+    }
     setCategories((current) => {
       if (action === 'toggle-pin') {
         return current.map((c) => (c.name === name ? { ...c, pinned: !c.pinned } : c));
