@@ -37,13 +37,12 @@ const DEFAULT_CATEGORY_NAMES = [
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
 const PINNED_BY_DEFAULT = ['ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'גלידות חלבון', WEEKEND_CATEGORY];
-const PROTECTED_CATEGORY_NAMES = new Set(['הכל', ...PINNED_BY_DEFAULT]);
 const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'יחידה', 'חופן', 'קורט'];
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 function isProtectedCategory(name) {
-  return PROTECTED_CATEGORY_NAMES.has(String(name || ''));
+  return String(name || '') === 'הכל';
 }
 
 function normalizeRating(value) {
@@ -1669,20 +1668,55 @@ function MacroBadge({ icon: Icon, value, label, unit = '' }) {
   );
 }
 
-function CategoryPill({ label, active, onClick, small }) {
+function CategoryPill({ label, active, onClick, onDelete, small }) {
+  const canDelete = typeof onDelete === 'function' && !isProtectedCategory(label);
   return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 rounded-full border transition whitespace-nowrap ${
-        small ? 'min-h-8 px-2.5 py-1 text-xs' : 'min-h-11 px-4 py-2 text-sm'
+    <div
+      className={`shrink-0 rounded-full border transition whitespace-nowrap inline-flex items-center ${
+        small ? 'min-h-8 text-xs' : 'min-h-11 text-sm'
       } ${
         active
           ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
           : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
       }`}
     >
-      {label}
-    </button>
+      <button
+        type="button"
+        onClick={onClick}
+        className={
+          canDelete
+            ? small
+              ? 'pl-2.5 pr-1 py-1'
+              : 'pl-4 pr-1.5 py-2'
+            : small
+              ? 'px-2.5 py-1'
+              : 'px-4 py-2'
+        }
+      >
+        {label}
+      </button>
+      {canDelete && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(label);
+          }}
+          className={`inline-flex items-center justify-center rounded-full mr-1.5 ${
+            small ? 'w-5 h-5 min-w-5' : 'w-6 h-6 min-w-6 min-h-6'
+          } ${
+            active
+              ? 'bg-amber-950/15 text-amber-950 hover:bg-amber-950/25'
+              : 'bg-stone-100 text-stone-500 hover:bg-rose-50 hover:text-rose-600'
+          }`}
+          aria-label={`מחק קטגוריה ${label}`}
+          title="מחק קטגוריה"
+        >
+          <X className={small ? 'w-3 h-3' : 'w-3.5 h-3.5'} strokeWidth={2.5} />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -1742,9 +1776,7 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
 
           {manageMode ? (
             <div className="flex flex-col gap-2">
-              {categories.map((c, index) => {
-                const protectedCategory = isProtectedCategory(c.name);
-                return (
+              {categories.map((c, index) => (
                   <div
                     key={c.id || c.name}
                     className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${
@@ -1793,32 +1825,54 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
                     </button>
                     <button
                       type="button"
-                      disabled={protectedCategory}
                       onClick={() => requestDelete(c.name)}
-                      className="min-h-9 min-w-9 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent"
-                      aria-label={protectedCategory ? 'קטגוריית מערכת — לא ניתן למחוק' : `מחק קטגוריה ${c.name}`}
-                      title={protectedCategory ? 'קטגוריית מערכת — לא ניתן למחוק' : 'מחק קטגוריה'}
+                      className="min-h-9 min-w-9 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50"
+                      aria-label={`מחק קטגוריה ${c.name}`}
+                      title="מחק קטגוריה"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                );
-              })}
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               {all.map((c) => {
                 const label = typeof c === 'string' ? c : c.name;
+                const canDelete = !isProtectedCategory(label);
                 return (
-                  <button
+                  <div
                     key={label}
-                    onClick={() => { onSelect(label); onClose(); }}
-                    className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
-                      active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
+                    className={`rounded-xl border min-h-11 flex items-center transition ${
+                      active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600'
                     }`}
                   >
-                    {label}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => { onSelect(label); onClose(); }}
+                      className={`flex-1 min-h-11 py-2.5 text-sm text-center ${canDelete ? 'pr-1 pl-3' : 'px-3'}`}
+                    >
+                      {label}
+                    </button>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          requestDelete(label);
+                        }}
+                        className={`min-h-9 min-w-9 mr-1.5 rounded-full flex items-center justify-center ${
+                          active === label
+                            ? 'bg-amber-950/15 text-amber-950'
+                            : 'bg-white text-stone-500 hover:bg-rose-50 hover:text-rose-600'
+                        }`}
+                        aria-label={`מחק קטגוריה ${label}`}
+                      >
+                        <X className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -1829,7 +1883,7 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
       <ConfirmModal
         open={!!pendingDelete}
         title="מחיקת קטגוריה"
-        message={`האם אתה בטוח שברצונך למחוק את הקטגוריה '${pendingDelete || ''}'?`}
+        message={`האם למחוק את הקטגוריה '${pendingDelete || ''}'?`}
         confirmLabel="מחק"
         danger
         onCancel={() => setPendingDelete(null)}
@@ -1976,6 +2030,7 @@ function HomeView({
   const [manageMode, setManageMode] = useState(false);
   const [showQuickCategory, setShowQuickCategory] = useState(false);
   const [quickCategoryName, setQuickCategoryName] = useState('');
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const pinnedNames = useMemo(
     () => categories.filter((c) => c.pinned && !c.hidden).map((c) => c.name),
@@ -2010,6 +2065,20 @@ function HomeView({
       return;
     }
     onManageCategories?.(action, name, toIndex);
+  }
+
+  function requestDeleteCategory(name) {
+    if (isProtectedCategory(name)) return;
+    setPendingDelete(name);
+  }
+
+  function confirmDeleteCategory() {
+    if (!pendingDelete || isProtectedCategory(pendingDelete)) {
+      setPendingDelete(null);
+      return;
+    }
+    onManageCategories?.('delete', pendingDelete);
+    setPendingDelete(null);
   }
 
   return (
@@ -2049,7 +2118,13 @@ function HomeView({
         <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
           <CategoryPill label="הכל" active={category === 'הכל'} onClick={() => onCategoryChange('הכל')} />
           {pinnedNames.map((c) => (
-            <CategoryPill key={c} label={c} active={category === c} onClick={() => onCategoryChange(c)} />
+            <CategoryPill
+              key={c}
+              label={c}
+              active={category === c}
+              onClick={() => onCategoryChange(c)}
+              onDelete={requestDeleteCategory}
+            />
           ))}
           <button
             onClick={() => { setManageMode(false); setShowCategoryModal(true); }}
@@ -2106,6 +2181,16 @@ function HomeView({
         onSelect={onCategoryChange}
         onManage={handleManage}
         onClose={() => { setShowCategoryModal(false); setManageMode(false); }}
+      />
+
+      <ConfirmModal
+        open={!!pendingDelete}
+        title="מחיקת קטגוריה"
+        message={`האם למחוק את הקטגוריה '${pendingDelete || ''}'?`}
+        confirmLabel="מחק"
+        danger
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={confirmDeleteCategory}
       />
 
       <div className="px-4 mt-5">
@@ -3297,6 +3382,7 @@ export default function RecipeApp() {
     if (action === 'delete') {
       if (!name || isProtectedCategory(name)) return;
       setCategories((current) => current.filter((c) => c.name !== name));
+      if (homeCategory === name) setHomeCategory('הכל');
       notify(`הקטגוריה "${name}" נמחקה`);
       return;
     }
