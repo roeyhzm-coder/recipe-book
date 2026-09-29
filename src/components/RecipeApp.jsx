@@ -5,8 +5,8 @@ import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
-  Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown, ChevronUp,
-  Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart, Pin, EyeOff, Eye, GripVertical
+  Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown,
+  Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart, Pin
 } from 'lucide-react';
 import { useGroceryLists } from '@/hooks/useGroceryLists';
 import BottomNav from '@/components/grocery/BottomNav';
@@ -1668,59 +1668,70 @@ function MacroBadge({ icon: Icon, value, label, unit = '' }) {
   );
 }
 
-function CategoryPill({ label, active, onClick, onDelete, small }) {
-  const canDelete = typeof onDelete === 'function' && !isProtectedCategory(label);
+function CategoryPill({ label, active, onClick, small }) {
   return (
-    <div
-      className={`shrink-0 rounded-full border transition whitespace-nowrap inline-flex items-center ${
-        small ? 'min-h-8 text-xs' : 'min-h-11 text-sm'
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 rounded-full border transition whitespace-nowrap ${
+        small ? 'min-h-8 px-2.5 py-1 text-xs' : 'min-h-11 px-4 py-2 text-sm'
       } ${
         active
           ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
           : 'bg-white border-stone-200 text-stone-600 hover:border-stone-300'
       }`}
     >
-      <button
-        type="button"
-        onClick={onClick}
-        className={
-          canDelete
-            ? small
-              ? 'pl-2.5 pr-1 py-1'
-              : 'pl-4 pr-1.5 py-2'
-            : small
-              ? 'px-2.5 py-1'
-              : 'px-4 py-2'
-        }
+      {label}
+    </button>
+  );
+}
+
+function CategoryModal({ open, categories, active, onSelect, onClose }) {
+  if (!open) return null;
+  const visible = categories.filter((c) => !c.hidden);
+  const all = [{ id: 'all', name: 'הכל', pinned: false, hidden: false }, ...visible];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
+        style={{ maxHeight: '80vh' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {label}
-      </button>
-      {canDelete && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onDelete(label);
-          }}
-          className={`inline-flex items-center justify-center rounded-full mr-1.5 ${
-            small ? 'w-5 h-5 min-w-5' : 'w-6 h-6 min-w-6 min-h-6'
-          } ${
-            active
-              ? 'bg-amber-950/15 text-amber-950 hover:bg-amber-950/25'
-              : 'bg-stone-100 text-stone-500 hover:bg-rose-50 hover:text-rose-600'
-          }`}
-          aria-label={`מחק קטגוריה ${label}`}
-          title="מחק קטגוריה"
-        >
-          <X className={small ? 'w-3 h-3' : 'w-3.5 h-3.5'} strokeWidth={2.5} />
-        </button>
-      )}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-serif text-xl text-stone-900">כל הקטגוריות</h3>
+          <button type="button" onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+            <X className="w-4 h-4 text-stone-500" />
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {all.map((c) => {
+            const label = typeof c === 'string' ? c : c.name;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { onSelect(label); onClose(); }}
+                className={`rounded-xl border min-h-11 py-2.5 px-3 text-sm text-center transition ${
+                  active === label
+                    ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
+                    : 'bg-stone-50 border-stone-200 text-stone-600 hover:border-stone-300'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
-function CategoryModal({ open, categories, active, onSelect, onClose, onManage, manageMode }) {
+function CategoryManageModal({ open, categories, onTogglePin, onDelete, onClose }) {
   const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
@@ -1728,8 +1739,11 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
   }, [open]);
 
   if (!open) return null;
-  const visible = categories.filter((c) => !c.hidden);
-  const all = manageMode ? categories : [{ id: 'all', name: 'הכל', pinned: false, hidden: false }, ...visible];
+
+  const rows = [
+    { id: 'all', name: 'הכל', pinned: true, locked: true },
+    ...categories.map((c) => ({ ...c, locked: false })),
+  ];
 
   function requestDelete(name) {
     if (isProtectedCategory(name)) return;
@@ -1741,7 +1755,7 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
       setPendingDelete(null);
       return;
     }
-    onManage?.('delete', pendingDelete);
+    onDelete?.(pendingDelete);
     setPendingDelete(null);
   }
 
@@ -1752,139 +1766,92 @@ function CategoryModal({ open, categories, active, onSelect, onClose, onManage, 
         onClick={onClose}
       >
         <div
-          className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
+          className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl overflow-y-auto border border-stone-200 backdrop-blur-xl"
           style={{ maxHeight: '80vh' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-serif text-xl text-stone-900">
-              {manageMode ? 'ניהול קטגוריות' : 'כל הקטגוריות'}
-            </h3>
-            <button onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-serif text-xl text-stone-900">ניהול קטגוריות</h3>
+            <button type="button" onClick={onClose} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center">
               <X className="w-4 h-4 text-stone-500" />
             </button>
           </div>
-          {onManage && (
-            <button
-              type="button"
-              onClick={() => onManage(!manageMode)}
-              className="mb-4 text-xs text-amber-700 hover:text-amber-800"
-            >
-              {manageMode ? '← חזרה לבחירה' : 'ניהול: נעיצה, הסתרה, סידור ומחיקה'}
-            </button>
-          )}
+          <p className="text-xs text-stone-500 mb-4 leading-relaxed">
+            נעץ קטגוריות להצגה בסרגל הבית, או מחק קטגוריה סופית מהמערכת. מתכונים לא נמחקים.
+          </p>
 
-          {manageMode ? (
-            <div className="flex flex-col gap-2">
-              {categories.map((c, index) => (
-                  <div
-                    key={c.id || c.name}
-                    className={`flex items-center gap-2 rounded-xl border px-2 py-2 ${
-                      c.hidden ? 'bg-stone-50 border-stone-100 opacity-60' : 'bg-stone-50 border-stone-200'
-                    }`}
-                  >
-                    <GripVertical className="w-4 h-4 text-stone-300 shrink-0" />
-                    <span className="flex-1 text-sm text-stone-800 truncate">{c.name}</span>
-                    <button
-                      type="button"
-                      disabled={index === 0}
-                      onClick={() => onManage('reorder', c.name, index - 1)}
-                      className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
-                      aria-label="הזז למעלה"
-                    >
-                      <ChevronUp className="w-4 h-4 text-stone-600" />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={index === categories.length - 1}
-                      onClick={() => onManage('reorder', c.name, index + 1)}
-                      className="min-h-9 min-w-9 rounded-lg border border-stone-200 flex items-center justify-center disabled:opacity-30"
-                      aria-label="הזז למטה"
-                    >
-                      <ChevronDown className="w-4 h-4 text-stone-600" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onManage('toggle-pin', c.name)}
-                      className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
-                        c.pinned ? 'bg-amber-100 border-amber-300 text-amber-800' : 'border-stone-200 text-stone-400'
-                      }`}
-                      aria-label={c.pinned ? 'בטל נעיצה' : 'נעץ'}
-                    >
-                      <Pin className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onManage('toggle-hidden', c.name)}
-                      className={`min-h-9 min-w-9 rounded-lg border flex items-center justify-center ${
-                        c.hidden ? 'bg-stone-200 border-stone-300 text-stone-600' : 'border-stone-200 text-stone-400'
-                      }`}
-                      aria-label={c.hidden ? 'הצג' : 'הסתר'}
-                    >
-                      {c.hidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => requestDelete(c.name)}
-                      className="min-h-9 min-w-9 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50"
-                      aria-label={`מחק קטגוריה ${c.name}`}
-                      title="מחק קטגוריה"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {all.map((c) => {
-                const label = typeof c === 'string' ? c : c.name;
-                const canDelete = !isProtectedCategory(label);
-                return (
-                  <div
-                    key={label}
-                    className={`rounded-xl border min-h-11 flex items-center transition ${
-                      active === label ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium' : 'bg-stone-50 border-stone-200 text-stone-600'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => { onSelect(label); onClose(); }}
-                      className={`flex-1 min-h-11 py-2.5 text-sm text-center ${canDelete ? 'pr-1 pl-3' : 'px-3'}`}
-                    >
-                      {label}
-                    </button>
-                    {canDelete && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          requestDelete(label);
-                        }}
-                        className={`min-h-9 min-w-9 mr-1.5 rounded-full flex items-center justify-center ${
-                          active === label
-                            ? 'bg-amber-950/15 text-amber-950'
-                            : 'bg-white text-stone-500 hover:bg-rose-50 hover:text-rose-600'
-                        }`}
-                        aria-label={`מחק קטגוריה ${label}`}
-                      >
-                        <X className="w-3.5 h-3.5" strokeWidth={2.5} />
-                      </button>
+          <div className="flex flex-col gap-2">
+            {rows.map((c) => {
+              const locked = c.locked || isProtectedCategory(c.name);
+              return (
+                <div
+                  key={c.id || c.name}
+                  className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                    locked ? 'bg-stone-50 border-stone-100' : 'bg-white border-stone-200'
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-stone-800 truncate font-medium">{c.name}</p>
+                    {locked ? (
+                      <p className="text-[11px] text-stone-400 mt-0.5">קטגוריה קבועה · תמיד בסרגל</p>
+                    ) : (
+                      <p className="text-[11px] text-stone-400 mt-0.5">
+                        {c.pinned ? 'מוצגת בסרגל הבית' : 'מוסתרת מסרגל הבית'}
+                      </p>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+
+                  {locked ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-stone-100 border border-stone-200 px-2.5 py-1 text-[11px] text-stone-500">
+                      <Pin className="w-3 h-3" />
+                      נעול
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!!c.pinned}
+                        onClick={() => onTogglePin?.(c.name)}
+                        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition ${
+                          c.pinned
+                            ? 'bg-amber-500 border-amber-500'
+                            : 'bg-stone-200 border-stone-300'
+                        }`}
+                        title={c.pinned ? 'הסר מסרגל הבית' : 'הצג בסרגל הבית'}
+                        aria-label={c.pinned ? `הסר את ${c.name} מסרגל הבית` : `הצג את ${c.name} בסרגל הבית`}
+                      >
+                        <span
+                          className={`inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-transform ${
+                            c.pinned ? '-translate-x-1' : 'translate-x-5'
+                          }`}
+                        >
+                          <Pin className={`w-3 h-3 ${c.pinned ? 'text-amber-700' : 'text-stone-400'}`} />
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => requestDelete(c.name)}
+                        className="min-h-9 min-w-9 rounded-lg border border-rose-200 flex items-center justify-center text-rose-600 hover:bg-rose-50"
+                        aria-label={`מחק סופית את הקטגוריה ${c.name}`}
+                        title="מחק סופית"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       <ConfirmModal
         open={!!pendingDelete}
         title="מחיקת קטגוריה"
-        message={`האם למחוק את הקטגוריה '${pendingDelete || ''}'?`}
-        confirmLabel="מחק"
+        message={`האם למחוק סופית את הקטגוריה '${pendingDelete || ''}' מהמערכת?`}
+        confirmLabel="מחק סופית"
         danger
         onCancel={() => setPendingDelete(null)}
         onConfirm={confirmDelete}
@@ -2027,10 +1994,9 @@ function HomeView({
   const [search, setSearch] = useState('');
   const [favOnly, setFavOnly] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [manageMode, setManageMode] = useState(false);
+  const [showManageModal, setShowManageModal] = useState(false);
   const [showQuickCategory, setShowQuickCategory] = useState(false);
   const [quickCategoryName, setQuickCategoryName] = useState('');
-  const [pendingDelete, setPendingDelete] = useState(null);
 
   const pinnedNames = useMemo(
     () => categories.filter((c) => c.pinned && !c.hidden).map((c) => c.name),
@@ -2057,28 +2023,6 @@ function HomeView({
     onCategoryChange(name);
     setQuickCategoryName('');
     setShowQuickCategory(false);
-  }
-
-  function handleManage(action, name, toIndex) {
-    if (action === true || action === false) {
-      setManageMode(action);
-      return;
-    }
-    onManageCategories?.(action, name, toIndex);
-  }
-
-  function requestDeleteCategory(name) {
-    if (isProtectedCategory(name)) return;
-    setPendingDelete(name);
-  }
-
-  function confirmDeleteCategory() {
-    if (!pendingDelete || isProtectedCategory(pendingDelete)) {
-      setPendingDelete(null);
-      return;
-    }
-    onManageCategories?.('delete', pendingDelete);
-    setPendingDelete(null);
   }
 
   return (
@@ -2118,16 +2062,11 @@ function HomeView({
         <div className="flex flex-wrap items-center gap-2.5 px-4 pb-4">
           <CategoryPill label="הכל" active={category === 'הכל'} onClick={() => onCategoryChange('הכל')} />
           {pinnedNames.map((c) => (
-            <CategoryPill
-              key={c}
-              label={c}
-              active={category === c}
-              onClick={() => onCategoryChange(c)}
-              onDelete={requestDeleteCategory}
-            />
+            <CategoryPill key={c} label={c} active={category === c} onClick={() => onCategoryChange(c)} />
           ))}
           <button
-            onClick={() => { setManageMode(false); setShowCategoryModal(true); }}
+            type="button"
+            onClick={() => setShowCategoryModal(true)}
             className={`shrink-0 rounded-full border transition whitespace-nowrap min-h-11 px-4 py-2 text-sm flex items-center gap-1.5 ${
               category !== 'הכל' && !pinnedNames.includes(category)
                 ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
@@ -2138,10 +2077,19 @@ function HomeView({
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
           <button
+            type="button"
             onClick={() => setShowQuickCategory(true)}
             className="shrink-0 rounded-full border border-amber-300 bg-amber-50 min-h-11 px-4 py-2 text-sm text-amber-800 flex items-center gap-1"
           >
             + קטגוריה
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowManageModal(true)}
+            className="shrink-0 rounded-full border border-stone-200 bg-white min-h-11 px-4 py-2 text-sm text-stone-700 flex items-center gap-1.5 hover:border-stone-300"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            ניהול
           </button>
         </div>
       </div>
@@ -2177,20 +2125,16 @@ function HomeView({
         open={showCategoryModal}
         categories={categories}
         active={category}
-        manageMode={manageMode}
         onSelect={onCategoryChange}
-        onManage={handleManage}
-        onClose={() => { setShowCategoryModal(false); setManageMode(false); }}
+        onClose={() => setShowCategoryModal(false)}
       />
 
-      <ConfirmModal
-        open={!!pendingDelete}
-        title="מחיקת קטגוריה"
-        message={`האם למחוק את הקטגוריה '${pendingDelete || ''}'?`}
-        confirmLabel="מחק"
-        danger
-        onCancel={() => setPendingDelete(null)}
-        onConfirm={confirmDeleteCategory}
+      <CategoryManageModal
+        open={showManageModal}
+        categories={categories}
+        onTogglePin={(name) => onManageCategories?.('toggle-pin', name)}
+        onDelete={(name) => onManageCategories?.('delete', name)}
+        onClose={() => setShowManageModal(false)}
       />
 
       <div className="px-4 mt-5">
