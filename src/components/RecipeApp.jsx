@@ -643,7 +643,7 @@ const DEMO_RECIPES = [
     id: 'snack-6',
     title: 'כדורי שוקולד חלבון עשירים',
     image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=800&q=80',
-    categories: ['חטיפי חלבון', 'קינוחים', 'מהיר להכנה', 'ללא אפייה', 'נשנושים', 'עתיר חלבון'],
+    categories: ['נשנושים', 'עתיר חלבון', 'חטיפי חלבון', 'קינוחים', 'מהיר להכנה', 'ללא אפייה'],
     equipment: ['משקל מזון', 'קערה', 'מקרר'],
     ingredients: [
       { id: 's6-1', amount: 60, unit: 'גרם', name: 'אבקת חלבון בטעם שוקולד (או וניל) – 2 סקופים', calories: 230, protein: 48, carbs: 4, fat: 2 },
@@ -1147,8 +1147,6 @@ const DEMO_RECIPES = [
   ...WEEKEND_RECIPES,
 ];
 
-const MERGED_SYSTEM_RECIPES = [...MEAL_PREP_RECIPES, ...SIDE_DISH_RECIPES, ...WEEKEND_RECIPES];
-
 function parseMinutes(value) {
   if (value === '' || value === null || value === undefined) return '';
   const n = Number(value);
@@ -1198,18 +1196,26 @@ function patchSystemRecipes(recipes) {
   return recipes.map((recipe) => {
     const system = byId.get(String(recipe.id));
     if (!system) return ensureRecipeTimes(recipe);
+    const existingCategories = Array.isArray(recipe.categories) ? recipe.categories : [];
+    const systemCategories = Array.isArray(system.categories) ? system.categories : [];
+    const categories = [...existingCategories];
+    for (const cat of systemCategories) {
+      if (!categories.includes(cat)) categories.push(cat);
+    }
     return ensureRecipeTimes({
       ...recipe,
       image: isGenericRecipeImage(recipe.image) ? system.image : recipe.image,
+      categories,
       prepTime: parseMinutes(recipe.prepTime) === '' ? system.prepTime : recipe.prepTime,
       cookTime: parseMinutes(recipe.cookTime) === '' ? system.cookTime : recipe.cookTime,
     });
   });
 }
 
+// Merge any DEMO_RECIPES entry that is not yet in the user's list (by id) into local/cloud state.
 function appendMissingSystemRecipes(recipes) {
   const existingIds = new Set(recipes.map((r) => String(r.id)));
-  const missing = MERGED_SYSTEM_RECIPES.filter((r) => !existingIds.has(String(r.id)));
+  const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id)));
   return patchSystemRecipes(missing.length ? [...recipes, ...missing] : recipes);
 }
 
