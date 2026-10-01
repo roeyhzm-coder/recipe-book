@@ -1221,6 +1221,12 @@ function isGenericRecipeImage(image) {
   return !value || value.includes('unsplash.com');
 }
 
+function isPantrySystemRecipe(recipe) {
+  return String(recipe?.id || '').startsWith('pantry-')
+    || recipe?.recipeType === 'ingredient'
+    || (Array.isArray(recipe?.categories) && recipe.categories.includes(PANTRY_CATEGORY));
+}
+
 function patchSystemRecipes(recipes) {
   const byId = new Map(DEMO_RECIPES.map((recipe) => [String(recipe.id), recipe]));
   return recipes.map((recipe) => {
@@ -1232,10 +1238,13 @@ function patchSystemRecipes(recipes) {
     for (const cat of existingCategories) {
       if (!categories.includes(cat)) categories.push(cat);
     }
+    const nextImage = (isPantrySystemRecipe(system) || isGenericRecipeImage(recipe.image))
+      ? (system.image || recipe.image)
+      : recipe.image;
     return ensureRecipeTimes({
       ...recipe,
       title: system.title,
-      image: isGenericRecipeImage(recipe.image) ? system.image : recipe.image,
+      image: nextImage,
       categories,
       equipment: Array.isArray(system.equipment) ? system.equipment : recipe.equipment,
       ingredients: Array.isArray(system.ingredients) ? system.ingredients : recipe.ingredients,
