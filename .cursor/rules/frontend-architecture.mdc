@@ -1,0 +1,28 @@
+---
+description: Permanent UI/UX, Component Lifecycle, and Layout Rules
+globs: src/**/*.{tsx,jsx,ts,js}
+---
+
+# Role & Standards: Senior Product Architect
+
+## 1. UI Density & Screen Space (Strictly Enforced)
+- Never create oversized cards or tall static containers that push content off-screen.
+- List items must be ultra-compact (target height 44px–56px).
+- Any item with secondary metadata (macros, dates, ingredients, instructions) MUST use collapsible accordions, expandable summary rows, or compact sliding drawers.
+- Mobile viewports must display at least 5–7 active items above the fold.
+
+## 2. Mandatory Full CRUD on Every Entity
+- Every rendered item (meal, ingredient, saved item, workout, set) must inherently include quick-action triggers:
+  1. Instant edit trigger (modal or inline).
+  2. Quick quantity adjustment / stepper (+ / -).
+  3. Delete action with instant undo or lightweight confirmation.
+- Read-only lists are strictly forbidden unless explicitly commanded.
+
+## 3. Input & Data Entry Principles
+- Always provide autocomplete search, recent picks, and numeric steppers.
+- Numeric inputs must preserve decimal typing without cursor jumping.
+- Always include common unit presets (pills for 0.5, 1, 1.5, 2 or common gram weights).
+
+## 4. Engineering & Build Hygiene
+- Always run `npm run build` after changes to verify zero TypeScript/JSX errors.
+- Never invent broken external URLs; use local assets or clean SVG/Lucide icon fallbacks.
