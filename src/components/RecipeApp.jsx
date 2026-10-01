@@ -1239,13 +1239,13 @@ function patchSystemRecipes(recipes) {
       if (!categories.includes(cat)) categories.push(cat);
     }
     const nextImage = isPantrySystemRecipe(system)
-      ? (system.image || system.imageUrl || recipe.image)
+      ? (system.image || system.imageUrl || '')
       : (isGenericRecipeImage(recipe.image) ? (system.image || recipe.image) : recipe.image);
     return ensureRecipeTimes({
       ...recipe,
       title: system.title,
       image: nextImage,
-      imageUrl: isPantrySystemRecipe(system) ? (system.imageUrl || system.image || nextImage) : (recipe.imageUrl || nextImage),
+      imageUrl: isPantrySystemRecipe(system) ? (system.imageUrl || system.image || '') : (recipe.imageUrl || nextImage),
       categories,
       equipment: Array.isArray(system.equipment) ? system.equipment : recipe.equipment,
       ingredients: Array.isArray(system.ingredients) ? system.ingredients : recipe.ingredients,
