@@ -1,3 +1,5 @@
+import { PANTRY_NAMES, pantryPortion } from '@/data/pantry-ingredients';
+
 export const WEEKEND_CATEGORY = 'אוכל סופ״ש';
 
 export const WEEKEND_RECIPES = [
@@ -8,19 +10,19 @@ export const WEEKEND_RECIPES = [
     categories: [WEEKEND_CATEGORY],
     equipment: ['סיר'],
     ingredients: [
-      { id: 'we1-1', amount: 55, unit: 'גרם', name: 'אורז לבן' },
+      { id: 'we1-1', amount: 55, unit: 'גרם', name: PANTRY_NAMES.riceDaawatDry, ...pantryPortion('riceDaawatDry', 55) },
       { id: 'we1-2', amount: 160, unit: 'מ"ל', name: 'מים' },
       { id: 'we1-3', amount: 0.25, unit: 'כפית', name: 'מלח' },
       { id: 'we1-4', amount: 0.5, unit: 'כפית', name: 'שמן זית' },
     ],
     steps: [
-      'אורז לבן רך ואוורירי מבושל בסגנון ביתי. מנה: כוס מבושלת, 150 גרם.',
+      'אורז בסמטי Daawat רך ואוורירי מבושל בסגנון ביתי. מנה: כוס מבושלת, 150 גרם.',
       'שטפו את האורז במים קרים 2–3 פעמים עד שהמים מתבהרים, וסננו היטב.',
       'הכניסו לסיר עם המים, המלח ושמן הזית. הביאו לרתיחה על אש גבוהה.',
       'הנמיכו לאש נמוכה, כסו, ובשלו 16–18 דקות עד שהמים נספגים והאורז רך.',
       'כבו את האש והניחו מכוסה 5 דקות. אווררו במזלג והגישו.',
     ],
-    macros: { calories: 200, protein: 4, carbs: 44, fat: 1 },
+    macros: { calories: 193, protein: 4.8, carbs: 42.9, fat: 1 },
     prepTime: 3,
     cookTime: 18,
     rating: 8.8,

@@ -28,12 +28,34 @@ function displayMacros(macros) {
   };
 }
 
+function normalizeServingUnits(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((unit) => unit && typeof unit === 'object')
+    .map((unit) => ({
+      label: String(unit.label || '').trim(),
+      amount: Number(unit.amount) || 0,
+      unit: String(unit.unit || '').trim(),
+      calories: unit.calories ?? '',
+      protein: unit.protein ?? '',
+      carbs: unit.carbs ?? '',
+      fat: unit.fat ?? '',
+    }))
+    .filter((unit) => unit.label && unit.amount > 0);
+}
+
 function persistMacros(recipe) {
   const macros = displayMacros(recipe.macros);
   const prepTime = parseStoredMinutes(recipe.prepTime);
   const cookTime = parseStoredMinutes(recipe.cookTime);
   if (prepTime !== '') macros.prepTime = prepTime;
   if (cookTime !== '') macros.cookTime = cookTime;
+  const servingUnits = normalizeServingUnits(recipe.servingUnits || recipe.macros?.servingUnits);
+  if (servingUnits.length) macros.servingUnits = servingUnits;
+  const nutritionBasis = recipe.nutritionBasis || recipe.macros?.nutritionBasis;
+  if (nutritionBasis) macros.nutritionBasis = nutritionBasis;
+  const recipeType = recipe.recipeType || recipe.macros?.recipeType;
+  if (recipeType) macros.recipeType = recipeType;
   return macros;
 }
 
@@ -48,6 +70,9 @@ function rowToRecipe(row) {
     ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
     steps: Array.isArray(row.steps) ? row.steps : [],
     macros: displayMacros(rawMacros),
+    servingUnits: normalizeServingUnits(rawMacros.servingUnits),
+    nutritionBasis: rawMacros.nutritionBasis || '',
+    recipeType: rawMacros.recipeType || '',
     prepTime: parseStoredMinutes(rawMacros.prepTime),
     cookTime: parseStoredMinutes(rawMacros.cookTime),
     rating: row.rating === null || row.rating === undefined ? '' : Number(row.rating),
