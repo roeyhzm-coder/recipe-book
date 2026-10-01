@@ -56,6 +56,8 @@ function persistMacros(recipe) {
   if (nutritionBasis) macros.nutritionBasis = nutritionBasis;
   const recipeType = recipe.recipeType || recipe.macros?.recipeType;
   if (recipeType) macros.recipeType = recipeType;
+  const imageUrl = recipe.imageUrl || recipe.image;
+  if (imageUrl) macros.imageUrl = imageUrl;
   return macros;
 }
 
@@ -64,7 +66,8 @@ function rowToRecipe(row) {
   return {
     id: row.id,
     title: row.title || "",
-    image: row.image || "",
+    image: row.image || rawMacros.imageUrl || "",
+    imageUrl: rawMacros.imageUrl || row.image || "",
     categories: Array.isArray(row.categories) ? row.categories : [],
     equipment: Array.isArray(row.equipment) ? row.equipment : [],
     ingredients: Array.isArray(row.ingredients) ? row.ingredients : [],
@@ -87,7 +90,7 @@ function recipeToRow(recipe) {
   const row = {
     id: String(recipe.id),
     title: recipe.title || "",
-    image: recipe.image || "",
+    image: recipe.image || recipe.imageUrl || "",
     categories: recipe.categories || [],
     equipment: recipe.equipment || [],
     ingredients: recipe.ingredients || [],

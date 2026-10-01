@@ -1238,13 +1238,14 @@ function patchSystemRecipes(recipes) {
     for (const cat of existingCategories) {
       if (!categories.includes(cat)) categories.push(cat);
     }
-    const nextImage = (isPantrySystemRecipe(system) || isGenericRecipeImage(recipe.image))
-      ? (system.image || recipe.image)
-      : recipe.image;
+    const nextImage = isPantrySystemRecipe(system)
+      ? (system.image || system.imageUrl || recipe.image)
+      : (isGenericRecipeImage(recipe.image) ? (system.image || recipe.image) : recipe.image);
     return ensureRecipeTimes({
       ...recipe,
       title: system.title,
       image: nextImage,
+      imageUrl: isPantrySystemRecipe(system) ? (system.imageUrl || system.image || nextImage) : (recipe.imageUrl || nextImage),
       categories,
       equipment: Array.isArray(system.equipment) ? system.equipment : recipe.equipment,
       ingredients: Array.isArray(system.ingredients) ? system.ingredients : recipe.ingredients,
@@ -1930,6 +1931,10 @@ function ratingBadgeClass(v) {
 
 function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
   const [imgError, setImgError] = useState(false);
+  const imageSrc = recipe.image || recipe.imageUrl || '';
+  useEffect(() => {
+    setImgError(false);
+  }, [imageSrc]);
   return (
     <div
       role="button"
@@ -1944,10 +1949,11 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
       className={`text-right cursor-pointer ${getRatingCardClass(recipe.rating)} rounded-2xl border border-stone-200 overflow-hidden flex flex-col active:scale-[0.98] transition-all duration-200 shadow-sm hover:shadow-md`}
     >
       <div className="relative bg-stone-100" style={{ aspectRatio: '4 / 3' }}>
-        {!imgError && recipe.image ? (
+        {!imgError && imageSrc ? (
           <img
-            src={recipe.image}
+            src={imageSrc}
             alt={recipe.title}
+            referrerPolicy="no-referrer"
             onError={() => setImgError(true)}
             className="w-full h-full object-cover"
           />
@@ -2380,8 +2386,9 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
 
       <div className="relative bg-stone-100" style={{ aspectRatio: '16 / 10' }}>
         <img
-          src={recipe.image}
+          src={recipe.image || recipe.imageUrl || ''}
           alt={recipe.title}
+          referrerPolicy="no-referrer"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
           className="w-full h-full object-cover"
         />
@@ -2620,6 +2627,7 @@ function emptyRecipeForm() {
     id: null,
     title: '',
     image: '',
+    imageUrl: '',
     categories: [],
     equipment: [],
     ingredients: [],
@@ -2734,7 +2742,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     compressImageFile(file).then((dataUrl) => {
-      if (dataUrl) update('image', dataUrl);
+      if (dataUrl) setForm((f) => ({ ...f, image: dataUrl, imageUrl: dataUrl }));
     });
   }
 
@@ -2744,6 +2752,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
+      image: form.image || form.imageUrl || '',
+      imageUrl: form.imageUrl || form.image || '',
       prepTime: parseMinutes(form.prepTime),
       cookTime: parseMinutes(form.cookTime),
       ingredients: form.ingredients.filter((i) => i.name.trim()),
@@ -2786,8 +2796,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
           <label className="text-sm text-stone-500 mb-2 block">תמונה</label>
           <div className="flex gap-2">
             <input
-              value={form.image}
-              onChange={(e) => update('image', e.target.value)}
+              value={form.image || form.imageUrl || ''}
+              onChange={(e) => setForm((f) => ({ ...f, image: e.target.value, imageUrl: e.target.value }))}
               placeholder="הדביקו כתובת URL של תמונה"
               className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
             />
@@ -2799,8 +2809,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
           </div>
-          {form.image && (
-            <img src={form.image} alt="תצוגה מקדימה" className="mt-3 w-full h-32 object-cover rounded-xl border border-stone-200" />
+          {(form.image || form.imageUrl) && (
+            <img src={form.image || form.imageUrl} alt="תצוגה מקדימה" referrerPolicy="no-referrer" className="mt-3 w-full h-32 object-cover rounded-xl border border-stone-200" />
           )}
         </div>
 
@@ -3065,23 +3075,28 @@ function SettingsView({
   const [snapshotToRestore, setSnapshotToRestore] = useState(null);
 
   function exportData() {
-    const exportRecipes = recipes.map((recipe) => ({
-      ...recipe,
-      servingUnits: Array.isArray(recipe.servingUnits) ? recipe.servingUnits : [],
-      nutritionBasis: recipe.nutritionBasis || recipe.macros?.nutritionBasis || '',
-      recipeType: recipe.recipeType || recipe.macros?.recipeType || '',
-      macros: {
-        calories: recipe.macros?.calories ?? '',
-        protein: recipe.macros?.protein ?? '',
-        carbs: recipe.macros?.carbs ?? '',
-        fat: recipe.macros?.fat ?? '',
-        ...(Array.isArray(recipe.servingUnits) && recipe.servingUnits.length
-          ? { servingUnits: recipe.servingUnits }
-          : {}),
-        ...(recipe.nutritionBasis ? { nutritionBasis: recipe.nutritionBasis } : {}),
-        ...(recipe.recipeType ? { recipeType: recipe.recipeType } : {}),
-      },
-    }));
+    const exportRecipes = recipes.map((recipe) => {
+      const image = recipe.image || recipe.imageUrl || '';
+      return {
+        ...recipe,
+        image,
+        imageUrl: recipe.imageUrl || image,
+        servingUnits: Array.isArray(recipe.servingUnits) ? recipe.servingUnits : [],
+        nutritionBasis: recipe.nutritionBasis || recipe.macros?.nutritionBasis || '',
+        recipeType: recipe.recipeType || recipe.macros?.recipeType || '',
+        macros: {
+          calories: recipe.macros?.calories ?? '',
+          protein: recipe.macros?.protein ?? '',
+          carbs: recipe.macros?.carbs ?? '',
+          fat: recipe.macros?.fat ?? '',
+          ...(Array.isArray(recipe.servingUnits) && recipe.servingUnits.length
+            ? { servingUnits: recipe.servingUnits }
+            : {}),
+          ...(recipe.nutritionBasis ? { nutritionBasis: recipe.nutritionBasis } : {}),
+          ...(recipe.recipeType ? { recipeType: recipe.recipeType } : {}),
+        },
+      };
+    });
     const blob = new Blob([JSON.stringify({ recipes: exportRecipes, categories }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -3282,6 +3297,7 @@ export default function RecipeApp() {
           return (
             prev.title !== r.title
             || prev.image !== r.image
+            || (prev.imageUrl || '') !== (r.imageUrl || '')
             || JSON.stringify(prev.ingredients) !== JSON.stringify(r.ingredients)
             || JSON.stringify(prev.macros) !== JSON.stringify(r.macros)
             || JSON.stringify(prev.steps) !== JSON.stringify(r.steps)
