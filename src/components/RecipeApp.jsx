@@ -4,7 +4,7 @@ import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
 import {
-  Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
+  Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
   Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown,
@@ -217,8 +217,11 @@ function ensureRecipeTimes(recipe) {
 }
 
 function asUserRecipe(recipe) {
+  const baseServings = servingsCount(recipe);
   const next = {
     ...ensureRecipeTimes(recipe),
+    baseServings,
+    title: titleWithServingMarker(recipe?.title, baseServings),
     deletedAt: null,
   };
   delete next.isDefault;
@@ -262,8 +265,35 @@ function formatSeconds(s) {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+const DECIMAL_INPUT_RE = /^[0-9]*[.,]?[0-9]*$/;
+
+function normalizeDecimalText(raw) {
+  return String(raw ?? '').replace(',', '.');
+}
+
+function parsePositiveDecimal(raw, fallback = 1) {
+  const n = Number(normalizeDecimalText(raw));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function servingsCount(recipe) {
+  const n = Number(recipe?.baseServings);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+function stripServingMarker(title) {
+  return String(title || '').replace(/\s*\*+\s*$/u, '').trim();
+}
+
+function titleWithServingMarker(title, servings) {
+  const base = stripServingMarker(title);
+  if (!base) return '';
+  return servingsCount({ baseServings: servings }) > 1 ? `${base} *` : base;
+}
+
 function scaleAmount(amount, multiplier) {
-  const v = Number(amount || 0) * multiplier;
+  const factor = Number(multiplier);
+  const v = Number(amount || 0) * (Number.isFinite(factor) && factor > 0 ? factor : 0);
   const rounded = Math.round(v * 100) / 100;
   return rounded % 1 === 0 ? String(rounded) : rounded.toFixed(rounded * 10 % 1 === 0 ? 1 : 2);
 }
@@ -1244,6 +1274,7 @@ function HomeView({
 function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddToGrocery }) {
   const [multiplier, setMultiplier] = useState(1);
   const [customOpen, setCustomOpen] = useState(false);
+  const [customInput, setCustomInput] = useState('1');
   const [checkedEquipment, setCheckedEquipment] = useState({});
   const [timers, setTimers] = useState({});
   const [wakeLockOn, setWakeLockOn] = useState(false);
@@ -1462,6 +1493,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
                       type="button"
                       onClick={() => {
                         setMultiplier(unitMultiplier);
+                        setCustomInput(String(unitMultiplier));
                         setCustomOpen(false);
                       }}
                       className={`min-h-11 rounded-full border px-3 py-1.5 text-xs transition ${
@@ -1497,16 +1529,26 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             {[1, 1.5, 2].map((p) => (
               <button
                 key={p}
-                onClick={() => { setMultiplier(p); setCustomOpen(false); }}
+                onClick={() => {
+                  setMultiplier(p);
+                  setCustomInput(String(p));
+                  setCustomOpen(false);
+                }}
                 className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${
-                  multiplier === p && !customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'
+                  !customOpen && Math.abs(multiplier - p) < 0.001 ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'
                 }`}
               >
                 {p}x
               </button>
             ))}
             <button
-              onClick={() => setCustomOpen((v) => !v)}
+              onClick={() => {
+                setCustomOpen((open) => {
+                  const next = !open;
+                  if (next) setCustomInput(String(multiplier));
+                  return next;
+                });
+              }}
               className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'}`}
             >
               מותאם
@@ -1517,11 +1559,19 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           <div className="mt-3 flex items-center gap-3 bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
             <span className="text-sm text-stone-500 shrink-0">מכפיל אישי:</span>
             <input
-              type="number"
-              min="0.25"
-              step="0.25"
-              value={multiplier}
-              onChange={(e) => setMultiplier(Math.max(0.25, parseFloat(e.target.value) || 1))}
+              type="text"
+              inputMode="decimal"
+              min="0.01"
+              step="any"
+              value={customInput}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
+                setCustomInput(raw);
+                if (raw === '' || raw === '.' || raw === ',') return;
+                const next = Number(normalizeDecimalText(raw));
+                if (Number.isFinite(next) && next > 0) setMultiplier(next);
+              }}
               className="w-24 min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center text-stone-900"
             />
           </div>
@@ -1654,6 +1704,8 @@ function emptyRecipeForm() {
 function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const [form, setForm] = useState(() => {
     const base = initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm();
+    base.title = stripServingMarker(base.title);
+    base.baseServings = servingsCount(base);
     if (base.nutritionBasis === 'serving' || base.macros?.nutritionBasis === 'serving') return base;
     return recalculateRecipe(base);
   });
@@ -1766,6 +1818,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
+      baseServings: servingsCount(form),
       image: form.image || form.imageUrl || '',
       imageUrl: form.imageUrl || form.image || '',
       prepTime: parseMinutes(form.prepTime),
@@ -1873,6 +1926,60 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             placeholder="לדוגמה: 8.5"
             className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
+        </div>
+
+        <div>
+          <label className="text-sm text-stone-500 mb-2 block">מספר מנות</label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => update('baseServings', Math.max(1, servingsCount(form) - 1))}
+              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
+              aria-label="הפחת מנה"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.baseServings}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
+                if (raw === '' || raw === '.' || raw === ',') {
+                  update('baseServings', raw);
+                  return;
+                }
+                const next = Number(normalizeDecimalText(raw));
+                if (Number.isFinite(next) && next > 0) update('baseServings', next);
+              }}
+              className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-center text-stone-900"
+            />
+            <button
+              type="button"
+              onClick={() => update('baseServings', servingsCount(form) + 1)}
+              className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
+              aria-label="הוסף מנה"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-2">
+            {[1, 2, 4, 6].map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => update('baseServings', value)}
+                className={`min-h-11 rounded-xl border text-sm transition ${
+                  Number(form.baseServings) === value
+                    ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
+                    : 'bg-white border-stone-200 text-stone-600'
+                }`}
+              >
+                {value}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>
@@ -2289,10 +2396,13 @@ export default function RecipeApp() {
           return remoteRecipe;
         });
         const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
-        const next = [...merged, ...localOnly];
+        const next = [...merged, ...localOnly].map(asUserRecipe);
         const toPersist = next.filter((recipe) => {
           const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
-          return !prev || Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
+          if (!prev) return true;
+          if (prev.title !== recipe.title) return true;
+          if (Number(prev.baseServings) !== Number(recipe.baseServings)) return true;
+          return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
         });
         if (toPersist.length) {
           try {

@@ -1,17 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Minus, Plus, ShoppingCart, X } from 'lucide-react';
 
-const QUICK_SERVINGS = [1, 2, 4, 6];
+const QUICK_SERVINGS = [0.25, 0.5, 1, 2, 4];
+const DECIMAL_INPUT_RE = /^[0-9]*[.,]?[0-9]*$/;
+
+function normalizeDecimalText(raw) {
+  return String(raw ?? '').replace(',', '.');
+}
+
+function parsePositiveDecimal(raw, fallback = 1) {
+  const n = Number(normalizeDecimalText(raw));
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 export default function AddToGroceryModal({ open, recipe, lists, defaultListId, onClose, onConfirm }) {
   const [listId, setListId] = useState(defaultListId || lists[0]?.id || '');
-  const [servings, setServings] = useState(1);
+  const [servingsInput, setServingsInput] = useState('1');
 
   useEffect(() => {
     if (!open) return;
     setListId(defaultListId || lists[0]?.id || '');
     const base = Number(recipe?.baseServings);
-    setServings(Number.isFinite(base) && base > 0 ? base : 1);
+    const next = Number.isFinite(base) && base > 0 ? base : 1;
+    setServingsInput(String(next));
   }, [open, defaultListId, lists, recipe]);
 
   if (!open || !recipe) return null;
@@ -20,9 +31,21 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
     ? recipe.ingredients.filter((item) => String(item?.name || '').trim()).length
     : 0;
   const baseServings = Number(recipe.baseServings) || 1;
+  const servings = parsePositiveDecimal(servingsInput, 1);
+
+  function setServingsValue(value) {
+    const next = Math.max(0.01, Math.min(24, Number(value) || 1));
+    setServingsInput(String(next));
+  }
 
   function bump(delta) {
-    setServings((current) => Math.max(1, Math.min(24, Number(current) + delta)));
+    setServingsValue(servings + delta);
+  }
+
+  function handleServingsInput(raw) {
+    const value = String(raw).trim();
+    if (value !== '' && !DECIMAL_INPUT_RE.test(value)) return;
+    setServingsInput(value);
   }
 
   return (
@@ -75,33 +98,41 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => bump(-1)}
+              onClick={() => bump(-0.25)}
               className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
               aria-label="הפחת מנה"
             >
               <Minus className="w-4 h-4" />
             </button>
-            <div className="text-center">
-              <p className="font-serif text-3xl text-stone-900 tabular-nums leading-none">{servings}</p>
+            <div className="text-center min-w-0 flex-1">
+              <input
+                type="text"
+                inputMode="decimal"
+                min="0.01"
+                step="any"
+                value={servingsInput}
+                onChange={(e) => handleServingsInput(e.target.value)}
+                className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 font-serif text-2xl text-stone-900 tabular-nums text-center"
+              />
               <p className="text-[11px] text-stone-400 mt-1">בסיס המתכון: {baseServings}</p>
             </div>
             <button
               type="button"
-              onClick={() => bump(1)}
+              onClick={() => bump(0.25)}
               className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-white border border-stone-200 flex items-center justify-center text-stone-700"
               aria-label="הוסף מנה"
             >
               <Plus className="w-4 h-4" />
             </button>
           </div>
-          <div className="grid grid-cols-4 gap-2 mt-3">
+          <div className="grid grid-cols-5 gap-2 mt-3">
             {QUICK_SERVINGS.map((value) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setServings(value)}
+                onClick={() => setServingsValue(value)}
                 className={`min-h-11 rounded-xl border text-sm transition ${
-                  servings === value
+                  Number(normalizeDecimalText(servingsInput)) === value
                     ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
                     : 'bg-white border-stone-200 text-stone-600'
                 }`}
@@ -114,7 +145,7 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
 
         <button
           type="button"
-          disabled={!listId || count === 0}
+          disabled={!listId || count === 0 || !(Number(normalizeDecimalText(servingsInput)) > 0)}
           onClick={() => onConfirm(listId, servings)}
           className="w-full min-h-11 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium disabled:opacity-40 hover:bg-amber-400 transition"
         >

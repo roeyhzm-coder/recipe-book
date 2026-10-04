@@ -826,7 +826,9 @@ export function demotePantryStaple(items, itemId) {
 export function addRecipeIngredientsToItems(items, listId, recipe, servings = 1) {
   const ingredients = Array.isArray(recipe?.ingredients) ? recipe.ingredients : [];
   const baseServings = Number(recipe?.baseServings) || 1;
-  const multiplier = Math.max(0.25, Number(servings) || 1) / Math.max(0.25, baseServings);
+  const requested = Number(servings);
+  const multiplier = Math.max(0.01, Number.isFinite(requested) && requested > 0 ? requested : 1)
+    / Math.max(0.01, baseServings);
   let next = items.slice();
   let added = 0;
   let merged = 0;
