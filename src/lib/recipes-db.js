@@ -118,10 +118,28 @@ export async function fetchRecipes() {
   return (data || []).map(rowToRecipe);
 }
 
+export function formatRecipesDbError(error) {
+  const message = error?.message || String(error || "שגיאה לא ידועה");
+  const code = error?.code ? ` (${error.code})` : "";
+  const details = error?.details ? ` — ${error.details}` : "";
+  const hint = error?.hint ? ` — ${error.hint}` : "";
+  return `${message}${code}${details}${hint}`;
+}
+
 export async function upsertRecipes(recipes) {
   if (!recipes.length) return;
   const { error } = await supabase.from("recipes").upsert(recipes.map(recipeToRow));
   if (error) throw error;
+}
+
+/** Seeds defaults only when the recipes table has zero rows. Never overwrites existing records. */
+export async function seedRecipesIfEmpty(recipes) {
+  if (!recipes.length) return false;
+  const { count, error } = await supabase.from("recipes").select("id", { count: "exact", head: true });
+  if (error) throw error;
+  if ((count ?? 0) > 0) return false;
+  await upsertRecipes(recipes);
+  return true;
 }
 
 function sameRecipe(a, b) {

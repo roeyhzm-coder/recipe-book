@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchRecipes, syncRecipes, upsertRecipes, isSoftDeleteSupported } from '@/lib/recipes-db';
+import { fetchRecipes, syncRecipes, upsertRecipes, seedRecipesIfEmpty, isSoftDeleteSupported, formatRecipesDbError } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
@@ -200,14 +200,13 @@ const DEMO_RECIPES = [
       { id: 'b1-3', amount: 50, unit: 'גרם', name: 'תותים קפואים / מנגו', calories: 20, protein: 0, carbs: 5, fat: 0 },
       { id: 'b1-4', amount: 15, unit: 'גרם', name: PANTRY_NAMES.pbBd, ...pantryPortion('pbBd', 15, { calories: 95, protein: 3.9 }) },
       { id: 'b1-5', amount: 40, unit: 'גרם', name: 'גרנולה ביתית', calories: 190, protein: 4, carbs: 27, fat: 7 },
-      { id: 'b1-6', amount: 200, unit: 'מ"ל', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 200, { calories: 30, protein: 1 }) },
     ],
     steps: [
-      `הכניסו לבלנדר ${PANTRY_NAMES.proteinMyprotein} (סקופ 25 גרם), בננה, תותים, כף ${PANTRY_NAMES.pbBd} ו-200 מ"ל ${PANTRY_NAMES.alproAlmond}.`,
+      `הכניסו לבלנדר ${PANTRY_NAMES.proteinMyprotein} (סקופ 25 גרם), בננה, תותים וכף ${PANTRY_NAMES.pbBd}.`,
       'טחנו במשך 60 שניות עד לקבלת מרקם סמיך וחלק.',
       'מזגו לקערה ופזרו 40 גרם גרנולה מעל.',
     ],
-    macros: { calories: 507, protein: 29.9, carbs: 54.2, fat: 19 },
+    macros: { calories: 477, protein: 28.9, carbs: 54.2, fat: 16.6 },
     rating: 9.5,
     baseServings: 1,
     favorite: true,
@@ -1216,56 +1215,55 @@ function totalRecipeMinutes(recipe) {
   return total > 0 ? total : null;
 }
 
-function isGenericRecipeImage(image) {
-  const value = String(image || '');
-  return !value || value.includes('unsplash.com');
-}
-
-function isPantrySystemRecipe(recipe) {
-  return String(recipe?.id || '').startsWith('pantry-')
-    || recipe?.recipeType === 'ingredient'
-    || (Array.isArray(recipe?.categories) && recipe.categories.includes(PANTRY_CATEGORY));
-}
-
-function patchSystemRecipes(recipes) {
-  const byId = new Map(DEMO_RECIPES.map((recipe) => [String(recipe.id), recipe]));
-  return recipes.map((recipe) => {
-    const system = byId.get(String(recipe.id));
-    if (!system) return ensureRecipeTimes(recipe);
-    const existingCategories = Array.isArray(recipe.categories) ? recipe.categories : [];
-    const systemCategories = Array.isArray(system.categories) ? system.categories : [];
-    const categories = [...systemCategories];
-    for (const cat of existingCategories) {
-      if (!categories.includes(cat)) categories.push(cat);
+function sumIngredientMacros(ingredients) {
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  let any = false;
+  for (const ing of ingredients || []) {
+    for (const key of Object.keys(totals)) {
+      const n = Number(ing?.[key]);
+      if (Number.isFinite(n)) {
+        totals[key] += n;
+        any = true;
+      }
     }
-    const nextImage = isPantrySystemRecipe(system)
-      ? (system.image || system.imageUrl || '')
-      : (isGenericRecipeImage(recipe.image) ? (system.image || recipe.image) : recipe.image);
-    return ensureRecipeTimes({
-      ...recipe,
-      title: system.title,
-      image: nextImage,
-      imageUrl: isPantrySystemRecipe(system) ? (system.imageUrl || system.image || '') : (recipe.imageUrl || nextImage),
-      categories,
-      equipment: Array.isArray(system.equipment) ? system.equipment : recipe.equipment,
-      ingredients: Array.isArray(system.ingredients) ? system.ingredients : recipe.ingredients,
-      steps: Array.isArray(system.steps) ? system.steps : recipe.steps,
-      macros: system.macros || recipe.macros,
-      servingUnits: Array.isArray(system.servingUnits) ? system.servingUnits : (recipe.servingUnits || []),
-      nutritionBasis: system.nutritionBasis || recipe.nutritionBasis || '',
-      recipeType: system.recipeType || recipe.recipeType || '',
-      baseServings: system.baseServings || recipe.baseServings,
-      prepTime: parseMinutes(system.prepTime) !== '' ? system.prepTime : recipe.prepTime,
-      cookTime: parseMinutes(system.cookTime) !== '' ? system.cookTime : recipe.cookTime,
-    });
-  });
+  }
+  if (!any) return null;
+  return {
+    calories: Math.round(totals.calories * 10) / 10,
+    protein: Math.round(totals.protein * 10) / 10,
+    carbs: Math.round(totals.carbs * 10) / 10,
+    fat: Math.round(totals.fat * 10) / 10,
+  };
 }
 
-// Merge any DEMO_RECIPES entry that is not yet in the user's list (by id) into local/cloud state.
-function appendMissingSystemRecipes(recipes) {
-  const existingIds = new Set(recipes.map((r) => String(r.id)));
-  const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id)));
-  return patchSystemRecipes(missing.length ? [...recipes, ...missing] : recipes);
+function applyMacrosFromIngredients(recipe) {
+  const totals = sumIngredientMacros(recipe.ingredients);
+  if (!totals) return recipe;
+  return { ...recipe, macros: { ...(recipe.macros || {}), ...totals } };
+}
+
+function isAcaiBowlRecipe(recipe) {
+  return String(recipe?.id || '') === 'breakfast-1' || recipe?.title === 'קערת אסאי וחלבון';
+}
+
+function isAlmondDrinkIngredient(ingredient) {
+  const name = String(ingredient?.name || '');
+  return name.includes('משקה שקדים') || /alpro/i.test(name);
+}
+
+function stripAlmondDrinkFromAcai(recipe) {
+  const ingredients = (recipe.ingredients || []).filter((ing) => !isAlmondDrinkIngredient(ing));
+  const steps = (recipe.steps || []).map((step) => String(step)
+    .replace(/\s*ו-?\s*200\s*מ["״]?ל\s*משקה שקדים[^.]*\.?/gi, '.')
+    .replace(/משקה שקדים Alpro[^.،,]*/gi, '')
+    .replace(/\s+\./g, '.')
+    .replace(/\.\./g, '.')
+    .trim());
+  return applyMacrosFromIngredients({ ...recipe, ingredients, steps });
+}
+
+function applyAcaiBowlFix(recipes) {
+  return recipes.map((recipe) => (isAcaiBowlRecipe(recipe) ? stripAlmondDrinkFromAcai(recipe) : recipe));
 }
 
 /* --------------------------------- helpers --------------------------------- */
@@ -1501,9 +1499,10 @@ function saveSafetySnapshot(reason, recipes) {
 
 function Toast({ message }) {
   if (!message) return null;
+  const error = /נכשל|שגיאה|RLS|error/i.test(message);
   return (
     <div className="fixed bottom-32 inset-x-0 flex justify-center z-50 px-4 pointer-events-none">
-      <div className="bg-stone-800 text-stone-900 text-sm px-5 py-3 rounded-full shadow-lg border border-stone-200 backdrop-blur-md max-w-xs text-center">
+      <div className={`${error ? 'bg-rose-700 text-white border-rose-800' : 'bg-stone-800 text-white border-stone-200'} text-sm px-5 py-3 rounded-full shadow-lg border backdrop-blur-md max-w-sm text-center`}>
         {message}
       </div>
     </div>
@@ -2651,10 +2650,11 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const [expandedIng, setExpandedIng] = useState({});
   const [showSmartImport, setShowSmartImport] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
 
   function applySmartImportDraft(draft) {
-    setForm((f) => ({
+    setForm((f) => applyMacrosFromIngredients({
       ...f,
       title: draft.title || f.title,
       equipment: draft.equipment.length ? draft.equipment : f.equipment,
@@ -2704,19 +2704,19 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   }
 
   function updateIngredient(id, field, value) {
-    setForm((f) => ({
+    setForm((f) => applyMacrosFromIngredients({
       ...f,
       ingredients: f.ingredients.map((ing) => (ing.id === id ? { ...ing, [field]: value } : ing)),
     }));
   }
 
   function removeIngredient(id) {
-    setForm((f) => ({ ...f, ingredients: f.ingredients.filter((ing) => ing.id !== id) }));
+    setForm((f) => applyMacrosFromIngredients({ ...f, ingredients: f.ingredients.filter((ing) => ing.id !== id) }));
   }
 
   function applyIngredientPaste() {
     if (!ingPaste.trim()) return;
-    setForm((f) => ({ ...f, ingredients: [...f.ingredients, ...parseIngredientsPaste(ingPaste)] }));
+    setForm((f) => applyMacrosFromIngredients({ ...f, ingredients: [...f.ingredients, ...parseIngredientsPaste(ingPaste)] }));
     setIngPaste('');
   }
 
@@ -2746,9 +2746,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     });
   }
 
-  function handleSubmit() {
-    if (!form.title.trim()) return;
-    const clean = {
+  async function handleSubmit() {
+    if (!form.title.trim() || saving) return;
+    const clean = applyMacrosFromIngredients({
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
@@ -2759,8 +2759,13 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       ingredients: form.ingredients.filter((i) => i.name.trim()),
       steps: form.steps.filter((s) => s.trim()),
       createdAt: form.createdAt || Date.now(),
-    };
-    onSave(clean);
+    });
+    setSaving(true);
+    try {
+      await onSave(clean);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -3044,10 +3049,10 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
         </button>
         <button
           onClick={handleSubmit}
-          disabled={!form.title.trim()}
+          disabled={!form.title.trim() || saving}
           className="flex-1 min-h-11 py-3 rounded-xl bg-amber-500 text-amber-950 font-medium disabled:opacity-40 hover:bg-amber-400 transition"
         >
-          שמירת מתכון
+          {saving ? 'שומר…' : 'שמירת מתכון'}
         </button>
       </div>
 
@@ -3288,34 +3293,48 @@ export default function RecipeApp() {
               const cached = localById.get(String(r.id));
               return cached && cached.deletedAt ? { ...r, deletedAt: cached.deletedAt } : r;
             });
-        let next = [...fromCloud, ...local.filter((r) => !remoteIds.has(String(r.id)))];
-        next = appendMissingSystemRecipes(next.length ? next : DEMO_RECIPES);
-        const remoteById = new Map(fromCloud.map((r) => [String(r.id), r]));
-        await upsertRecipes(next.filter((r) => {
-          const prev = remoteById.get(String(r.id));
-          if (!prev) return true;
-          return (
-            prev.title !== r.title
-            || prev.image !== r.image
-            || (prev.imageUrl || '') !== (r.imageUrl || '')
-            || JSON.stringify(prev.ingredients) !== JSON.stringify(r.ingredients)
-            || JSON.stringify(prev.macros) !== JSON.stringify(r.macros)
-            || JSON.stringify(prev.steps) !== JSON.stringify(r.steps)
-            || JSON.stringify(prev.servingUnits || []) !== JSON.stringify(r.servingUnits || [])
-            || JSON.stringify(prev.categories) !== JSON.stringify(r.categories)
-            || parseMinutes(prev.prepTime) === ''
-            || parseMinutes(prev.cookTime) === ''
-          );
-        }));
+        let next;
+        let persistError = null;
+        try {
+          if (!fromCloud.length && !local.length) {
+            const seeded = DEMO_RECIPES.map(ensureRecipeTimes);
+            await seedRecipesIfEmpty(seeded);
+            next = applyAcaiBowlFix(seeded);
+          } else if (!fromCloud.length) {
+            next = applyAcaiBowlFix(local.map(ensureRecipeTimes));
+            await upsertRecipes(next);
+          } else {
+            const remoteById = new Map(fromCloud.map((r) => [String(r.id), r]));
+            const localOnly = local.filter((r) => !remoteIds.has(String(r.id))).map(ensureRecipeTimes);
+            next = applyAcaiBowlFix([...fromCloud.map(ensureRecipeTimes), ...localOnly]);
+            const toPersist = [...localOnly];
+            for (const recipe of next) {
+              if (!isAcaiBowlRecipe(recipe)) continue;
+              const prev = remoteById.get(String(recipe.id));
+              if (!prev || JSON.stringify(prev.ingredients) !== JSON.stringify(recipe.ingredients)
+                || JSON.stringify(prev.macros) !== JSON.stringify(recipe.macros)) {
+                toPersist.push(recipe);
+              }
+            }
+            if (toPersist.length) await upsertRecipes(toPersist);
+          }
+        } catch (writeError) {
+          persistError = writeError;
+          if (!next) next = applyAcaiBowlFix((fromCloud.length ? fromCloud : local).map(ensureRecipeTimes));
+        }
         if (cancelled) return;
         lastSyncedRef.current = next;
         setRecipes(next);
         setSyncMode('cloud');
+        if (persistError) {
+          setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(persistError)}`);
+        }
       } catch (e) {
         if (cancelled) return;
-        setRecipes(appendMissingSystemRecipes(local.length ? local : DEMO_RECIPES));
+        const fallback = applyAcaiBowlFix((local.length ? local : DEMO_RECIPES).map(ensureRecipeTimes));
+        setRecipes(fallback);
         setSyncMode('offline');
-        setToast('אין חיבור לענן — השינויים יישמרו במכשיר בלבד');
+        setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
       }
     })();
     return () => {
@@ -3329,8 +3348,8 @@ export default function RecipeApp() {
     if (syncMode !== 'cloud' || !recipes.length) return;
     const previous = lastSyncedRef.current;
     lastSyncedRef.current = recipes;
-    syncRecipes(previous, recipes).catch(() => {
-      setToast('שמירה בענן נכשלה, נסו שוב');
+    syncRecipes(previous, recipes).catch((error) => {
+      setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(error)}`);
     });
   }, [recipes, syncMode]);
 
@@ -3344,7 +3363,7 @@ export default function RecipeApp() {
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(''), 2200);
+    const t = setTimeout(() => setToast(''), /נכשל|שגיאה|RLS|error/i.test(toast) ? 7000 : 2200);
     return () => clearTimeout(t);
   }, [toast]);
 
@@ -3371,20 +3390,40 @@ export default function RecipeApp() {
     setView('form');
   }
 
-  function saveRecipe(recipe) {
-    setRecipes((rs) => {
-      const exists = rs.some((r) => r.id === recipe.id);
-      return exists ? rs.map((r) => (r.id === recipe.id ? recipe : r)) : [recipe, ...rs];
-    });
-    setSelectedId(recipe.id);
-    notify('המתכון נשמר בהצלחה');
-    setView('detail');
+  async function saveRecipe(recipe) {
+    const nextRecipe = applyMacrosFromIngredients(ensureRecipeTimes(recipe));
+    try {
+      if (syncMode === 'cloud') {
+        await upsertRecipes([nextRecipe]);
+        lastSyncedRef.current = mergeRecipesById(lastSyncedRef.current, [nextRecipe]);
+      }
+      setRecipes((rs) => {
+        const exists = rs.some((r) => r.id === nextRecipe.id);
+        return exists ? rs.map((r) => (r.id === nextRecipe.id ? nextRecipe : r)) : [nextRecipe, ...rs];
+      });
+      setSelectedId(nextRecipe.id);
+      notify('המתכון נשמר בהצלחה');
+      setView('detail');
+    } catch (error) {
+      notify(`שמירת המתכון נכשלה: ${formatRecipesDbError(error)}`);
+    }
   }
 
-  function deleteRecipe(id) {
-    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, deletedAt: Date.now() } : r)));
-    notify('המתכון הועבר לסל המחזור');
-    setView('home');
+  async function deleteRecipe(id) {
+    const target = recipes.find((r) => r.id === id);
+    if (!target) return;
+    const nextRecipe = { ...target, deletedAt: Date.now() };
+    try {
+      if (syncMode === 'cloud') {
+        await upsertRecipes([nextRecipe]);
+        lastSyncedRef.current = mergeRecipesById(lastSyncedRef.current, [nextRecipe]);
+      }
+      setRecipes((rs) => rs.map((r) => (r.id === id ? nextRecipe : r)));
+      notify('המתכון הועבר לסל המחזור');
+      setView('home');
+    } catch (error) {
+      notify(`מחיקת המתכון נכשלה: ${formatRecipesDbError(error)}`);
+    }
   }
 
   function restoreRecipe(id) {
