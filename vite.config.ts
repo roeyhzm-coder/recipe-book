@@ -8,6 +8,11 @@ import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 800,
+    },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
@@ -16,9 +21,9 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: false,
       includeAssets: ["favicon.ico", "favicon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
-      outDir: ".output/public",
+      outDir: process.env.VERCEL ? ".vercel/output/static" : ".output/public",
       workbox: {
         cacheId: "mitbach-recipes-v3",
         skipWaiting: true,

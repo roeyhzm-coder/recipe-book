@@ -84,7 +84,7 @@ export type ExtractRecipeResult =
   | { ok: false; error: string };
 
 export const extractRecipe = createServerFn({ method: "POST" })
-  .inputValidator((data: { text?: string; imageBase64?: string; imageMime?: string }) => {
+  .validator((data: { text?: string; imageBase64?: string; imageMime?: string }) => {
     const text = typeof data?.text === "string" ? data.text : "";
     const imageBase64 = typeof data?.imageBase64 === "string" ? data.imageBase64 : "";
     const imageMime = typeof data?.imageMime === "string" ? data.imageMime : "image/jpeg";
