@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchRecipes, syncRecipes, upsertRecipes, seedRecipesIfEmpty, isSoftDeleteSupported, formatRecipesDbError } from '@/lib/recipes-db';
+import { fetchRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRecipesDbError } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
-import { ACAI_BOWL_RECIPE, applyCanonicalAcaiBowl, isAcaiBowlRecipe } from '@/data/acai-bowl';
 import { registerPwaUpdates } from '@/lib/pwa-register';
-import { recalculateRecipe, batchRecalculateRecipes, recipesNeedMacroUpdate } from '@/lib/ingredient-macros';
+import { recalculateRecipe } from '@/lib/ingredient-macros';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
@@ -15,19 +14,13 @@ import { useGroceryLists } from '@/hooks/useGroceryLists';
 import BottomNav from '@/components/grocery/BottomNav';
 import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
-import { MEAL_PREP_RECIPES } from '@/data/meal-prep-recipes';
-import { SIDE_DISH_RECIPES } from '@/data/side-dishes';
-import { WEEKEND_CATEGORY, WEEKEND_RECIPES } from '@/data/weekend-recipes';
-import {
-  PANTRY_CATEGORY,
-  PANTRY_INGREDIENT_RECIPES,
-  PANTRY_NAMES,
-  pantryPortion,
-} from '@/data/pantry-ingredients';
+import { WEEKEND_CATEGORY } from '@/data/weekend-recipes';
+import { PANTRY_CATEGORY } from '@/data/pantry-ingredients';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
 const STORAGE_KEY = 'mitbach_recipes_v1';
+const DELETED_IDS_KEY = 'mitbach_deleted_recipe_ids_v1';
 const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 const MERGED_CATEGORIES_STORAGE_KEY = 'mitbach_merged_categories_v1';
 const HOME_CATEGORY_STORAGE_KEY = 'mitbach_home_category_v1';
@@ -190,971 +183,6 @@ function makeIngredient(amount, unit, name, calories = '', protein = '', carbs =
   return { id: uid(), amount, unit, name, calories, protein, carbs, fat };
 }
 
-const DEMO_RECIPES = [
-  { ...ACAI_BOWL_RECIPE },
-  {
-    id: 'breakfast-2',
-    title: "קערת יוגורט וגרנולה קראנצ'ית",
-    image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 'b2-1', amount: 200, unit: 'גרם', name: "גביע יוגורט PRO (20ג' חלבון)", calories: 120, protein: 20, carbs: 8, fat: 0 },
-      { id: 'b2-2', amount: 100, unit: 'גרם', name: 'בננה פרוסה', calories: 90, protein: 1, carbs: 23, fat: 0 },
-      { id: 'b2-3', amount: 40, unit: 'גרם', name: 'גרנולה ביתית', calories: 190, protein: 4, carbs: 27, fat: 7 },
-      { id: 'b2-4', amount: 10, unit: 'גרם', name: 'סילאן או דבש', calories: 30, protein: 0, carbs: 8, fat: 0 },
-      { id: 'b2-5', amount: 10, unit: 'גרם', name: 'אגוזי מלך / שקדים', calories: 65, protein: 2, carbs: 1, fat: 6 },
-    ],
-    steps: [
-      'רוקנו את גביע היוגורט לקערה.',
-      'פרסו בננה שלמה מעל היוגורט.',
-      'הוסיפו את הגרנולה והאגוזים, וזלפו כפית סילאן מעל.',
-    ],
-    macros: { calories: 495, protein: 27, carbs: 67, fat: 13 },
-    rating: 9.0,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190001000,
-  },
-  {
-    id: 'breakfast-3',
-    title: 'שיבולת שועל קרה (Overnight Oats)',
-    image: 'https://images.unsplash.com/photo-1517673132405-a56a62b18caf?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת בוקר', 'Meal Prep', 'עתיר חלבון'],
-    equipment: ['משקל מזון', 'מקרר'],
-    ingredients: [
-      { id: 'b3-1', amount: 50, unit: 'גרם', name: PANTRY_NAMES.oatsQuaker, ...pantryPortion('oatsQuaker', 50) },
-      { id: 'b3-2', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'b3-3', amount: 150, unit: 'מ"ל', name: 'חלב 3%', calories: 90, protein: 5, carbs: 7, fat: 5 },
-      { id: 'b3-4', amount: 15, unit: 'גרם', name: 'סילאן או דבש', calories: 45, protein: 0, carbs: 11, fat: 0 },
-      { id: 'b3-5', amount: 50, unit: 'גרם', name: 'פירות יער / תותים', calories: 25, protein: 0, carbs: 6, fat: 0 },
-    ],
-    steps: [
-      `ערבבו בצנצנת זכוכית את ${PANTRY_NAMES.oatsQuaker}, ${PANTRY_NAMES.proteinMyprotein}, החלב והסילאן עד לאיחוד.`,
-      'הכניסו למקרר ל-6 שעות לפחות או למשך הלילה.',
-      'בבוקר הוציאו מהמקרר, פזרו פירות יער מעל ואכלו ישירות מהצנצנת.',
-    ],
-    macros: { calories: 449, protein: 30.5, carbs: 60.4, fat: 10.8 },
-    rating: 8.8,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190002000,
-  },
-  {
-    id: 'breakfast-4',
-    title: 'טוסט חמאת בוטנים ובננה לצד שייק חלבון',
-    image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת בוקר', 'מהיר להכנה'],
-    equipment: ['טוסטר', 'משקל מזון', 'שייקר'],
-    ingredients: [
-      { id: 'b4-1', amount: 70, unit: 'גרם', name: `2 פרוסות ${PANTRY_NAMES.breadAngel}`, ...pantryPortion('breadAngel', 70, { calories: 158, protein: 7.8 }) },
-      { id: 'b4-2', amount: 15, unit: 'גרם', name: PANTRY_NAMES.pbBd, ...pantryPortion('pbBd', 15, { calories: 95, protein: 3.9 }) },
-      { id: 'b4-3', amount: 100, unit: 'גרם', name: 'בננה פרוסה', calories: 90, protein: 1, carbs: 23, fat: 0 },
-      { id: 'b4-4', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'b4-5', amount: 200, unit: 'מ"ל', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 200, { calories: 30, protein: 1 }) },
-    ],
-    steps: [
-      `קלו 2 פרוסות ${PANTRY_NAMES.breadAngel} בטוסטר עד להזהבה פריכה.`,
-      `מרחו כף ${PANTRY_NAMES.pbBd} על הפרוסות החמות וסדרו פרוסות בננה מעל (אפשר לפזר מעט קינמון).`,
-      `שקשקו בשייקר סקופ ${PANTRY_NAMES.proteinMyprotein} עם 200 מ"ל ${PANTRY_NAMES.alproAlmond} ושתו לצד הטוסט.`,
-    ],
-    macros: { calories: 475, protein: 33.7, carbs: 52.8, fat: 13.7 },
-    rating: 8.7,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190003000,
-  },
-  {
-    id: 'breakfast-5',
-    title: 'דייסת שיבולת שועל חמה במיקרוגל',
-    image: 'https://images.unsplash.com/photo-1584776296944-ab6fb57b0bdd?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 'b5-1', amount: 60, unit: 'גרם', name: PANTRY_NAMES.oatsQuaker, ...pantryPortion('oatsQuaker', 60) },
-      { id: 'b5-2', amount: 150, unit: 'מ"ל', name: 'חלב 3%', calories: 90, protein: 5, carbs: 7, fat: 5 },
-      { id: 'b5-3', amount: 100, unit: 'מ"ל', name: 'מים', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 'b5-4', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'b5-5', amount: 80, unit: 'גרם', name: 'בננה פרוסה', calories: 70, protein: 1, carbs: 18, fat: 0 },
-    ],
-    steps: [
-      `ערבבו בקערה עמוקה ${PANTRY_NAMES.oatsQuaker}, חלב ומים.`,
-      'חממו במיקרוגל במשך 2 דקות עד שהדייסה מסמיכה ורותחת.',
-      `המתינו דקה אחת לצינון קל, ערבבו פנימה סקופ ${PANTRY_NAMES.proteinMyprotein} והניחו פרוסות בננה מעל.`,
-    ],
-    macros: { calories: 486, protein: 33.6, carbs: 68.3, fat: 11.6 },
-    rating: 8.9,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190004000,
-  },
-  {
-    id: 'lunch-1',
-    title: "חזה עוף עסיסי בנינג'ה גריל ואורז",
-    image: 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
-    equipment: ["נינג'ה גריל", 'משקל מזון'],
-    ingredients: [
-      { id: 'l1-1', amount: 200, unit: 'גרם', name: 'חזה עוף נקי', calories: 220, protein: 46, carbs: 0, fat: 4 },
-      { id: 'l1-2', amount: 200, unit: 'גרם', name: PANTRY_NAMES.riceDaawatCooked, ...pantryPortion('riceDaawatCooked', 200) },
-      { id: 'l1-3', amount: 10, unit: 'גרם', name: 'שמן זית (כף שטוחה)', calories: 90, protein: 0, carbs: 0, fat: 10 },
-      { id: 'l1-4', amount: 1, unit: 'כפית', name: 'פפריקה מתוקה, מלח ושום גבישי', calories: 10, protein: 0, carbs: 2, fat: 0 },
-    ],
-    steps: [
-      "חממו מראש את הנינג'ה גריל במצב Grill על עוצמת Max במשך 5 דקות.",
-      'צפו את חזה העוף בשמן זית, פפריקה, שום גבישי ומלח.',
-      'הניחו על פלטת הגריל ובשלו 10 דקות, הפכו לצד השני ובשלו עוד 4 דקות עד למידת עשייה מושלמת.',
-      'הגישו לצד 200 גרם אורז בסמטי Daawat חם.',
-    ],
-    macros: { calories: 566, protein: 51.6, carbs: 56, fat: 14 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190005000,
-  },
-  {
-    id: 'lunch-2',
-    title: 'פרגיות באייר פרייר עם תפוחי אדמה קריספיים',
-    image: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי'],
-    equipment: ['איירפרייר', 'משקל מזון'],
-    ingredients: [
-      { id: 'l2-1', amount: 200, unit: 'גרם', name: 'סטייק פרגית נקי משומן', calories: 260, protein: 42, carbs: 0, fat: 10 },
-      { id: 'l2-2', amount: 250, unit: 'גרם', name: 'תפוח אדמה חתוך לקוביות', calories: 190, protein: 5, carbs: 43, fat: 0 },
-      { id: 'l2-3', amount: 10, unit: 'גרם', name: 'שמן זית לתיבול', calories: 90, protein: 0, carbs: 0, fat: 10 },
-      { id: 'l2-4', amount: 1, unit: 'כפית', name: 'תבלין גריל עוף, מלח ורוזמרין', calories: 10, protein: 0, carbs: 2, fat: 0 },
-    ],
-    steps: [
-      'ערבבו את קוביות תפוחי האדמה והפרגיות בקערה עם שמן זית ותבלינים.',
-      'חממו את האייר פרייר ל-200 מעלות.',
-      'הכניסו לסלסלה ובשלו במשך 18 דקות, תוך ניעור של הסלסלה באמצע ההכנה לקבלת מעטפת פריכה.',
-    ],
-    macros: { calories: 550, protein: 47, carbs: 45, fat: 20 },
-    rating: 9.3,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190006000,
-  },
-  {
-    id: 'lunch-3',
-    title: 'פסטה בולונז בקר קלאסית (Meal Prep)',
-    image: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281024?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
-    equipment: ['סיר', 'מחבת', 'משקל מזון'],
-    ingredients: [
-      { id: 'l3-1', amount: 180, unit: 'גרם', name: 'בשר בקר טחון רזה (עד 5% שומן)', calories: 240, protein: 40, carbs: 0, fat: 8 },
-      { id: 'l3-2', amount: 80, unit: 'גרם', name: `${PANTRY_NAMES.pastaBarilla} (יבשה)`, ...pantryPortion('pastaBarilla', 80) },
-      { id: 'l3-3', amount: 120, unit: 'גרם', name: PANTRY_NAMES.pomodoroYm, ...pantryPortion('pomodoroYm', 120) },
-      { id: 'l3-4', amount: 5, unit: 'גרם', name: 'שמן זית לצריבה', calories: 45, protein: 0, carbs: 0, fat: 5 },
-    ],
-    steps: [
-      'בשלו את הפסטה בסיר מים רותחים ומומלחים במשך 9 דקות.',
-      'צרבו את הבשר הטחון במחבת חמה עם מעט שמן זית, מלח, פלפל ואורגנו במשך 7 דקות עד להשחמה.',
-      'הוסיפו את רוטב העגבניות למחבת ובשלו על אש נמוכה עוד 5 דקות.',
-      'ערבבו את הפסטה יחד עם הרוטב וחלקו לקופסאות אחסון.',
-    ],
-    macros: { calories: 620, protein: 52.6, carbs: 64.6, fat: 14.6 },
-    rating: 9.1,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190007000,
-  },
-  {
-    id: 'lunch-4',
-    title: "שניצל קראנצ'י באייר פרייר ופירה",
-    image: 'https://images.unsplash.com/photo-1599921841143-8190e5a557aa?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'מהיר להכנה'],
-    equipment: ['איירפרייר', 'משקל מזון'],
-    ingredients: [
-      { id: 'l4-1', amount: 200, unit: 'גרם', name: 'חזה עוף דק לשניצל', calories: 220, protein: 46, carbs: 0, fat: 4 },
-      { id: 'l4-2', amount: 30, unit: 'גרם', name: 'פירורי לחם מוזהבים / פנקו', calories: 110, protein: 3, carbs: 22, fat: 1 },
-      { id: 'l4-3', amount: 5, unit: 'גרם', name: 'ספריי שמן זית לריסוס', calories: 45, protein: 0, carbs: 0, fat: 5 },
-      { id: 'l4-4', amount: 250, unit: 'גרם', name: 'פירה תפוחי אדמה ביתי', calories: 210, protein: 4, carbs: 40, fat: 4 },
-    ],
-    steps: [
-      'טבלו את חזה העוף בתערובת תבלינים ומעט שום, וצפו היטב בפירורי הלחם.',
-      'רססו קלות בספריי שמן זית משני הצדדים.',
-      "הכניסו לאייר פרייר בחום של 190 מעלות למשך 12 דקות, והפכו באמצע לקבלת קראנץ' מקסימלי.",
-      'הגישו מיד לצד פירה תפוחי אדמה חם.',
-    ],
-    macros: { calories: 585, protein: 53, carbs: 62, fat: 14 },
-    rating: 9.2,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190008000,
-  },
-  {
-    id: 'lunch-5',
-    title: "שווארמה הודו נקבה בנינג'ה עם פיתה וטחינה",
-    image: 'https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת צהריים', 'עתיר חלבון', 'בשרי', 'Meal Prep'],
-    equipment: ["נינג'ה גריל", 'משקל מזון'],
-    ingredients: [
-      { id: 'l5-1', amount: 200, unit: 'גרם', name: 'שווארמה הודו נקבה (רצועות)', calories: 240, protein: 44, carbs: 0, fat: 7 },
-      { id: 'l5-2', amount: 1, unit: 'יחידה', name: 'פיתה קלה / פיתה מקמח מלא', calories: 160, protein: 6, carbs: 32, fat: 1 },
-      { id: 'l5-3', amount: 20, unit: 'גרם', name: 'טחינה גולמית (מעורבבת עם מים ולימון)', calories: 130, protein: 4, carbs: 3, fat: 11 },
-      { id: 'l5-4', amount: 1, unit: 'כפות', name: 'תבלין שווארמה, כמון ומלח', calories: 15, protein: 1, carbs: 3, fat: 0 },
-    ],
-    steps: [
-      'תבלו את רצועות ההודו בתבלין שווארמה, כמון ומעט מלח.',
-      "חממו את הנינג'ה גריל במצב Roast או Grill ל-200 מעלות.",
-      'צלו את רצועות השווארמה במשך 11 דקות תוך ערבוב קל לקראת הסוף עד להשחמה.',
-      'מלאו את הפיתה ברצועות השווארמה וזלפו טחינה מעל.',
-    ],
-    macros: { calories: 545, protein: 55, carbs: 38, fat: 19 },
-    rating: 9.0,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190009000,
-  },
-  {
-    id: 'dinner-1',
-    title: "טוסט חלבון מושחת (צהובה 9% וקוטג')",
-    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['טוסטר לחיצה', 'משקל מזון'],
-    ingredients: [
-      { id: 'd1-1', amount: 70, unit: 'גרם', name: `2 פרוסות ${PANTRY_NAMES.breadAngel}`, ...pantryPortion('breadAngel', 70, { calories: 158, protein: 7.8 }) },
-      { id: 'd1-2', amount: 45, unit: 'גרם', name: `2 פרוסות ${PANTRY_NAMES.noamTara}`, ...pantryPortion('noamTara', 45, { calories: 90, protein: 13.5 }) },
-      { id: 'd1-3', amount: 100, unit: 'גרם', name: PANTRY_NAMES.cottageTnuva, ...pantryPortion('cottageTnuva', 100) },
-      { id: 'd1-4', amount: 20, unit: 'גרם', name: PANTRY_NAMES.pomodoroYm, ...pantryPortion('pomodoroYm', 20) },
-      { id: 'd1-5', amount: 1, unit: 'כפית', name: "אורגנו יבש וצ'ילי גרוס", calories: 5, protein: 0, carbs: 1, fat: 0 },
-    ],
-    steps: [
-      "מרחו את רוטב העגבניות והקוטג' על פרוסה אחת, ופזרו מעט אורגנו.",
-      'הניחו מעל את שתי פרוסות הגבינה הצהובה וסגרו עם הפרוסה השנייה.',
-      'הכניסו לטוסטר לחיצה למשך 5 דקות עד שהגבינה נמסה לחלוטין והלחם פריך וזהוב.',
-    ],
-    macros: { calories: 356, protein: 32.4, carbs: 29.7, fat: 10.8 },
-    rating: 9.3,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190010000,
-  },
-  {
-    id: 'dinner-2',
-    title: 'טורטיית ביצה, מוצרלה וירקות במחבת',
-    image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['מחבת', 'משקל מזון'],
-    ingredients: [
-      { id: 'd2-1', amount: 45, unit: 'גרם', name: PANTRY_NAMES.tortillaShkadia, ...pantryPortion('tortillaShkadia', 45, { calories: 140, protein: 3.8 }) },
-      { id: 'd2-2', amount: 120, unit: 'גרם', name: `2 ${PANTRY_NAMES.eggL}`, ...pantryPortion('eggL', 120, { calories: 160, protein: 15 }) },
-      { id: 'd2-3', amount: 40, unit: 'גרם', name: PANTRY_NAMES.mozzGad, ...pantryPortion('mozzGad', 40) },
-      { id: 'd2-4', amount: 5, unit: 'גרם', name: 'ספריי שמן זית', calories: 40, protein: 0, carbs: 0, fat: 4.5 },
-    ],
-    steps: [
-      'טרפו 2 ביצים עם מלח ופלפל במזלג.',
-      'רססו מחבת חמה במעט שמן ושפכו את הביצים, מיד הניחו את הטורטייה ישירות מעל הביצה הנוזלית.',
-      'לאחר 2 דקות הפכו את הטורטייה (כשהביצה למעלה), פזרו מוצרלה על מחציתה וקפלו לחצי ירח.',
-      "צלו דקה מכל צד עד להמסת הגבינה וקבלת קראנץ'.",
-    ],
-    macros: { calories: 454, protein: 27.2, carbs: 25.7, fat: 34.6 },
-    rating: 9.1,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190011000,
-  },
-  {
-    id: 'dinner-3',
-    title: 'שקשוקה עשירה מ-3 ביצים עם לחם מחמצת',
-    image: 'https://images.unsplash.com/photo-1590412200988-a436970781fa?w=800&q=80',
-    categories: ['ארוחת ערב', 'עתיר חלבון'],
-    equipment: ['מחבת עם מכסה', 'משקל מזון'],
-    ingredients: [
-      { id: 'd3-1', amount: 180, unit: 'גרם', name: `3 ${PANTRY_NAMES.eggL}`, ...pantryPortion('eggL', 180, { calories: 240, protein: 22.5 }) },
-      { id: 'd3-2', amount: 200, unit: 'גרם', name: PANTRY_NAMES.pomodoroYm, ...pantryPortion('pomodoroYm', 200) },
-      { id: 'd3-3', amount: 50, unit: 'גרם', name: 'פלפל אדום מתוק חתוך לקוביות', calories: 15, protein: 1, carbs: 3, fat: 0 },
-      { id: 'd3-4', amount: 8, unit: 'גרם', name: 'שמן זית (כפית מלאה)', calories: 70, protein: 0, carbs: 0, fat: 8 },
-      { id: 'd3-5', amount: 70, unit: 'גרם', name: `2 פרוסות ${PANTRY_NAMES.breadAngel}`, ...pantryPortion('breadAngel', 70, { calories: 158, protein: 7.8 }) },
-    ],
-    steps: [
-      'טגנו במחבת חמה את קוביות הפלפל עם שמן זית, שום, פפריקה וכמון במשך 3 דקות.',
-      'הוסיפו את העגבניות המרוסקות, תבלו במלח ובשלו ברתיחה עדינה כ-5 דקות.',
-      'צרו 3 גומחות ברוטב ושברו פנימה את הביצים.',
-      'כסו את המחבת ובשלו על אש נמוכה 6 דקות עד שהחלבון יציב והחלמון רך ונוזלי.',
-      'הגישו חם לצד פרוסות הלחם.',
-    ],
-    macros: { calories: 563, protein: 34.9, carbs: 43.7, fat: 37.3 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190012000,
-  },
-  {
-    id: 'dinner-4',
-    title: "פיצה-טורטייה חלבונית קראנצ'ית באייר פרייר",
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&q=80',
-    categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['איירפרייר', 'משקל מזון'],
-    ingredients: [
-      { id: 'd4-1', amount: 1, unit: 'יחידה', name: PANTRY_NAMES.tortillaShkadia, ...pantryPortion('tortillaShkadia', 45, { calories: 140, protein: 3.8 }) },
-      { id: 'd4-2', amount: 60, unit: 'גרם', name: PANTRY_NAMES.mozzGad, ...pantryPortion('mozzGad', 60) },
-      { id: 'd4-3', amount: 30, unit: 'גרם', name: PANTRY_NAMES.pomodoroYm, ...pantryPortion('pomodoroYm', 30) },
-      { id: 'd4-4', amount: 15, unit: 'גרם', name: PANTRY_NAMES.olivesYavne, ...pantryPortion('olivesYavne', 15) },
-    ],
-    steps: [
-      `מרחו על ${PANTRY_NAMES.tortillaShkadia} את ${PANTRY_NAMES.pomodoroYm}.`,
-      `פזרו את ${PANTRY_NAMES.mozzGad} באופן שווה והניחו מעל את ${PANTRY_NAMES.olivesYavne} ומעט אורגנו.`,
-      'הכניסו לאייר פרייר בחום של 190 מעלות למשך 5 דקות עד שהגבינה מבעבעת והתחתית פריכה לחלוטין.',
-    ],
-    macros: { calories: 341, protein: 17.1, carbs: 26.7, fat: 17.8 },
-    rating: 9.0,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190013000,
-  },
-  {
-    id: 'dinner-5',
-    title: 'סלט ביצים, ירקות וגבינה בולגרית עם טוסטונים',
-    image: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800&q=80',
-    categories: ['ארוחת ערב', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 'd5-1', amount: 180, unit: 'גרם', name: `3 ${PANTRY_NAMES.eggL} קשות`, ...pantryPortion('eggL', 180, { calories: 240, protein: 22.5 }) },
-      { id: 'd5-2', amount: 50, unit: 'גרם', name: 'גבינה בולגרית / פטה 5%', calories: 55, protein: 8, carbs: 1, fat: 2.5 },
-      { id: 'd5-3', amount: 150, unit: 'גרם', name: 'מלפפון, עגבנייה ופלפל קצוצים', calories: 30, protein: 1, carbs: 6, fat: 0 },
-      { id: 'd5-4', amount: 10, unit: 'גרם', name: 'שמן זית ומיץ לימון סחוט', calories: 90, protein: 0, carbs: 0, fat: 10 },
-      { id: 'd5-5', amount: 1, unit: 'יחידה', name: 'פיתה קלה קלויה כטוסט', calories: 160, protein: 6, carbs: 32, fat: 1 },
-    ],
-    steps: [
-      'מעכו את הביצים הקשות בקערה בעזרת מזלג.',
-      'הוסיפו את הירקות הקצוצים והגבינה הבולגרית המפוררת.',
-      'תבלו בשמן זית, מיץ לימון, מלח ופלפל שחור וערבבו היטב.',
-      'הגישו מיד עם משולשי פיתה קלויים וקריספיים.',
-    ],
-    macros: { calories: 575, protein: 37.5, carbs: 40.3, fat: 31.1 },
-    rating: 8.9,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190014000,
-  },
-  {
-    id: 'snack-1',
-    title: "גלידת וניל-עוגיות עתירת חלבון בנינג'ה קרימי",
-    image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=800&q=80',
-    categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון'],
-    ingredients: [
-      { id: 's1-1', amount: 250, unit: 'מ"ל', name: 'חלב 3%', calories: 150, protein: 8, carbs: 12, fat: 8 },
-      { id: 's1-2', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 's1-3', amount: 7, unit: 'גרם', name: 'אינסטנט פודינג וניל', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 's1-4', amount: 1, unit: 'יחידה', name: 'עוגיית לוטוס / אוראו מפוררת (Mix-In)', calories: 35, protein: 0, carbs: 5, fat: 1.5 },
-    ],
-    steps: [
-      "ערבבו במכל הנינג'ה קרימי את החלב, אבקת החלבון והפודינג בעזרת מקציף ידני עד להמסה מלאה.",
-      'הקפיאו במקפיא למשך 24 שעות בטמפרטורה יציבה.',
-      'הכניסו למכשיר והפעילו על תוכנית Lite Ice Cream, הוסיפו עוגייה מפוררת והפעילו Mix-In.',
-    ],
-    macros: { calories: 325, protein: 32, carbs: 25, fat: 10.5 },
-    rating: 9.8,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190015000,
-  },
-  {
-    id: 'snack-2',
-    title: 'מאג-קייק שוקולד חלבון במיקרוגל (דקה וחצי)',
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&q=80',
-    categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 's2-1', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 's2-2', amount: 20, unit: 'גרם', name: PANTRY_NAMES.oatsQuaker, ...pantryPortion('oatsQuaker', 20) },
-      { id: 's2-3', amount: 5, unit: 'גרם', name: PANTRY_NAMES.cocoaAlmandos, ...pantryPortion('cocoaAlmandos', 5) },
-      { id: 's2-4', amount: 60, unit: 'מ"ל', name: 'חלב 3%', calories: 35, protein: 2, carbs: 3, fat: 2 },
-      { id: 's2-5', amount: 0.5, unit: 'כפית', name: 'אבקת אפייה וממתיק לפי הטעם', calories: 5, protein: 0, carbs: 1, fat: 0 },
-    ],
-    steps: [
-      'ערבבו בספל מאג את כל המרכיבים היבשים: חלבון, שיבולת שועל, קקאו ואבקת אפייה.',
-      'הוסיפו את החלב וערבבו היטב במזלג עד לקבלת בלילה אחידה ללא גושים.',
-      'חממו במיקרוגל במשך 75-90 שניות עד שהעוגה תופחת ומוכנה.',
-    ],
-    macros: { calories: 236, protein: 25.4, carbs: 20.4, fat: 6.5 },
-    rating: 9.2,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190016000,
-  },
-  {
-    id: 'snack-3',
-    title: 'שלישיית פריכיות אורז עם חמאת בוטנים ובננה',
-    image: 'https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&w=800&q=80',
-    categories: ['נשנושים', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 's3-1', amount: 3, unit: 'יחידה', name: 'פריכיות אורז דקות / רגילות', calories: 85, protein: 2, carbs: 18, fat: 0.5 },
-      { id: 's3-2', amount: 15, unit: 'גרם', name: PANTRY_NAMES.pbBd, ...pantryPortion('pbBd', 15, { calories: 95, protein: 3.9 }) },
-      { id: 's3-3', amount: 60, unit: 'גרם', name: 'בננה פרוסה', calories: 55, protein: 0.5, carbs: 14, fat: 0 },
-      { id: 's3-4', amount: 1, unit: 'קורט', name: 'קינמון טחון מעל', calories: 2, protein: 0, carbs: 0.5, fat: 0 },
-    ],
-    steps: [
-      'מרחו את חמאת הבוטנים באופן אחיד על גבי 3 הפריכיות.',
-      'סדרו את פרוסות הבננה מעל כל פריכית.',
-      'פזרו קורט קינמון מעל ואכלו כנשנוש קריספי ומהיר לפני אימון.',
-    ],
-    macros: { calories: 237, protein: 6.4, carbs: 34.8, fat: 8.3 },
-    rating: 9.0,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190017000,
-  },
-  {
-    id: 'snack-4',
-    title: 'קערת פרו שוקולד עם תותים ואגוזי מלך',
-    image: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&w=800&q=80',
-    categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['משקל מזון'],
-    ingredients: [
-      { id: 's4-1', amount: 200, unit: 'גרם', name: 'גביע יוגורט / מעדן PRO שוקולד', calories: 125, protein: 20, carbs: 9, fat: 1 },
-      { id: 's4-2', amount: 60, unit: 'גרם', name: 'תותים טריים / פירות יער חתוכים', calories: 20, protein: 0, carbs: 5, fat: 0 },
-      { id: 's4-3', amount: 12, unit: 'גרם', name: 'אגוזי מלך קצוצים', calories: 80, protein: 2, carbs: 1.5, fat: 8 },
-    ],
-    steps: [
-      'העבירו את מעדן ה-PRO לקערית נשנוש.',
-      'פזרו מעל את התותים החתוכים ואת שברי אגוזי המלך.',
-      'הגישו קר כנשנוש קליל ומשביע.',
-    ],
-    macros: { calories: 225, protein: 22, carbs: 15.5, fat: 9 },
-    rating: 9.1,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190018000,
-  },
-  {
-    id: 'snack-5',
-    title: 'תפוח מקורמל בקינמון באייר פרייר עם יוגורט וניל',
-    image: 'https://images.unsplash.com/photo-1568571780765-9276ac8b75a2?auto=format&fit=crop&w=800&q=80',
-    categories: ['נשנושים', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['איירפרייר', 'משקל מזון'],
-    ingredients: [
-      { id: 's5-1', amount: 130, unit: 'גרם', name: 'תפוח עץ חתוך לפלחים דקים', calories: 65, protein: 0.5, carbs: 17, fat: 0 },
-      { id: 's5-2', amount: 10, unit: 'גרם', name: 'סילאן טבעי', calories: 30, protein: 0, carbs: 8, fat: 0 },
-      { id: 's5-3', amount: 1, unit: 'כפית', name: 'קינמון טחון', calories: 5, protein: 0, carbs: 1, fat: 0 },
-      { id: 's5-4', amount: 150, unit: 'גרם', name: 'יוגורט PRO וניל להגשה לצד', calories: 90, protein: 15, carbs: 6, fat: 0.5 },
-    ],
-    steps: [
-      'ערבבו את פלחי התפוח עם הסילאן והקינמון עד לציפוי מלא.',
-      'הכניסו לסלסלת האייר פרייר בחום של 190 מעלות למשך 8 דקות עד לריכוך והשחמה.',
-      'הגישו חם לצד גביע יוגורט PRO וניל קר כמטבל.',
-    ],
-    macros: { calories: 190, protein: 15.5, carbs: 32, fat: 0.5 },
-    rating: 9.3,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190019000,
-  },
-  {
-    id: 'snack-6',
-    title: 'כדורי שוקולד חלבון עשירים',
-    image: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?auto=format&fit=crop&w=800&q=80',
-    categories: ['נשנושים', 'עתיר חלבון', 'חטיפי חלבון', 'קינוחים', 'מהיר להכנה', 'ללא אפייה'],
-    equipment: ['משקל מזון', 'קערה', 'מקרר'],
-    ingredients: [
-      { id: 's6-1', amount: 50, unit: 'גרם', name: `${PANTRY_NAMES.proteinMyprotein} – 2 סקופים`, ...pantryPortion('proteinMyprotein', 50, { calories: 204, protein: 40 }) },
-      { id: 's6-2', amount: 80, unit: 'גרם', name: PANTRY_NAMES.oatsQuaker, ...pantryPortion('oatsQuaker', 80) },
-      { id: 's6-3', amount: 15, unit: 'גרם', name: PANTRY_NAMES.cocoaAlmandos, ...pantryPortion('cocoaAlmandos', 15) },
-      { id: 's6-4', amount: 50, unit: 'גרם', name: PANTRY_NAMES.pbBd, ...pantryPortion('pbBd', 50) },
-      { id: 's6-5', amount: 30, unit: 'גרם', name: 'סילאן טבעי או סירופ מייפל טהור (2 כפות)', calories: 90, protein: 0, carbs: 22, fat: 0 },
-      { id: 's6-6', amount: 50, unit: 'מ"ל', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 50) },
-      { id: 's6-7', amount: 1, unit: 'קורט', name: 'מלח דק', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 's6-8', amount: 10, unit: 'גרם', name: PANTRY_NAMES.chipsSweetango, ...pantryPortion('chipsSweetango', 10) },
-      { id: 's6-9', amount: 15, unit: 'גרם', name: `לציפוי (אופציונלי): קוקוס טחון או ${PANTRY_NAMES.cocoaAlmandos}`, calories: 90, protein: 1, carbs: 3.5, fat: 8.5 },
-    ],
-    steps: [
-      'בקערה בינונית מערבבים היטב את היבשים: שיבולת שועל, אבקת חלבון, קקאו אלמנדוס וקורט מלח.',
-      'מוסיפים את חמאת הבוטנים B&D והסילאן ומערבבים.',
-      'מוסיפים משקה שקדים Alpro בהדרגה (כף אחרי כף) ומערבבים בידיים עד לקבלת בצק אחיד, רך ונוח לכדרור.',
-      "מערבבים פנימה שוקולד צ'יפס Sweetango ויוצרים 10 כדורים שווים בגודלם.",
-      'מגלגלים בקוקוס טחון או קקאו אלמנדוס לציפוי (לא חובה).',
-      'מעבירים למקרר בכלי אטום לחצי שעה להתייצבות.',
-    ],
-    macros: { calories: 110.3, protein: 6.7, carbs: 9.9, fat: 5.2 },
-    prepTime: 10,
-    cookTime: 0,
-    rating: 9.4,
-    baseServings: 10,
-    favorite: false,
-    createdAt: 1727190020000,
-  },
-  {
-    id: 'creami-1',
-    title: 'סורבה אבטיח וליים מרענן',
-    image: '/recipes/creami_02.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
-    ingredients: [
-      { id: 'cr1-1', amount: 300, unit: 'גרם', name: 'אבטיח טרי חתוך', calories: 90, protein: 2, carbs: 22, fat: 0 },
-      { id: 'cr1-2', amount: 115, unit: 'גרם', name: 'מים', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr1-3', amount: 15, unit: 'גרם', name: 'מיץ מחצי ליים סחוט', calories: 2, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr1-4', amount: 5, unit: 'גרם', name: 'ממתיק אפס קלוריות', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr1-5', amount: 1, unit: 'קורט', name: 'מלח ים', calories: 0, protein: 0, carbs: 0, fat: 0 },
-    ],
-    steps: [
-      'טחנו את כל המרכיבים בבלנדר קטן עד לקבלת מרקם חלק לחלוטין.',
-      'מזגו למכל נינג\'ה קרימי והקפיאו ללא מכסה (למניעת גבעה במרכז) למשך 24 שעות.',
-      'הכניסו למכשיר והפעילו על תוכנית Sorbet.',
-      'הפעילו פעם נוספת על תוכנית Sorbet לקבלת מרקם ברד איטלקי מושלם.',
-    ],
-    macros: { calories: 92, protein: 2, carbs: 22, fat: 0 },
-    rating: 9.0,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190021000,
-  },
-  {
-    id: 'creami-2',
-    title: 'סורבה תותים איטלקי',
-    image: '/recipes/creami_03.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
-    ingredients: [
-      { id: 'cr2-1', amount: 300, unit: 'גרם', name: 'תותים טריים', calories: 96, protein: 2, carbs: 24, fat: 0 },
-      { id: 'cr2-2', amount: 130, unit: 'גרם', name: 'מים', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr2-3', amount: 6, unit: 'גרם', name: 'ממתיק אפס קלוריות', calories: 0, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr2-4', amount: 1, unit: 'קורט', name: 'מלח ים', calories: 0, protein: 0, carbs: 0, fat: 0 },
-    ],
-    steps: [
-      'טחנו את כל המרכיבים בבלנדר ומזגו למכל הקרימי. הקפיאו במקפיא.',
-      'לפני העירבול, שטפו את דפנות המכל במים חמים למשך 60 שניות כדי למנוע הידבקות קרח לדפנות.',
-      'הפעילו על תוכנית Sorbet ולאחר מכן בצעו Re-spin.',
-      "צרו גומה במרכז, הוסיפו תוספות רצויות (כגון שוקולד צ'יפס) והפעילו Mix-in.",
-    ],
-    macros: { calories: 96, protein: 2, carbs: 24, fat: 0 },
-    rating: 9.1,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190022000,
-  },
-  {
-    id: 'creami-3',
-    title: 'גלידת פרוסטד לימונדה חלבון',
-    image: '/recipes/creami_04.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr3-1', amount: 220, unit: 'גרם', name: 'דיאט לימונדה', calories: 5, protein: 0, carbs: 1, fat: 0 },
-      { id: 'cr3-2', amount: 240, unit: 'גרם', name: 'חלב דל שומן / מועשר בחלבון', calories: 100, protein: 13, carbs: 12, fat: 0 },
-      { id: 'cr3-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 22, carbs: 2, fat: 1 },
-      { id: 'cr3-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr3-5', amount: 15, unit: 'גרם', name: 'מיץ וגרידת חצי לימון', calories: 5, protein: 0, carbs: 1, fat: 0 },
-    ],
-    steps: [
-      'ערבבו במכל את הלימונדה, החלב, אבקת החלבון, הפודינג, מיץ וגרידת הלימון והממתיק עד לקבלת בלילה חלקה.',
-      'הקפיאו במקפיא למשך הלילה.',
-      'הכניסו למכשיר והפעילו פעם אחת בלבד על תוכנית Lite Ice Cream.',
-    ],
-    macros: { calories: 246, protein: 35, carbs: 22, fat: 2 },
-    rating: 9.2,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190023000,
-  },
-  {
-    id: 'creami-4',
-    title: 'גלידת וניל קלאסית (75 קלוריות)',
-    image: '/recipes/creami_05.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr4-1', amount: 400, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 400) },
-      { id: 'cr4-2', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג וניל ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr4-3', amount: 1, unit: 'גרם', name: 'קסנטן גאם', calories: 5, protein: 0, carbs: 0, fat: 0 },
-      { id: 'cr4-4', amount: 5, unit: 'גרם', name: 'תמצית וניל איכותית וממתיק', calories: 5, protein: 0, carbs: 0, fat: 0 },
-    ],
-    steps: [
-      'ערבבו את כל המרכיבים במכל הקרימי באמצעות מקציף חלב ידני והקפיאו למשך הלילה.',
-      'שטפו את דפנות המכל במים חמים למשך 60 שניות.',
-      'הפעילו על תוכנית Lite Ice Cream. אם המרקם מעט פירורי, הוסיפו שלוק קטן של חלב שקדים ובצעו Re-spin.',
-    ],
-    macros: { calories: 75, protein: 2, carbs: 8, fat: 4 },
-    rating: 8.9,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190024000,
-  },
-  {
-    id: 'creami-5',
-    title: 'גלידת עוגת יום הולדת חלבון',
-    image: '/recipes/creami_06.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr5-1', amount: 225, unit: 'גרם', name: 'חלב מועשר בחלבון דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr5-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr5-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 23, carbs: 2, fat: 1 },
-      { id: 'cr5-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr5-5', amount: 20, unit: 'גרם', name: 'סוכריות צבעוניות (Mix-in)', calories: 80, protein: 0, carbs: 18, fat: 1 },
-    ],
-    steps: [
-      'ערבבו את כל המרכיבים (למעט הסוכריות) בעזרת מקציף והקפיאו ל-24 שעות.',
-      'הוציאו ושטפו את הדפנות במים חמים לדקה. הפעילו על תוכנית Lite Ice Cream.',
-      'צרו גומה במרכז, שפכו את הסוכריות הצבעוניות והפעילו על תוכנית Mix-in.',
-    ],
-    macros: { calories: 255, protein: 36, carbs: 17, fat: 4 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190025000,
-  },
-  {
-    id: 'creami-6',
-    title: "גלידת צ'יזקייק תות חלבון",
-    image: '/recipes/creami_07.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'בלנדר'],
-    ingredients: [
-      { id: 'cr6-1', amount: 200, unit: 'גרם', name: 'תותים טריים', calories: 65, protein: 1, carbs: 15, fat: 0 },
-      { id: 'cr6-2', amount: 240, unit: 'גרם', name: 'חלב מועשר בחלבון דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr6-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr6-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr6-5', amount: 28, unit: 'גרם', name: 'קוביות גבינת שמנת מופחתת שומן קפואות (Mix-in)', calories: 50, protein: 2, carbs: 2, fat: 4 },
-      { id: 'cr6-6', amount: 15, unit: 'גרם', name: 'עוגיית פתיבר / קרקר מפורר (Mix-in)', calories: 60, protein: 1, carbs: 11, fat: 1 },
-    ],
-    steps: [
-      'טחנו בבלנדר תותים, חלב, אבקת חלבון, פודינג וממתיק. מזגו למכל והקפיאו למשך הלילה.',
-      'הקפיאו בנפרד קוביות גבינת שמנת עבור התוספת.',
-      'הפעילו על תוכנית Lite Ice Cream.',
-      'צרו גומה במרכז, הוסיפו את קוביות הגבינה, תותים טריים ועוגיות מפוררות והפעילו Mix-in.',
-    ],
-    macros: { calories: 350, protein: 46, carbs: 38, fat: 2 },
-    rating: 9.6,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190026000,
-  },
-  {
-    id: 'creami-7',
-    title: 'גלידת חלב דגנים פרוטי פבלס',
-    image: '/recipes/creami_08.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
-    ingredients: [
-      { id: 'cr7-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr7-2', amount: 240, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 240) },
-      { id: 'cr7-3', amount: 56, unit: 'גרם', name: 'דגני בוקר צבעוניים (להשריה)', calories: 80, protein: 1, carbs: 18, fat: 1 },
-      { id: 'cr7-4', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr7-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr7-6', amount: 21, unit: 'גרם', name: 'דגנים פריכים לתוספת (Mix-in)', calories: 80, protein: 1, carbs: 18, fat: 1 },
-    ],
-    steps: [
-      'השרו את דגני הבוקר בשני סוגי החלב במקרר למשך 6-7 שעות וסננו היטב לקבלת חלב בטעם דגנים.',
-      'הוסיפו חלב להשלמת הנפח, ערבבו עם אבקת החלבון והפודינג והקפיאו למשך הלילה.',
-      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
-      'צרו גומה במרכז, הוסיפו דגנים פריכים והפעילו Mix-in.',
-    ],
-    macros: { calories: 284, protein: 36, carbs: 26, fat: 4 },
-    rating: 9.3,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190027000,
-  },
-  {
-    id: 'creami-8',
-    title: "גלידת צ'יזקייק סינמון טוסט קראנץ'",
-    image: '/recipes/creami_09.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr8-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr8-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr8-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr8-4', amount: 15, unit: 'גרם', name: 'אבקת חמאת בוטנים / אבקת עוגיות', calories: 60, protein: 7, carbs: 4, fat: 1.5 },
-      { id: 'cr8-5', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר וקינמון", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr8-6', amount: 10, unit: 'גרם', name: "דגני סינמון טוסט קראנץ' (Mix-in)", calories: 40, protein: 1, carbs: 8, fat: 1 },
-    ],
-    steps: [
-      'ערבבו את כל המרכיבים (פרט לתוספות) במקציף והקפיאו למשך הלילה.',
-      'הפעילו על תוכנית Ice Cream פעם אחת.',
-      "צרו גומה במרכז, הוסיפו קוביות גבינת שמנת קפואות ודגני סינמון טוסט קראנץ' והפעילו Mix-in.",
-    ],
-    macros: { calories: 301, protein: 44, carbs: 20, fat: 5 },
-    rating: 9.5,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190028000,
-  },
-  {
-    id: 'creami-9',
-    title: 'גלידת חלב דגנים סינמון טוסט',
-    image: '/recipes/creami_10.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
-    ingredients: [
-      { id: 'cr9-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr9-2', amount: 240, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 240) },
-      { id: 'cr9-3', amount: 56, unit: 'גרם', name: "דגני סינמון טוסט קראנץ' (להשריה)", calories: 80, protein: 1, carbs: 17, fat: 1 },
-      { id: 'cr9-4', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr9-5', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר וקינמון", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr9-6', amount: 21, unit: 'גרם', name: 'דגני סינמון טוסט לתוספת (Mix-in)', calories: 85, protein: 1, carbs: 17, fat: 2 },
-    ],
-    steps: [
-      'השרו את דגני הקינמון בחלב למשך 6-7 שעות וסננו היטב.',
-      'השלימו חלב, ערבבו עם אבקת החלבון והפודינג והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream.',
-      "הוסיפו דגני סינמון קראנצ'יים במרכז והפעילו Mix-in.",
-    ],
-    macros: { calories: 284, protein: 36, carbs: 26, fat: 4 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190029000,
-  },
-  {
-    id: 'creami-10',
-    title: 'גלידת פאי תפוחים חלבון',
-    image: '/recipes/creami_11.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr10-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr10-2', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 23, carbs: 2, fat: 1 },
-      { id: 'cr10-3', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr10-4', amount: 200, unit: 'גרם', name: 'מלית תפוחי עץ ללא תוספת סוכר וקינמון', calories: 80, protein: 0, carbs: 20, fat: 0 },
-      { id: 'cr10-5', amount: 2, unit: 'יחידה', name: 'עוגיות לוטוס / ביסקוף (Mix-in)', calories: 75, protein: 1, carbs: 11, fat: 3 },
-    ],
-    steps: [
-      'ערבבו את החלב, אבקת החלבון, הפודינג והתבלינים. קפלו פנימה את מלית התפוחים והקפיאו ללילה.',
-      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
-      'צרו גומה, הוסיפו 2 עוגיות לוטוס שבורות והפעילו Mix-in.',
-    ],
-    macros: { calories: 285, protein: 36, carbs: 33, fat: 1 },
-    rating: 9.5,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190030000,
-  },
-  {
-    id: 'creami-11',
-    title: 'גלידת פאי דלעת ותבלינים',
-    image: '/recipes/creami_12.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'דל קלוריות'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון'],
-    ingredients: [
-      { id: 'cr11-1', amount: 60, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 230, protein: 46, carbs: 4, fat: 2 },
-      { id: 'cr11-2', amount: 300, unit: 'גרם', name: 'מחית דלעת טבעית ללא סוכר', calories: 78, protein: 2, carbs: 18, fat: 0.5 },
-      { id: 'cr11-3', amount: 3, unit: 'גרם', name: "תערובת תבליני פאי דלעת (קינמון, ג'ינג'ר, מוסקט)", calories: 5, protein: 0, carbs: 1, fat: 0 },
-      { id: 'cr11-4', amount: 225, unit: 'גרם', name: 'קצפת קלה / חלבון מוקצף דל שומן', calories: 80, protein: 2, carbs: 10, fat: 2 },
-    ],
-    steps: [
-      'ערבבו את אבקת החלבון והתבלינים עם מעט מים קרים למרקם של זיגוג.',
-      'קפלו פנימה את מחית הדלעת והקצפת הקלה בעדינות.',
-      'מזגו לתבנית או מכל והקפיאו לפחות 6 שעות עד להתייצבות מלאה.',
-    ],
-    macros: { calories: 80, protein: 6, carbs: 13, fat: 0.5 },
-    rating: 8.8,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190031000,
-  },
-  {
-    id: 'creami-12',
-    title: "גלידת קפה אוריאו שוקולד צ'יפ",
-    image: '/recipes/creami_13.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr12-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr12-2', amount: 240, unit: 'גרם', name: 'קפה קולד ברו (נטול קפאין או רגיל)', calories: 5, protein: 0, carbs: 1, fat: 0 },
-      { id: 'cr12-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr12-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr12-5', amount: 2, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Oreo Thins)', calories: 65, protein: 1, carbs: 10, fat: 2.5 },
-      { id: 'cr12-6', amount: 10, unit: 'גרם', name: PANTRY_NAMES.chipsSweetango, ...pantryPortion('chipsSweetango', 10) },
-    ],
-    steps: [
-      'ערבבו את הקפה, החלב, אבקת החלבון, הפודינג והממתיק והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream.',
-      "צרו גומה במרכז, פזרו את עוגיות האוריאו והשוקולד צ'יפס והפעילו Mix-in.",
-    ],
-    macros: { calories: 215, protein: 35.4, carbs: 14.5, fat: 2.7 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190032000,
-  },
-  {
-    id: 'creami-13',
-    title: 'גלידת לוטוס בתוספת חלבון',
-    image: '/recipes/creami_14.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr13-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr13-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr13-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr13-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr13-5', amount: 16, unit: 'גרם', name: 'ממרח לוטוס מומס (Mix-in)', calories: 95, protein: 0, carbs: 9, fat: 6 },
-      { id: 'cr13-6', amount: 2, unit: 'יחידה', name: 'עוגיות לוטוס שבורות (Mix-in)', calories: 75, protein: 1, carbs: 11, fat: 3 },
-    ],
-    steps: [
-      'ערבבו את החלב, חלב השקדים, אבקת החלבון והפודינג במקציף והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream פעם אחת לקבלת גלידת וניל קרמית.',
-      'צרו גומה במרכז, שפכו את ממרח הלוטוס ואת העוגיות המפוררות והפעילו תוכנית Mix-in.',
-    ],
-    macros: { calories: 400, protein: 38, carbs: 35, fat: 12 },
-    rating: 9.8,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190033000,
-  },
-  {
-    id: 'creami-14',
-    title: "גלידת קראנץ' בר חלבון",
-    image: '/recipes/creami_15.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון'],
-    ingredients: [
-      { id: 'cr14-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr14-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr14-3', amount: 30, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 115, protein: 24, carbs: 2, fat: 1 },
-      { id: 'cr14-4', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr14-5', amount: 1, unit: 'יחידה', name: "חטיף שוקולד קראנץ' קטן (Mix-in)", calories: 60, protein: 1, carbs: 8, fat: 3 },
-      { id: 'cr14-6', amount: 10, unit: 'גרם', name: `${PANTRY_NAMES.chipsSweetango} מומסים`, ...pantryPortion('chipsSweetango', 10) },
-      { id: 'cr14-7', amount: 10, unit: 'גרם', name: 'פצפוצי אורז', calories: 38, protein: 1, carbs: 8, fat: 0.2 },
-    ],
-    steps: [
-      'ערבבו את רכיבי הבסיס והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream, הוסיפו את חטיף השוקולד בגומה במרכז והפעילו Mix-in.',
-      'ערבבו 10 גרם נטיפי Sweetango מומסים עם 10 גרם פצפוצי אורז, מרחו כשכבה עליונה והחזירו למקפיא לחצי שעה לקבלת מעטפת מתפצחת.',
-    ],
-    macros: { calories: 369, protein: 38.4, carbs: 38.5, fat: 9.9 },
-    rating: 9.5,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190034000,
-  },
-  {
-    id: 'creami-15',
-    title: 'גלידת קוסמיק בראוני שוקולד עשיר',
-    image: '/recipes/creami_16.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr15-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr15-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr15-3', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'cr15-4', amount: 10, unit: 'גרם', name: 'אבקת עוגיות שוקולד / בראוני', calories: 35, protein: 4, carbs: 2, fat: 1 },
-      { id: 'cr15-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr15-6', amount: 5, unit: 'גרם', name: PANTRY_NAMES.cocoaAlmandos, ...pantryPortion('cocoaAlmandos', 5) },
-    ],
-    steps: [
-      'ערבבו את כל המרכיבים בעזרת מקציף עד לקבלת בלילת שוקולד כהה ואחידה.',
-      'הקפיאו ל-24 שעות במקפיא.',
-      "הפעילו על תוכנית Ice Cream פעם אחת עד לקבלת מרקם פאדג'י עשיר.",
-    ],
-    macros: { calories: 304, protein: 38.3, carbs: 19.6, fat: 5.8 },
-    rating: 9.6,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190035000,
-  },
-  {
-    id: 'creami-16',
-    title: 'גלידת חלב דגנים ריסז פאפס',
-    image: '/recipes/creami_17.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
-    ingredients: [
-      { id: 'cr16-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr16-2', amount: 240, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 240) },
-      { id: 'cr16-3', amount: 56, unit: 'גרם', name: 'דגני ריסז פאפס (להשריה)', calories: 85, protein: 2, carbs: 16, fat: 2 },
-      { id: 'cr16-4', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
-      { id: 'cr16-5', amount: 30, unit: 'גרם', name: 'אבקת חמאת בוטנים (PB2)', calories: 110, protein: 12, carbs: 8, fat: 2.5 },
-      { id: 'cr16-6', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג באטרסקוטש / וניל', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr16-7', amount: 15, unit: 'גרם', name: 'דגני ריסז פאפס פריכים (Mix-in)', calories: 65, protein: 1, carbs: 11, fat: 2 },
-    ],
-    steps: [
-      'השרו את דגני הריסז בשני סוגי החלב ל-6 שעות וסננו היטב.',
-      'השלימו חלב, הוסיפו אבקת חלבון, אבקת חמאת בוטנים ופודינג והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Ice Cream, צרו גומה והוסיפו דגני ריסז פאפס בתוכנית Mix-in.',
-    ],
-    macros: { calories: 351, protein: 41, carbs: 31, fat: 7 },
-    rating: 9.4,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190036000,
-  },
-  {
-    id: 'creami-17',
-    title: 'גלידת ריסז חמאת בוטנים עשירה',
-    image: '/recipes/creami_18.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr17-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr17-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr17-3', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
-      { id: 'cr17-4', amount: 30, unit: 'גרם', name: 'אבקת חמאת בוטנים (PB2)', calories: 110, protein: 12, carbs: 8, fat: 2.5 },
-      { id: 'cr17-5', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג באטרסקוטש / וניל', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr17-6', amount: 1, unit: 'יחידה', name: 'חטיף ריסז קאפ קטן חתוך (Mix-in)', calories: 85, protein: 2, carbs: 9, fat: 5 },
-    ],
-    steps: [
-      'ערבבו את כל מרכיבי הבסיס בעזרת מקציף והקפיאו למשך הלילה.',
-      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
-      'צרו גומה במרכז, הוסיפו את חטיף הריסז הקצוץ והפעילו Mix-in.',
-    ],
-    macros: { calories: 404, protein: 53, carbs: 30, fat: 8 },
-    rating: 9.7,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190037000,
-  },
-  {
-    id: 'creami-18',
-    title: 'גלידת חלב דגנים אוריאו',
-    image: '/recipes/creami_19.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מסננת'],
-    ingredients: [
-      { id: 'cr18-1', amount: 240, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 100, protein: 13, carbs: 9, fat: 0 },
-      { id: 'cr18-2', amount: 240, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 240) },
-      { id: 'cr18-3', amount: 56, unit: 'גרם', name: 'דגני בוקר אוריאו (להשריה)', calories: 85, protein: 1, carbs: 18, fat: 1.5 },
-      { id: 'cr18-4', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'cr18-5', amount: 12, unit: 'גרם', name: PANTRY_NAMES.cocoaAlmandos, ...pantryPortion('cocoaAlmandos', 12) },
-      { id: 'cr18-6', amount: 8, unit: 'גרם', name: "אינסטנט פודינג צ'יזקייק ללא סוכר", calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr18-7', amount: 2, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Mix-in)', calories: 65, protein: 1, carbs: 10, fat: 2.5 },
-    ],
-    steps: [
-      'השרו את דגני האוריאו בחלב למשך 6 שעות וסננו היטב.',
-      'השלימו חלב, ערבבו עם אבקת החלבון, הקקאו והפודינג והקפיאו ל-24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream, הוסיפו עוגיות אוריאו שבורות והפעילו Mix-in.',
-    ],
-    macros: { calories: 318, protein: 35.1, carbs: 24.2, fat: 8.1 },
-    rating: 9.3,
-    baseServings: 1,
-    favorite: false,
-    createdAt: 1727190038000,
-  },
-  {
-    id: 'creami-19',
-    title: 'גלידת אוריאו עוגיות ושמנת',
-    image: '/recipes/creami_20.jpg',
-    categories: ['גלידות', 'גלידות חלבון', "נינג'ה קרימי", 'עתיר חלבון'],
-    equipment: ["נינג'ה קרימי", 'משקל מזון', 'מקציף ידני'],
-    ingredients: [
-      { id: 'cr19-1', amount: 225, unit: 'גרם', name: 'חלב מועשר דל שומן', calories: 90, protein: 12, carbs: 8, fat: 0 },
-      { id: 'cr19-2', amount: 225, unit: 'גרם', name: PANTRY_NAMES.alproAlmond, ...pantryPortion('alproAlmond', 225) },
-      { id: 'cr19-3', amount: 15, unit: 'גרם', name: 'אבקת חלבון וניל', calories: 58, protein: 12, carbs: 1, fat: 0.5 },
-      { id: 'cr19-4', amount: 8, unit: 'גרם', name: 'אינסטנט פודינג שוקולד לבן ללא סוכר', calories: 25, protein: 0, carbs: 6, fat: 0 },
-      { id: 'cr19-5', amount: 4, unit: 'יחידה', name: 'עוגיות אוריאו דקות (Mix-in)', calories: 130, protein: 2, carbs: 20, fat: 5 },
-    ],
-    steps: [
-      'ערבבו את רכיבי הבסיס במקציף ידני והקפיאו למשך 24 שעות.',
-      'הפעילו על תוכנית Lite Ice Cream פעם אחת.',
-      'צרו גומה במרכז, הוסיפו 4 עוגיות אוריאו דקות שבורות והפעילו Mix-in.',
-    ],
-    macros: { calories: 255, protein: 53, carbs: 30, fat: 8 },
-    rating: 9.6,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190039000,
-  },
-  ...MEAL_PREP_RECIPES,
-  ...SIDE_DISH_RECIPES,
-  ...WEEKEND_RECIPES,
-  ...PANTRY_INGREDIENT_RECIPES,
-];
-
 function parseMinutes(value) {
   if (value === '' || value === null || value === undefined) return '';
   const n = Number(value);
@@ -1188,6 +216,17 @@ function ensureRecipeTimes(recipe) {
   };
 }
 
+function asUserRecipe(recipe) {
+  const next = {
+    ...ensureRecipeTimes(recipe),
+    deletedAt: null,
+  };
+  delete next.isDefault;
+  delete next.is_default;
+  delete next.locked;
+  return next;
+}
+
 function totalRecipeMinutes(recipe) {
   const prep = Number(recipe?.prepTime);
   const cook = Number(recipe?.cookTime);
@@ -1197,10 +236,6 @@ function totalRecipeMinutes(recipe) {
 
 function applyMacrosFromIngredients(recipe) {
   return recalculateRecipe(recipe);
-}
-
-function applyAcaiBowlFix(recipes) {
-  return recipes.map((recipe) => applyCanonicalAcaiBowl(recipe));
 }
 
 function upsertRecipeInList(list, recipe) {
@@ -1384,22 +419,54 @@ function draftFromExtracted(parsed) {
   };
 }
 
-function loadLocalRecipes() {
+function loadRawLocalRecipes() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return parsed.filter((r) => r && r.id != null);
     }
   } catch (e) {}
   return [];
 }
 
+function loadLocalRecipes() {
+  return loadRawLocalRecipes().filter((r) => !r.deletedAt);
+}
+
 function saveLocalRecipes(recipes) {
-  if (!recipes.length) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
   } catch (e) {}
+}
+
+function loadDeletedRecipeIds() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DELETED_IDS_KEY) || '[]');
+    return new Set((Array.isArray(parsed) ? parsed : []).map(String));
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function persistDeletedRecipeIds(ids) {
+  try {
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify([...ids]));
+  } catch (e) {}
+}
+
+function rememberDeletedRecipeIds(ids) {
+  const next = loadDeletedRecipeIds();
+  ids.forEach((id) => next.add(String(id)));
+  persistDeletedRecipeIds(next);
+  return next;
+}
+
+function forgetDeletedRecipeIds(ids) {
+  const next = loadDeletedRecipeIds();
+  ids.forEach((id) => next.delete(String(id)));
+  persistDeletedRecipeIds(next);
+  return next;
 }
 
 function mergeRecipesById(current, incoming) {
@@ -2551,7 +1618,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
       <ConfirmModal
         open={confirmDelete}
         title="מחיקת מתכון"
-        message={`להעביר את "${recipe.title}" לסל המחזור? אפשר לשחזר אותו בהגדרות.`}
+        message={`למחוק את "${recipe.title}" לצמיתות? המתכון יימחק מהמסד ולא יחזור ברענון.`}
         confirmLabel="מחק"
         danger
         onCancel={() => setConfirmDelete(false)}
@@ -2585,7 +1652,11 @@ function emptyRecipeForm() {
 }
 
 function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
-  const [form, setForm] = useState(() => recalculateRecipe(initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
+  const [form, setForm] = useState(() => {
+    const base = initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm();
+    if (base.nutritionBasis === 'serving' || base.macros?.nutritionBasis === 'serving') return base;
+    return recalculateRecipe(base);
+  });
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
@@ -2691,7 +1762,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function handleSubmit(e) {
     e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
-    const clean = recalculateRecipe({
+    const drafted = {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
@@ -2703,7 +1774,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       steps: form.steps.filter((s) => s && String(s).trim()),
       createdAt: form.createdAt || Date.now(),
       updatedAt: Date.now(),
-    });
+    };
+    const keepServingMacros = drafted.nutritionBasis === 'serving' || drafted.macros?.nutritionBasis === 'serving';
+    const clean = keepServingMacros ? drafted : recalculateRecipe(drafted);
     setSaving(true);
     try {
       onSave(clean);
@@ -3019,11 +2092,9 @@ function formatDateTime(ms) {
 }
 
 function SettingsView({
-  recipes, categories, onBack, onImport, onAddMissingSystemRecipes, trashedRecipes, onRestoreRecipe,
-  safetySnapshots, onRestoreSnapshot, notify,
+  recipes, categories, onBack, onImport, safetySnapshots, onRestoreSnapshot, notify,
 }) {
   const fileRef = useRef(null);
-  const [confirmAddSystem, setConfirmAddSystem] = useState(false);
   const [snapshotToRestore, setSnapshotToRestore] = useState(null);
 
   function exportData() {
@@ -3112,34 +2183,8 @@ function SettingsView({
         </div>
 
         <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-stone-900 mb-1.5 flex items-center gap-2">
-            <Trash2 className="w-4 h-4 text-stone-500" /> סל מחזור
-          </h2>
-          {trashedRecipes.length === 0 ? (
-            <p className="text-sm text-stone-500">סל המחזור ריק.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-stone-200 mt-2">
-              {trashedRecipes.map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-stone-800 truncate">{r.title || 'ללא שם'}</p>
-                    <p className="text-xs text-stone-500">נמחק ב-{formatDateTime(r.deletedAt)}</p>
-                  </div>
-                  <button
-                    onClick={() => onRestoreRecipe(r.id)}
-                    className="shrink-0 min-h-11 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-stone-200 text-stone-800 text-xs font-medium"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" /> שחזר
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
           <h2 className="font-serif text-lg text-stone-900 mb-1.5">גיבויי בטיחות אוטומטיים</h2>
-          <p className="text-sm text-stone-500 leading-relaxed">נשמרים במכשיר לפני כל ייבוא, הוספת מתכוני מערכת או שחזור.</p>
+          <p className="text-sm text-stone-500 leading-relaxed">נשמרים במכשיר לפני כל ייבוא או שחזור.</p>
           {safetySnapshots.length === 0 ? (
             <p className="text-sm text-stone-500 mt-2">אין עדיין גיבויים.</p>
           ) : (
@@ -3164,26 +2209,7 @@ function SettingsView({
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
-          <h2 className="font-serif text-lg text-stone-900 mb-1.5">מתכוני מערכת</h2>
-          <button onClick={() => setConfirmAddSystem(true)} className="mt-3 min-h-11 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-stone-200 text-stone-800 text-sm font-medium w-full hover:bg-stone-100 transition">
-            <Plus className="w-4 h-4" /> הוסף מתכוני מערכת חסרים
-          </button>
-        </div>
       </div>
-
-      <ConfirmModal
-        open={confirmAddSystem}
-        title="הוספת מתכוני מערכת"
-        message="מתכוני מערכת שחסרים יתווספו. מתכונים קיימים לא יימחקו ולא ישתנו. להמשיך?"
-        confirmLabel="הוסף"
-        onCancel={() => setConfirmAddSystem(false)}
-        onConfirm={() => {
-          setConfirmAddSystem(false);
-          const added = onAddMissingSystemRecipes();
-          notify(added ? `נוספו ${added} מתכוני מערכת` : 'כל מתכוני המערכת כבר קיימים');
-        }}
-      />
 
       <ConfirmModal
         open={!!snapshotToRestore}
@@ -3232,63 +2258,47 @@ export default function RecipeApp() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const local = loadLocalRecipes();
+      const rawLocal = loadRawLocalRecipes();
+      const previouslyTrashed = rawLocal.filter((r) => r.deletedAt).map((r) => String(r.id));
+      const deletedIds = rememberDeletedRecipeIds(previouslyTrashed);
+      const local = rawLocal
+        .filter((r) => !r.deletedAt && !deletedIds.has(String(r.id)))
+        .map(asUserRecipe);
       try {
         const remote = await fetchRecipes();
         if (cancelled) return;
-        const remoteIds = new Set(remote.map((r) => String(r.id)));
-        const localById = new Map(local.map((r) => [String(r.id), r]));
-        const fromCloud = isSoftDeleteSupported()
-          ? remote
-          : remote.map((r) => {
-              const cached = localById.get(String(r.id));
-              return cached && cached.deletedAt ? { ...r, deletedAt: cached.deletedAt } : r;
-            });
-        let next;
+        const toPurge = remote.filter((r) => deletedIds.has(String(r.id)));
         let persistError = null;
-        try {
-          if (!fromCloud.length && !local.length) {
-            const seeded = DEMO_RECIPES.map(ensureRecipeTimes);
-            await seedRecipesIfEmpty(seeded);
-            next = applyAcaiBowlFix(seeded);
-          } else if (!fromCloud.length) {
-            next = applyAcaiBowlFix(local.map(ensureRecipeTimes));
-            await upsertRecipes(next);
-          } else {
-            const localOnly = local.filter((r) => !remoteIds.has(String(r.id))).map(ensureRecipeTimes);
-            const merged = fromCloud.map((remoteRecipe) => {
-              const cached = localById.get(String(remoteRecipe.id));
-              if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
-                return ensureRecipeTimes(cached);
-              }
-              return ensureRecipeTimes(remoteRecipe);
-            });
-            next = applyAcaiBowlFix([...merged, ...localOnly]);
-            const toPersist = next.filter((recipe) => {
-              const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
-              if (!prev) return true;
-              if (isAcaiBowlRecipe(recipe)
-                && (JSON.stringify(prev.ingredients) !== JSON.stringify(recipe.ingredients)
-                  || JSON.stringify(prev.macros) !== JSON.stringify(recipe.macros))) {
-                return true;
-              }
-              return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
-            });
-            if (toPersist.length) await upsertRecipes(toPersist);
-          }
-        } catch (writeError) {
-          persistError = writeError;
-          if (!next) next = applyAcaiBowlFix((fromCloud.length ? fromCloud : local).map(ensureRecipeTimes));
-        }
-        if (!next) next = [];
-        const beforeRecalc = next;
-        next = batchRecalculateRecipes(beforeRecalc);
-        const migrated = next.filter((recipe, index) => recipesNeedMacroUpdate(beforeRecalc[index], recipe));
-        if (migrated.length) {
+        if (toPurge.length) {
           try {
-            await upsertRecipes(migrated);
-          } catch (migrateError) {
-            persistError = persistError || migrateError;
+            await deleteRecipesByIds(toPurge.map((r) => r.id));
+          } catch (purgeError) {
+            persistError = purgeError;
+          }
+        }
+        const fromCloud = remote
+          .filter((r) => !deletedIds.has(String(r.id)))
+          .map(asUserRecipe);
+        const remoteIds = new Set(fromCloud.map((r) => String(r.id)));
+        const localById = new Map(local.map((r) => [String(r.id), r]));
+        const merged = fromCloud.map((remoteRecipe) => {
+          const cached = localById.get(String(remoteRecipe.id));
+          if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
+            return cached;
+          }
+          return remoteRecipe;
+        });
+        const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
+        const next = [...merged, ...localOnly];
+        const toPersist = next.filter((recipe) => {
+          const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
+          return !prev || Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
+        });
+        if (toPersist.length) {
+          try {
+            await upsertRecipes(toPersist);
+          } catch (writeError) {
+            persistError = persistError || writeError;
           }
         }
         if (cancelled) return;
@@ -3297,13 +2307,10 @@ export default function RecipeApp() {
         setSyncMode('cloud');
         if (persistError) {
           setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(persistError)}`);
-        } else if (migrated.length) {
-          setToast(`עודכנו ערכים תזונתיים ל-${migrated.length} מתכונים`);
         }
       } catch (e) {
         if (cancelled) return;
-        const fallback = batchRecalculateRecipes(applyAcaiBowlFix((local.length ? local : DEMO_RECIPES).map(ensureRecipeTimes)));
-        setRecipes(fallback);
+        setRecipes(local);
         setSyncMode('offline');
         setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
       }
@@ -3316,7 +2323,7 @@ export default function RecipeApp() {
   useEffect(() => {
     if (syncMode === 'loading') return;
     saveLocalRecipes(recipes);
-    if (syncMode !== 'cloud' || !recipes.length) return;
+    if (syncMode !== 'cloud') return;
     const previous = lastSyncedRef.current;
     lastSyncedRef.current = recipes;
     syncRecipes(previous, recipes).catch((error) => {
@@ -3357,16 +2364,19 @@ export default function RecipeApp() {
   }
 
   function startEdit(recipe) {
-    setEditingRecipe(recalculateRecipe(recipe));
+    setEditingRecipe(recipe);
     setView('form');
   }
 
   function saveRecipe(recipe) {
     const existed = recipes.some((r) => String(r.id) === String(recipe.id));
-    const nextRecipe = applyMacrosFromIngredients(ensureRecipeTimes({
-      ...recipe,
+    const keepServingMacros = recipe.nutritionBasis === 'serving' || recipe.macros?.nutritionBasis === 'serving';
+    const prepared = keepServingMacros ? recipe : applyMacrosFromIngredients(recipe);
+    const nextRecipe = asUserRecipe({
+      ...prepared,
       updatedAt: Date.now(),
-    }));
+    });
+    forgetDeletedRecipeIds([nextRecipe.id]);
     const nextRecipes = upsertRecipeInList(recipes, nextRecipe);
     lastSyncedRef.current = upsertRecipeInList(lastSyncedRef.current, nextRecipe);
     setRecipes(nextRecipes);
@@ -3381,24 +2391,19 @@ export default function RecipeApp() {
   }
 
   function deleteRecipe(id) {
-    const target = recipes.find((r) => r.id === id);
+    const target = recipes.find((r) => String(r.id) === String(id));
     if (!target) return;
-    const nextRecipe = { ...target, deletedAt: Date.now(), updatedAt: Date.now() };
-    const nextRecipes = recipes.map((r) => (r.id === id ? nextRecipe : r));
-    lastSyncedRef.current = upsertRecipeInList(lastSyncedRef.current, nextRecipe);
+    rememberDeletedRecipeIds([id]);
+    const nextRecipes = recipes.filter((r) => String(r.id) !== String(id));
+    lastSyncedRef.current = lastSyncedRef.current.filter((r) => String(r.id) !== String(id));
     setRecipes(nextRecipes);
     saveLocalRecipes(nextRecipes);
-    notify('המתכון הועבר לסל המחזור');
+    notify('המתכון נמחק לצמיתות');
     setView('home');
     if (syncMode !== 'cloud') return;
-    upsertRecipes([nextRecipe]).catch((error) => {
+    deleteRecipesByIds([id]).catch((error) => {
       notify(`מחיקת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`);
     });
-  }
-
-  function restoreRecipe(id) {
-    setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, deletedAt: null } : r)));
-    notify('המתכון שוחזר');
   }
 
   function takeSafetySnapshot(reason) {
@@ -3410,7 +2415,9 @@ export default function RecipeApp() {
     const snapshot = safetySnapshots.find((s) => s.id === snapshotId);
     if (!snapshot || !Array.isArray(snapshot.recipes)) return;
     takeSafetySnapshot('לפני שחזור גיבוי');
-    setRecipes((current) => mergeRecipesById(current, snapshot.recipes));
+    const restored = snapshot.recipes.filter((r) => r && r.id != null).map(asUserRecipe);
+    forgetDeletedRecipeIds(restored.map((r) => r.id));
+    setRecipes((current) => mergeRecipesById(current, restored));
     notify('הגיבוי שוחזר');
   }
 
@@ -3420,9 +2427,10 @@ export default function RecipeApp() {
     const importedCategories = Array.isArray(parsed) ? null : parsed?.categories;
 
     if (Array.isArray(importedRecipes)) {
-      const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null).map(ensureRecipeTimes);
+      const valid = importedRecipes.filter((r) => r && typeof r === 'object' && r.id != null).map(asUserRecipe);
       if (valid.length) {
         takeSafetySnapshot('לפני ייבוא');
+        forgetDeletedRecipeIds(valid.map((r) => r.id));
         setRecipes((current) => mergeRecipesById(current, valid));
       }
     }
@@ -3478,25 +2486,6 @@ export default function RecipeApp() {
     });
   }
 
-  // Appends system recipes and default categories that are missing; existing ones (including trashed) are untouched.
-  function addMissingSystemRecipes() {
-    const existingIds = new Set(recipes.map((r) => String(r.id)));
-    const missing = DEMO_RECIPES.filter((r) => !existingIds.has(String(r.id))).map(ensureRecipeTimes);
-    if (missing.length) {
-      takeSafetySnapshot('לפני הוספת מתכוני מערכת');
-      setRecipes((current) => {
-        const ids = new Set(current.map((r) => String(r.id)));
-        return [...current, ...missing.filter((r) => !ids.has(String(r.id)))];
-      });
-    }
-    setCategories((current) => {
-      const names = new Set(current.map((c) => c.name));
-      const added = defaultCategories().filter((c) => !names.has(c.name));
-      return added.length ? [...current, ...added] : current;
-    });
-    return missing.length;
-  }
-
   function handleHomeSmartImportExtracted(draft) {
     setEditingRecipe({ ...emptyRecipeForm(), ...draft });
     setShowSmartImportHome(false);
@@ -3529,11 +2518,7 @@ export default function RecipeApp() {
 
   const showBottomNav = appScreen === 'grocery' || view === 'home' || view === 'detail';
 
-  const activeRecipes = useMemo(() => recipes.filter((r) => !r.deletedAt), [recipes]);
-  const trashedRecipes = useMemo(
-    () => recipes.filter((r) => r.deletedAt).sort((a, b) => b.deletedAt - a.deletedAt),
-    [recipes]
-  );
+  const activeRecipes = recipes;
   const selectedRecipe = activeRecipes.find((r) => r.id === selectedId) || null;
 
   return (
@@ -3603,9 +2588,6 @@ export default function RecipeApp() {
             categories={categories}
             onBack={() => setView('home')}
             onImport={handleImport}
-            onAddMissingSystemRecipes={addMissingSystemRecipes}
-            trashedRecipes={trashedRecipes}
-            onRestoreRecipe={restoreRecipe}
             safetySnapshots={safetySnapshots}
             onRestoreSnapshot={restoreSnapshot}
             notify={notify}

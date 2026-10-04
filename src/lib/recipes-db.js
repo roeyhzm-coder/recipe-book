@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Until the deleted_at_ms migration is applied, trash state lives only in the local cache.
+// Soft-delete column may still exist; the app never relies on it for visibility.
 let softDeleteSupported = false;
 
 export function isSoftDeleteSupported() {
@@ -88,7 +88,7 @@ function rowToRecipe(row) {
       || (row.updated_at ? Date.parse(row.updated_at) : 0)
       || Number(row.created_at_ms)
       || 0,
-    deletedAt: row.deleted_at_ms === null || row.deleted_at_ms === undefined ? null : Number(row.deleted_at_ms),
+    deletedAt: null,
   };
 }
 
@@ -107,10 +107,9 @@ function recipeToRow(recipe) {
       : Number(recipe.rating),
     base_servings: Number(recipe.baseServings) || 1,
     favorite: !!recipe.favorite,
-
     created_at_ms: Number(recipe.createdAt) || Date.now(),
   };
-  if (softDeleteSupported) row.deleted_at_ms = recipe.deletedAt ? Number(recipe.deletedAt) : null;
+  if (softDeleteSupported) row.deleted_at_ms = null;
   return row;
 }
 
@@ -121,7 +120,13 @@ export async function fetchRecipes() {
     .select("*")
     .order("created_at_ms", { ascending: false });
   if (error) throw error;
-  return (data || []).map(rowToRecipe);
+  const rows = data || [];
+  if (softDeleteSupported) {
+    const trashIds = rows.filter((row) => row.deleted_at_ms != null).map((row) => String(row.id));
+    if (trashIds.length) await deleteRecipesByIds(trashIds);
+    return rows.filter((row) => row.deleted_at_ms == null).map(rowToRecipe);
+  }
+  return rows.map(rowToRecipe);
 }
 
 export function formatRecipesDbError(error) {
@@ -138,23 +143,24 @@ export async function upsertRecipes(recipes) {
   if (error) throw error;
 }
 
-/** Seeds defaults only when the recipes table has zero rows. Never overwrites existing records. */
-export async function seedRecipesIfEmpty(recipes) {
-  if (!recipes.length) return false;
-  const { count, error } = await supabase.from("recipes").select("id", { count: "exact", head: true });
+export async function deleteRecipesByIds(ids) {
+  const unique = [...new Set((ids || []).map(String).filter(Boolean))];
+  if (!unique.length) return;
+  const { error } = await supabase.from("recipes").delete().in("id", unique);
   if (error) throw error;
-  if ((count ?? 0) > 0) return false;
-  await upsertRecipes(recipes);
-  return true;
 }
 
 function sameRecipe(a, b) {
   return JSON.stringify(recipeToRow(a)) === JSON.stringify(recipeToRow(b));
 }
 
-// Only ever upserts. Rows are never deleted from Supabase; deletion is a soft flag on the row.
 export async function syncRecipes(previous, next) {
-  if (!next.length) return;
+  const nextIds = new Set(next.map((r) => String(r.id)));
+  const deletedIds = previous
+    .map((r) => String(r.id))
+    .filter((id) => !nextIds.has(id));
+  if (deletedIds.length) await deleteRecipesByIds(deletedIds);
+
   const prevMap = new Map(previous.map((r) => [String(r.id), r]));
   const changed = next.filter((r) => {
     const prev = prevMap.get(String(r.id));
