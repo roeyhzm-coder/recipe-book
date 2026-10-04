@@ -3,6 +3,7 @@ import { fetchRecipes, syncRecipes, upsertRecipes, seedRecipesIfEmpty, isSoftDel
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { ACAI_BOWL_RECIPE, applyCanonicalAcaiBowl, isAcaiBowlRecipe } from '@/data/acai-bowl';
 import { registerPwaUpdates } from '@/lib/pwa-register';
+import { recalculateRecipe, batchRecalculateRecipes, recipesNeedMacroUpdate } from '@/lib/ingredient-macros';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
@@ -1194,31 +1195,8 @@ function totalRecipeMinutes(recipe) {
   return total > 0 ? total : null;
 }
 
-function sumIngredientMacros(ingredients) {
-  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  let any = false;
-  for (const ing of ingredients || []) {
-    for (const key of Object.keys(totals)) {
-      const n = Number(ing?.[key]);
-      if (Number.isFinite(n)) {
-        totals[key] += n;
-        any = true;
-      }
-    }
-  }
-  if (!any) return null;
-  return {
-    calories: Math.round(totals.calories * 10) / 10,
-    protein: Math.round(totals.protein * 10) / 10,
-    carbs: Math.round(totals.carbs * 10) / 10,
-    fat: Math.round(totals.fat * 10) / 10,
-  };
-}
-
 function applyMacrosFromIngredients(recipe) {
-  const totals = sumIngredientMacros(recipe.ingredients);
-  if (!totals) return recipe;
-  return { ...recipe, macros: { ...(recipe.macros || {}), ...totals } };
+  return recalculateRecipe(recipe);
 }
 
 function applyAcaiBowlFix(recipes) {
@@ -2607,7 +2585,7 @@ function emptyRecipeForm() {
 }
 
 function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
-  const [form, setForm] = useState(() => (initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
+  const [form, setForm] = useState(() => recalculateRecipe(initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm()));
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
@@ -2618,7 +2596,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const fileInputRef = useRef(null);
 
   function applySmartImportDraft(draft) {
-    setForm((f) => applyMacrosFromIngredients({
+    setForm((f) => recalculateRecipe({
       ...f,
       title: draft.title || f.title,
       equipment: draft.equipment.length ? draft.equipment : f.equipment,
@@ -2664,7 +2642,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   }
 
   function addBlankIngredient() {
-    setForm((f) => ({ ...f, ingredients: [...f.ingredients, makeIngredient(1, 'גרם', '')] }));
+    setForm((f) => recalculateRecipe({ ...f, ingredients: [...f.ingredients, makeIngredient(1, 'גרם', '')] }));
   }
 
   function updateIngredient(id, field, value) {
@@ -2713,7 +2691,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function handleSubmit(e) {
     e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
-    const clean = applyMacrosFromIngredients({
+    const clean = recalculateRecipe({
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
@@ -2723,12 +2701,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       cookTime: parseMinutes(form.cookTime),
       ingredients: form.ingredients.filter((i) => i.name && String(i.name).trim()),
       steps: form.steps.filter((s) => s && String(s).trim()),
-      macros: {
-        calories: form.macros?.calories ?? '',
-        protein: form.macros?.protein ?? '',
-        carbs: form.macros?.carbs ?? '',
-        fat: form.macros?.fat ?? '',
-      },
       createdAt: form.createdAt || Date.now(),
       updatedAt: Date.now(),
     });
@@ -2862,7 +2834,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
         {/* macros */}
         <div>
-          <label className="text-sm text-stone-500 mb-2 block">ערכים תזונתיים כוללים (למנה בסיסית x1)</label>
+          <label className="text-sm text-stone-500 mb-2 block">ערכים תזונתיים כוללים — מחושבים אוטומטית מהמצרכים</label>
           <div className="grid grid-cols-4 gap-2.5">
             {[
               ['calories', 'קלוריות'],
@@ -2873,9 +2845,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               <div key={key}>
                 <input
                   type="number"
+                  readOnly
                   value={form.macros[key]}
-                  onChange={(e) => update('macros', { ...form.macros, [key]: e.target.value })}
-                  className="w-full min-h-11 bg-white border border-emerald-200 rounded-xl px-2 py-2 text-sm text-center text-emerald-800"
+                  className="w-full min-h-11 bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-2 text-sm text-center text-emerald-800"
                 />
                 <p className="text-xs text-emerald-700 text-center mt-1.5">{label}</p>
               </div>
@@ -3308,16 +3280,29 @@ export default function RecipeApp() {
           persistError = writeError;
           if (!next) next = applyAcaiBowlFix((fromCloud.length ? fromCloud : local).map(ensureRecipeTimes));
         }
+        if (!next) next = [];
+        const beforeRecalc = next;
+        next = batchRecalculateRecipes(beforeRecalc);
+        const migrated = next.filter((recipe, index) => recipesNeedMacroUpdate(beforeRecalc[index], recipe));
+        if (migrated.length) {
+          try {
+            await upsertRecipes(migrated);
+          } catch (migrateError) {
+            persistError = persistError || migrateError;
+          }
+        }
         if (cancelled) return;
         lastSyncedRef.current = next;
         setRecipes(next);
         setSyncMode('cloud');
         if (persistError) {
           setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(persistError)}`);
+        } else if (migrated.length) {
+          setToast(`עודכנו ערכים תזונתיים ל-${migrated.length} מתכונים`);
         }
       } catch (e) {
         if (cancelled) return;
-        const fallback = applyAcaiBowlFix((local.length ? local : DEMO_RECIPES).map(ensureRecipeTimes));
+        const fallback = batchRecalculateRecipes(applyAcaiBowlFix((local.length ? local : DEMO_RECIPES).map(ensureRecipeTimes)));
         setRecipes(fallback);
         setSyncMode('offline');
         setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
@@ -3372,7 +3357,7 @@ export default function RecipeApp() {
   }
 
   function startEdit(recipe) {
-    setEditingRecipe(recipe);
+    setEditingRecipe(recalculateRecipe(recipe));
     setView('form');
   }
 
