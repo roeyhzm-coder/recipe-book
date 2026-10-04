@@ -16,9 +16,14 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: "auto",
       includeAssets: ["favicon.ico", "favicon.svg", "apple-touch-icon.png", "pwa-192x192.png", "pwa-512x512.png"],
       outDir: ".output/public",
       workbox: {
+        cacheId: "mitbach-recipes-v3",
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,woff2,jpg,jpeg,webp}"],
         navigateFallback: null,
       },

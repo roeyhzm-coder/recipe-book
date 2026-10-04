@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { fetchRecipes, syncRecipes, upsertRecipes, seedRecipesIfEmpty, isSoftDeleteSupported, formatRecipesDbError } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
+import { ACAI_BOWL_RECIPE, applyCanonicalAcaiBowl, isAcaiBowlRecipe } from '@/data/acai-bowl';
+import { registerPwaUpdates } from '@/lib/pwa-register';
 import {
   Search, Star, Plus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
@@ -188,30 +190,7 @@ function makeIngredient(amount, unit, name, calories = '', protein = '', carbs =
 }
 
 const DEMO_RECIPES = [
-  {
-    id: 'breakfast-1',
-    title: 'קערת אסאי וחלבון',
-    image: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?auto=format&fit=crop&w=800&q=80',
-    categories: ['ארוחת בוקר', 'עתיר חלבון', 'מהיר להכנה'],
-    equipment: ['בלנדר', 'משקל מזון'],
-    ingredients: [
-      { id: 'b1-1', amount: 25, unit: 'גרם', name: PANTRY_NAMES.proteinMyprotein, ...pantryPortion('proteinMyprotein', 25, { calories: 102, protein: 20 }) },
-      { id: 'b1-2', amount: 80, unit: 'גרם', name: 'בננה (כ-2/3 בננה)', calories: 70, protein: 1, carbs: 18, fat: 0 },
-      { id: 'b1-3', amount: 50, unit: 'גרם', name: 'תותים קפואים / מנגו', calories: 20, protein: 0, carbs: 5, fat: 0 },
-      { id: 'b1-4', amount: 15, unit: 'גרם', name: PANTRY_NAMES.pbBd, ...pantryPortion('pbBd', 15, { calories: 95, protein: 3.9 }) },
-      { id: 'b1-5', amount: 40, unit: 'גרם', name: 'גרנולה ביתית', calories: 190, protein: 4, carbs: 27, fat: 7 },
-    ],
-    steps: [
-      `הכניסו לבלנדר ${PANTRY_NAMES.proteinMyprotein} (סקופ 25 גרם), בננה, תותים וכף ${PANTRY_NAMES.pbBd}.`,
-      'טחנו במשך 60 שניות עד לקבלת מרקם סמיך וחלק.',
-      'מזגו לקערה ופזרו 40 גרם גרנולה מעל.',
-    ],
-    macros: { calories: 477, protein: 28.9, carbs: 54.2, fat: 16.6 },
-    rating: 9.5,
-    baseServings: 1,
-    favorite: true,
-    createdAt: 1727190000000,
-  },
+  { ...ACAI_BOWL_RECIPE },
   {
     id: 'breakfast-2',
     title: "קערת יוגורט וגרנולה קראנצ'ית",
@@ -1242,28 +1221,13 @@ function applyMacrosFromIngredients(recipe) {
   return { ...recipe, macros: { ...(recipe.macros || {}), ...totals } };
 }
 
-function isAcaiBowlRecipe(recipe) {
-  return String(recipe?.id || '') === 'breakfast-1' || recipe?.title === 'קערת אסאי וחלבון';
-}
-
-function isAlmondDrinkIngredient(ingredient) {
-  const name = String(ingredient?.name || '');
-  return name.includes('משקה שקדים') || /alpro/i.test(name);
-}
-
-function stripAlmondDrinkFromAcai(recipe) {
-  const ingredients = (recipe.ingredients || []).filter((ing) => !isAlmondDrinkIngredient(ing));
-  const steps = (recipe.steps || []).map((step) => String(step)
-    .replace(/\s*ו-?\s*200\s*מ["״]?ל\s*משקה שקדים[^.]*\.?/gi, '.')
-    .replace(/משקה שקדים Alpro[^.،,]*/gi, '')
-    .replace(/\s+\./g, '.')
-    .replace(/\.\./g, '.')
-    .trim());
-  return applyMacrosFromIngredients({ ...recipe, ingredients, steps });
-}
-
 function applyAcaiBowlFix(recipes) {
-  return recipes.map((recipe) => (isAcaiBowlRecipe(recipe) ? stripAlmondDrinkFromAcai(recipe) : recipe));
+  return recipes.map((recipe) => applyCanonicalAcaiBowl(recipe));
+}
+
+function upsertRecipeInList(list, recipe) {
+  const exists = list.some((r) => String(r.id) === String(recipe.id));
+  return exists ? list.map((r) => (String(r.id) === String(recipe.id) ? recipe : r)) : [recipe, ...list];
 }
 
 /* --------------------------------- helpers --------------------------------- */
@@ -2746,7 +2710,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     });
   }
 
-  async function handleSubmit() {
+  function handleSubmit(e) {
+    e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
     const clean = applyMacrosFromIngredients({
       ...form,
@@ -2756,22 +2721,29 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       imageUrl: form.imageUrl || form.image || '',
       prepTime: parseMinutes(form.prepTime),
       cookTime: parseMinutes(form.cookTime),
-      ingredients: form.ingredients.filter((i) => i.name.trim()),
-      steps: form.steps.filter((s) => s.trim()),
+      ingredients: form.ingredients.filter((i) => i.name && String(i.name).trim()),
+      steps: form.steps.filter((s) => s && String(s).trim()),
+      macros: {
+        calories: form.macros?.calories ?? '',
+        protein: form.macros?.protein ?? '',
+        carbs: form.macros?.carbs ?? '',
+        fat: form.macros?.fat ?? '',
+      },
       createdAt: form.createdAt || Date.now(),
+      updatedAt: Date.now(),
     });
     setSaving(true);
     try {
-      await onSave(clean);
+      onSave(clean);
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="pb-28">
+    <form className="pb-28" onSubmit={handleSubmit}>
       <div className="sticky top-0 z-20 bg-stone-50/90 backdrop-blur-xl border-b border-stone-200 flex items-center justify-between px-4 py-3">
-        <button onClick={onCancel} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
+        <button type="button" onClick={onCancel} className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center">
           <X className="w-5 h-5 text-stone-600" />
         </button>
         <h1 className="font-serif text-xl text-stone-900">{initial ? 'עריכת מתכון' : 'מתכון חדש'}</h1>
@@ -2780,6 +2752,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
       <div className="px-4 mt-5 flex flex-col gap-7">
         <button
+          type="button"
           onClick={() => setShowSmartImport(true)}
           className="w-full min-h-11 flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50 text-amber-800 text-sm font-medium"
         >
@@ -2807,6 +2780,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
             />
             <button
+              type="button"
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
               className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0"
             >
@@ -2835,7 +2809,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               placeholder="קטגוריה חדשה"
               className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
             />
-            <button onClick={addCategory} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0" aria-label="הוסף קטגוריה">
+            <button type="button" onClick={addCategory} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0" aria-label="הוסף קטגוריה">
               <Plus className="w-5 h-5" />
             </button>
           </div>
@@ -2920,7 +2894,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               placeholder="מכשור מרכזי בלבד (נינג'ה גריל, בלנדר, משקל מזון)"
               className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
             />
-            <button onClick={addEquipment} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0">
+            <button type="button" onClick={addEquipment} className="min-h-11 min-w-11 w-11 h-11 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center shrink-0">
               <Plus className="w-5 h-5" />
             </button>
           </div>
@@ -2928,7 +2902,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             {form.equipment.map((eq, i) => (
               <span key={i} className="flex items-center gap-1.5 bg-stone-100 border border-stone-200 rounded-full pl-2 pr-3 py-1.5 text-sm text-stone-800">
                 {eq}
-                <button onClick={() => removeEquipment(i)}>
+                <button type="button" onClick={() => removeEquipment(i)}>
                   <X className="w-3.5 h-3.5 text-stone-500" />
                 </button>
               </span>
@@ -2946,7 +2920,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             rows={3}
             className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
-          <button onClick={applyIngredientPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
+          <button type="button" onClick={applyIngredientPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
             פרק לרשימה מובנית ←
           </button>
 
@@ -2976,12 +2950,13 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                     className="flex-1 min-h-11 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400"
                   />
                   <button
+                    type="button"
                     onClick={() => setExpandedIng((prev) => ({ ...prev, [ing.id]: !prev[ing.id] }))}
                     className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0"
                   >
                     <ChevronDown className={`w-4 h-4 text-stone-500 transition ${expandedIng[ing.id] ? 'rotate-180' : ''}`} />
                   </button>
-                  <button onClick={() => removeIngredient(ing.id)} className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+                  <button type="button" onClick={() => removeIngredient(ing.id)} className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   </button>
                 </div>
@@ -3002,7 +2977,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               </div>
             ))}
           </div>
-          <button onClick={addBlankIngredient} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
+          <button type="button" onClick={addBlankIngredient} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
             <Plus className="w-4 h-4" /> הוסף מצרך ידנית
           </button>
         </div>
@@ -3017,7 +2992,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             rows={3}
             className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
           />
-          <button onClick={applyStepPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
+          <button type="button" onClick={applyStepPaste} className="mt-2 min-h-11 text-sm text-amber-800 font-medium">
             פרק לרשימת שלבים ←
           </button>
 
@@ -3031,24 +3006,24 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                   rows={2}
                   className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-sm text-stone-900"
                 />
-                <button onClick={() => removeStep(i)} className="min-h-11 min-w-11 w-11 h-11 mt-1 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+                <button type="button" onClick={() => removeStep(i)} className="min-h-11 min-w-11 w-11 h-11 mt-1 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
                   <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                 </button>
               </div>
             ))}
           </div>
-          <button onClick={addBlankStep} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
+          <button type="button" onClick={addBlankStep} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
             <Plus className="w-4 h-4" /> הוסף שלב ידנית
           </button>
         </div>
       </div>
 
       <div className="fixed bottom-0 inset-x-0 bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 p-4 flex gap-3">
-        <button onClick={onCancel} className="flex-1 min-h-11 py-3 rounded-xl border border-stone-200 text-stone-800 font-medium hover:bg-stone-100 transition">
+        <button type="button" onClick={onCancel} className="flex-1 min-h-11 py-3 rounded-xl border border-stone-200 text-stone-800 font-medium hover:bg-stone-100 transition">
           ביטול
         </button>
         <button
-          onClick={handleSubmit}
+          type="submit"
           disabled={!form.title.trim() || saving}
           className="flex-1 min-h-11 py-3 rounded-xl bg-amber-500 text-amber-950 font-medium disabled:opacity-40 hover:bg-amber-400 transition"
         >
@@ -3061,7 +3036,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
         onClose={() => setShowSmartImport(false)}
         onExtracted={applySmartImportDraft}
       />
-    </div>
+    </form>
   );
 }
 
@@ -3279,6 +3254,10 @@ export default function RecipeApp() {
   const grocery = useGroceryLists();
 
   useEffect(() => {
+    registerPwaUpdates();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       const local = loadLocalRecipes();
@@ -3304,18 +3283,25 @@ export default function RecipeApp() {
             next = applyAcaiBowlFix(local.map(ensureRecipeTimes));
             await upsertRecipes(next);
           } else {
-            const remoteById = new Map(fromCloud.map((r) => [String(r.id), r]));
             const localOnly = local.filter((r) => !remoteIds.has(String(r.id))).map(ensureRecipeTimes);
-            next = applyAcaiBowlFix([...fromCloud.map(ensureRecipeTimes), ...localOnly]);
-            const toPersist = [...localOnly];
-            for (const recipe of next) {
-              if (!isAcaiBowlRecipe(recipe)) continue;
-              const prev = remoteById.get(String(recipe.id));
-              if (!prev || JSON.stringify(prev.ingredients) !== JSON.stringify(recipe.ingredients)
-                || JSON.stringify(prev.macros) !== JSON.stringify(recipe.macros)) {
-                toPersist.push(recipe);
+            const merged = fromCloud.map((remoteRecipe) => {
+              const cached = localById.get(String(remoteRecipe.id));
+              if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
+                return ensureRecipeTimes(cached);
               }
-            }
+              return ensureRecipeTimes(remoteRecipe);
+            });
+            next = applyAcaiBowlFix([...merged, ...localOnly]);
+            const toPersist = next.filter((recipe) => {
+              const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
+              if (!prev) return true;
+              if (isAcaiBowlRecipe(recipe)
+                && (JSON.stringify(prev.ingredients) !== JSON.stringify(recipe.ingredients)
+                  || JSON.stringify(prev.macros) !== JSON.stringify(recipe.macros))) {
+                return true;
+              }
+              return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
+            });
             if (toPersist.length) await upsertRecipes(toPersist);
           }
         } catch (writeError) {
@@ -3390,40 +3376,39 @@ export default function RecipeApp() {
     setView('form');
   }
 
-  async function saveRecipe(recipe) {
-    const nextRecipe = applyMacrosFromIngredients(ensureRecipeTimes(recipe));
-    try {
-      if (syncMode === 'cloud') {
-        await upsertRecipes([nextRecipe]);
-        lastSyncedRef.current = mergeRecipesById(lastSyncedRef.current, [nextRecipe]);
-      }
-      setRecipes((rs) => {
-        const exists = rs.some((r) => r.id === nextRecipe.id);
-        return exists ? rs.map((r) => (r.id === nextRecipe.id ? nextRecipe : r)) : [nextRecipe, ...rs];
-      });
-      setSelectedId(nextRecipe.id);
-      notify('המתכון נשמר בהצלחה');
-      setView('detail');
-    } catch (error) {
-      notify(`שמירת המתכון נכשלה: ${formatRecipesDbError(error)}`);
-    }
+  function saveRecipe(recipe) {
+    const existed = recipes.some((r) => String(r.id) === String(recipe.id));
+    const nextRecipe = applyMacrosFromIngredients(ensureRecipeTimes({
+      ...recipe,
+      updatedAt: Date.now(),
+    }));
+    const nextRecipes = upsertRecipeInList(recipes, nextRecipe);
+    lastSyncedRef.current = upsertRecipeInList(lastSyncedRef.current, nextRecipe);
+    setRecipes(nextRecipes);
+    saveLocalRecipes(nextRecipes);
+    setSelectedId(nextRecipe.id);
+    setView('detail');
+    notify(existed ? 'המתכון עודכן בהצלחה' : 'המתכון נשמר בהצלחה');
+    if (syncMode !== 'cloud') return;
+    upsertRecipes([nextRecipe]).catch((error) => {
+      notify(`שמירת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`);
+    });
   }
 
-  async function deleteRecipe(id) {
+  function deleteRecipe(id) {
     const target = recipes.find((r) => r.id === id);
     if (!target) return;
-    const nextRecipe = { ...target, deletedAt: Date.now() };
-    try {
-      if (syncMode === 'cloud') {
-        await upsertRecipes([nextRecipe]);
-        lastSyncedRef.current = mergeRecipesById(lastSyncedRef.current, [nextRecipe]);
-      }
-      setRecipes((rs) => rs.map((r) => (r.id === id ? nextRecipe : r)));
-      notify('המתכון הועבר לסל המחזור');
-      setView('home');
-    } catch (error) {
-      notify(`מחיקת המתכון נכשלה: ${formatRecipesDbError(error)}`);
-    }
+    const nextRecipe = { ...target, deletedAt: Date.now(), updatedAt: Date.now() };
+    const nextRecipes = recipes.map((r) => (r.id === id ? nextRecipe : r));
+    lastSyncedRef.current = upsertRecipeInList(lastSyncedRef.current, nextRecipe);
+    setRecipes(nextRecipes);
+    saveLocalRecipes(nextRecipes);
+    notify('המתכון הועבר לסל המחזור');
+    setView('home');
+    if (syncMode !== 'cloud') return;
+    upsertRecipes([nextRecipe]).catch((error) => {
+      notify(`מחיקת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`);
+    });
   }
 
   function restoreRecipe(id) {

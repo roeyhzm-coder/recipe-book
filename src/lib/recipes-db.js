@@ -58,6 +58,8 @@ function persistMacros(recipe) {
   if (recipeType) macros.recipeType = recipeType;
   const imageUrl = recipe.imageUrl || recipe.image;
   if (imageUrl) macros.imageUrl = imageUrl;
+  const updatedAt = Number(recipe.updatedAt);
+  if (Number.isFinite(updatedAt) && updatedAt > 0) macros.clientUpdatedAt = updatedAt;
   return macros;
 }
 
@@ -82,6 +84,10 @@ function rowToRecipe(row) {
     baseServings: Number(row.base_servings) || 1,
     favorite: !!row.favorite,
     createdAt: Number(row.created_at_ms) || 0,
+    updatedAt: Number(rawMacros.clientUpdatedAt)
+      || (row.updated_at ? Date.parse(row.updated_at) : 0)
+      || Number(row.created_at_ms)
+      || 0,
     deletedAt: row.deleted_at_ms === null || row.deleted_at_ms === undefined ? null : Number(row.deleted_at_ms),
   };
 }
