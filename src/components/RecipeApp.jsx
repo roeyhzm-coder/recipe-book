@@ -3,7 +3,7 @@ import { fetchRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRec
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
-import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams } from '@/lib/ingredientUnits';
+import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit } from '@/lib/ingredientUnits';
 import {
   applyVariation,
   defaultVariationOf,
@@ -347,12 +347,6 @@ function proteinScoopLabel(amount, unit, name) {
   const formatted = whole ? String(scoops) : String(scoops);
   if (whole && scoops === 1) return '1 סקופ';
   return whole ? `${formatted} סקופ` : `כ-${formatted} סקופ`;
-}
-
-function ingredientSecondaryLabel(amount, unit, name) {
-  const scoop = proteinScoopLabel(amount, unit, name);
-  if (scoop) return scoop;
-  return householdConversion(amount, unit);
 }
 
 function compressImageFile(file, maxDim = 900, quality = 0.7) {
@@ -1113,6 +1107,10 @@ function HomeView({
   recipes,
   categories,
   category,
+  search,
+  onSearchChange,
+  favOnly,
+  onFavOnlyChange,
   onCategoryChange,
   onManageCategories,
   onOpen,
@@ -1123,8 +1121,6 @@ function HomeView({
   onAddCategory,
   onAddToGrocery,
 }) {
-  const [search, setSearch] = useState('');
-  const [favOnly, setFavOnly] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [showQuickCategory, setShowQuickCategory] = useState(false);
@@ -1181,13 +1177,13 @@ function HomeView({
             <Search className="w-4 h-4 text-stone-500 absolute top-1/2 -translate-y-1/2 right-3.5" />
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
               placeholder="חיפוש לפי שם או מצרך..."
               className="w-full min-h-11 bg-white border border-stone-200 rounded-full py-2.5 pr-10 pl-4 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70 focus:border-amber-500/50 backdrop-blur-md"
             />
           </div>
           <button
-            onClick={() => setFavOnly((v) => !v)}
+            onClick={() => onFavOnlyChange(!favOnly)}
             className={`min-h-11 min-w-11 w-11 h-11 shrink-0 rounded-full border flex items-center justify-center transition ${
               favOnly ? 'bg-amber-500 border-amber-500' : 'bg-white border-stone-200'
             }`}
@@ -1597,8 +1593,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
                           : 'bg-white border-stone-200 text-stone-600'
                       }`}
                     >
-                      {unit.label} · {unit.amount}{unit.unit}
-                      {unit.calories !== '' && unit.calories != null ? ` · ${unit.calories} קק״ל` : ''}
+                      {formatServingUnitLabel(unit)}
                     </button>
                   );
                 })}
@@ -1706,16 +1701,20 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             {displayed.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
               const scaledAmount = Number(ing.amount || 0) * multiplier;
-              const secondary = ingredientSecondaryLabel(scaledAmount, ing.unit, ing.name);
+              const quantityLabel = formatQuantityWithGrams(scaledAmount, ing.unit, ing.name);
+              const scoop = proteinScoopLabel(scaledAmount, ing.unit, ing.name);
+              const extra = scoop && !String(ing.unit || '').includes('סקופ')
+                ? scoop
+                : (isGramUnit(ing.unit) ? householdConversion(scaledAmount, ing.unit) : '');
               return (
                 <div key={ing.id} className="flex items-center justify-between px-4 py-3.5 gap-3">
                   <span className="text-sm text-stone-800 leading-relaxed">{ing.name}</span>
                   <div className="text-left shrink-0">
                     <span className="text-sm font-medium text-stone-900 tabular-nums">
-                      {scaleAmount(ing.amount, multiplier)} {ing.unit}
-                      {secondary && (
+                      {quantityLabel}
+                      {extra && extra !== quantityLabel && (
                         <span className="text-xs text-stone-500 font-normal">
-                          {' '}({secondary})
+                          {' '}({extra})
                         </span>
                       )}
                     </span>
@@ -2468,6 +2467,8 @@ export default function RecipeApp() {
   const [safetySnapshots, setSafetySnapshots] = useState(loadSafetySnapshots);
   const [categories, setCategories] = useState(loadCategories);
   const [homeCategory, setHomeCategory] = useState(loadHomeCategory);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [favOnly, setFavOnly] = useState(false);
 
   const [view, setView] = useState('home');
   const [selectedId, setSelectedId] = useState(null);
@@ -2782,6 +2783,10 @@ export default function RecipeApp() {
             recipes={activeRecipes}
             categories={categories}
             category={homeCategory}
+            search={searchQuery}
+            onSearchChange={setSearchQuery}
+            favOnly={favOnly}
+            onFavOnlyChange={setFavOnly}
             onCategoryChange={setHomeCategory}
             onManageCategories={manageCategories}
             onOpen={openRecipe}

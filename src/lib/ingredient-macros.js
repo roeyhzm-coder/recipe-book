@@ -48,7 +48,7 @@ const FOODS = [
   { keys: ['אורז בסמטי', 'אורז יבש'], per100: { calories: 350, protein: 8.8, carbs: 78, fat: 0.6 } },
   { keys: ['אורז מבושל'], per100: { calories: 123, protein: 2.8, carbs: 27, fat: 0.3 } },
   { keys: ['פסטה', 'פנה', 'מקרוני', 'barilla'], per100: { calories: 359, protein: 13, carbs: 71, fat: 1.5 } },
-  { keys: ['תפוח אדמה בייבי', 'תפוחי אדמה קטנים'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 }, piece: 65 },
+  { keys: ['תפוח אדמה בייבי', 'תפוחי אדמה קטנים', 'תפוחי אדמה לבנים'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 }, piece: 75 },
   { keys: ['תפוח אדמה', 'תפוחי אדמה', 'פירה'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 }, piece: 150 },
   { keys: ['בטטה'], per100: { calories: 86, protein: 1.6, carbs: 20, fat: 0.1 }, piece: 350 },
   { keys: ['שמן זית', 'olive'], per100: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
@@ -76,7 +76,8 @@ const FOODS = [
   { keys: ['אפונה'], per100: { calories: 81, protein: 5.4, carbs: 14, fat: 0.4 } },
   { keys: ['עלים ירוקים', 'חסה', 'פטרוזיליה'], per100: { calories: 15, protein: 1.4, carbs: 2.9, fat: 0.2 } },
   { keys: ['לימון', 'ליים'], per100: { calories: 29, protein: 1.1, carbs: 9.3, fat: 0.3 }, piece: 60 },
-  { keys: ['שום כתוש', 'מחית שום', 'שיני שום', 'אבקת שום', 'שום'], per100: { calories: 149, protein: 6.4, carbs: 33, fat: 0.5 }, piece: 4 },
+  { keys: ['אבקת שום'], per100: { calories: 331, protein: 16.6, carbs: 72.7, fat: 0.7 } },
+  { keys: ['שום כתוש', 'מחית שום', 'שיני שום', 'שום'], per100: { calories: 149, protein: 6.4, carbs: 33, fat: 0.5 }, piece: 4 },
   { keys: ['גבינה בולגרית', 'פטה'], per100: { calories: 110, protein: 16, carbs: 1.2, fat: 5 } },
   { keys: ['גבינת שמנת'], per100: { calories: 180, protein: 6, carbs: 4, fat: 16 } },
   { keys: ['צדר', "צ'דר"], per100: { calories: 403, protein: 25, carbs: 1.3, fat: 33 } },
@@ -130,7 +131,7 @@ for (const food of FOODS) {
 for (const [pantryKey, title] of Object.entries(PANTRY_NAMES)) {
   const per100 = PANTRY_NUTRITION[pantryKey];
   if (!per100) continue;
-  addAlias(title, per100, pantryKey === 'eggL' ? 60 : 0);
+  addAlias(title, per100, pantryKey === 'eggL' ? 60 : pantryKey === 'schnitzelAirfryer' ? 70 : 0);
   addAlias(pantryKey, per100, pantryKey === 'eggL' ? 60 : 0);
 }
 

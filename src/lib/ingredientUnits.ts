@@ -6,10 +6,15 @@ export const RECIPE_UNIT_LIST = [
   'מ"ל',
   'ליטר',
   'כוס',
+  'כף',
   'כפות',
+  'כף שטוחה',
   'כפית',
   'סקופ',
   'יחידה',
+  'יחידות',
+  'פרוסה',
+  'גביע',
   'חופן',
   'קורט',
 ] as const;
@@ -32,6 +37,9 @@ const UNIT_ALIASES: Record<string, string> = {
   כפיות: 'כפית',
   כוסות: 'כוס',
   יחידות: 'יחידה',
+  פרוסות: 'פרוסה',
+  פריסה: 'פרוסה',
+  גביעים: 'גביע',
   יח: 'יחידה',
   "יח'": 'יחידה',
   "יח' בינונית": 'יחידה',
@@ -48,8 +56,11 @@ const UNIT_GRAMS: Record<string, number> = {
   ליטר: 1000,
   כוס: 240,
   כפות: 15,
+  'כף שטוחה': 15,
   כפית: 5,
   סקופ: 25,
+  פרוסה: 30,
+  גביע: 250,
   חופן: 15,
   קורט: 1,
   'שן שום': 4,
@@ -57,7 +68,11 @@ const UNIT_GRAMS: Record<string, number> = {
   'תבנית ביצים': 660,
 };
 
-const PIECE_UNITS = new Set(['יחידה', 'שן שום', 'ראש שום', 'תבנית ביצים']);
+const PIECE_UNITS = new Set(['יחידה', 'פרוסה', 'גביע', 'שן שום', 'ראש שום', 'תבנית ביצים']);
+
+const DENSITY_OVERRIDES: { keys: string[]; units: Record<string, number> }[] = [
+  { keys: ['קורנפלור', 'עמילן תירס'], units: { כפות: 12, כף: 12 } },
+];
 
 type PieceRule = {
   keys: string[];
@@ -66,9 +81,10 @@ type PieceRule = {
 };
 
 const PIECE_WEIGHTS: PieceRule[] = [
-  { keys: ['תפוח אדמה בייבי', 'תפוחי אדמה בייבי', 'תפוחי אדמה קטנים', 'תפוח אדמה קטן'], grams: 65 },
+  { keys: ['תפוח אדמה בייבי', 'תפוחי אדמה בייבי', 'תפוחי אדמה לבנים קטנים', 'תפוחי אדמה קטנים', 'תפוח אדמה קטן'], grams: 75 },
   { keys: ['תפוח אדמה', 'תפוחי אדמה'], grams: 150 },
   { keys: ['בטטה', 'בטטות'], grams: 350 },
+  { keys: ['שניצל'], grams: 70 },
   { keys: ['שן שום', 'שיני שום'], grams: 4, exclude: ['אבקת', 'גבישי'] },
   { keys: ['בצל ירוק'], grams: 15 },
   { keys: ['בצל', 'בצלים'], grams: 120 },
@@ -120,11 +136,30 @@ export function getPieceWeightGrams(name: string | null | undefined): number {
  * Grams represented by a single unit of this ingredient
  * (1 כפית of salt → 5, 1 יחידה of sweet potato → 350).
  */
+function getDensityOverride(unit: string, ingredientName?: string | null): number | null {
+  const hay = normalizeName(ingredientName);
+  if (!hay) return null;
+  const normalized = normalizeIngredientUnit(unit);
+  for (const rule of DENSITY_OVERRIDES) {
+    if (!rule.keys.some((key) => hay.includes(normalizeName(key)))) continue;
+    const grams = rule.units[unit] ?? rule.units[normalized];
+    if (typeof grams === 'number' && grams > 0) return grams;
+  }
+  return null;
+}
+
 export function getUnitWeight(unit: string | null | undefined, ingredientName?: string | null): number {
+  const override = getDensityOverride(String(unit || ''), ingredientName);
+  if (override) return override;
+
   const normalized = normalizeIngredientUnit(unit);
 
-  if (normalized === 'יחידה') {
-    return getPieceWeightGrams(ingredientName);
+  if (normalized === 'יחידה' || normalized === 'פרוסה' || normalized === 'גביע') {
+    const piece = getPieceWeightGrams(ingredientName);
+    if (piece !== UNKNOWN_PIECE_GRAMS) return piece;
+    if (normalized === 'פרוסה') return 30;
+    if (normalized === 'גביע') return 250;
+    return UNKNOWN_PIECE_GRAMS;
   }
 
   const fixed = UNIT_GRAMS[normalized];
@@ -181,4 +216,64 @@ export function convertIngredientUnit<T extends ConvertibleIngredient>(ingredien
     amount: convertAmountOnUnitChange(ingredient.amount, ingredient.unit, newUnit, ingredient.name),
     unit: newUnit,
   };
+}
+
+export function formatGramsNumber(grams: number): string {
+  const n = roundTo1(grams);
+  return Number.isInteger(n) ? String(n) : String(n);
+}
+
+const MASS_UNITS = new Set(['גרם']);
+
+export function isGramUnit(unit: string | null | undefined): boolean {
+  return MASS_UNITS.has(normalizeIngredientUnit(unit));
+}
+
+export function formatQuantityWithGrams(
+  amount: number | string | null | undefined,
+  unit: string | null | undefined,
+  ingredientName?: string | null,
+): string {
+  const value = Number(amount);
+  const qty = Number.isFinite(value)
+    ? (Number.isInteger(roundTo1(value)) ? String(roundTo1(value)) : String(roundTo1(value)))
+    : String(amount ?? '');
+  const unitLabel = String(unit || '').trim();
+  if (!unitLabel) return qty;
+
+  if (isGramUnit(unitLabel)) {
+    return `${qty} ${unitLabel}`;
+  }
+
+  const grams = amountToGrams(amount, unitLabel, ingredientName);
+  if (!(grams > 0)) return `${qty} ${unitLabel}`;
+  return `${qty} ${unitLabel} (${formatGramsNumber(grams)} גרם)`;
+}
+
+export function formatServingUnitLabel(unit: {
+  label?: string | null;
+  amount?: number | string | null;
+  unit?: string | null;
+  calories?: number | string | null;
+  name?: string | null;
+}): string {
+  const label = String(unit?.label || '').trim();
+  const unitName = String(unit?.unit || '').trim();
+  const grams = amountToGrams(unit?.amount, unitName || 'גרם', unit?.name);
+  const hasGramsInLabel = /גרם/.test(label);
+  let main = label;
+
+  if (!main) {
+    main = formatQuantityWithGrams(unit?.amount, unitName, unit?.name);
+  } else if (!hasGramsInLabel && grams > 0 && !isGramUnit(unitName) && normalizeIngredientUnit(unitName) !== 'מנה') {
+    main = `${label} (${formatGramsNumber(grams)} גרם)`;
+  } else if (!hasGramsInLabel && isGramUnit(unitName) && grams > 0 && !label.includes(String(unit?.amount ?? ''))) {
+    main = `${label} (${formatGramsNumber(grams)} גרם)`;
+  }
+
+  const calories = unit?.calories;
+  if (calories !== '' && calories != null) {
+    return `${main} - ${calories} קק״ל`;
+  }
+  return main;
 }

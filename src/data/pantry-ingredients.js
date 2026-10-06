@@ -1,3 +1,5 @@
+import { amountToGrams, formatGramsNumber } from '@/lib/ingredientUnits';
+
 export const PANTRY_CATEGORY = 'רכיבים ומוצרי בסיס';
 
 function round1(value) {
@@ -78,11 +80,19 @@ export const PANTRY_NAMES = {
   olivesYavne: 'זיתים ירוקים קבוצת יבנה',
   olivesRami: 'מיקס זיתים רמי לוי',
   eggL: 'ביצה L',
-  schnitzelAirfryer: 'שניצל ביתי אייר פרייר',
+  schnitzelAirfryer: 'שניצל דק ביתי אייר פרייר',
   friesAirfryer: 'צ\'יפס תפו"א באייר פרייר',
   sweetPotatoAirfryer: 'בטטה באייר פרייר',
   greenOnion: 'בצל ירוק',
 };
+
+function servingLabelWithGrams(label, amount, unit, name) {
+  const text = String(label || '').trim();
+  if (/גרם/.test(text)) return text;
+  const grams = amountToGrams(amount, unit || 'גרם', name);
+  if (!(grams > 0)) return text;
+  return `${text} (${formatGramsNumber(grams)} גרם)`;
+}
 
 function serving(label, amount, unit, macros) {
   return { label, amount, unit, ...macros };
@@ -94,24 +104,44 @@ function pantryItem({
   unit = 'גרם',
   image = '',
   servings = [],
+  servingUnits: customServingUnits,
+  nutritionBasis,
+  ingredientAmount,
+  ingredientUnit,
+  ingredientMacros,
+  recipeMacros,
   createdAt,
+  updatedAt,
 }) {
   const title = PANTRY_NAMES[key];
   const per100 = PANTRY_NUTRITION[key];
-  const servingUnits = [
-    serving(`100 ${unit}`, 100, unit, per100),
-    ...servings.map((item) => serving(item.label, item.amount, item.unit || unit, {
-      ...macrosAt(per100, item.amount),
-      ...(item.macros || {}),
-    })),
-  ];
-  const servingNotes = servings.map((item) => {
-    const macros = { ...macrosAt(per100, item.amount), ...(item.macros || {}) };
-    const proteinNote = macros.protein !== '' && macros.protein != null
-      ? `, ${macros.protein}ג׳ חלבון`
+  const servingUnits = Array.isArray(customServingUnits) && customServingUnits.length
+    ? customServingUnits
+    : [
+      serving(`100 ${unit}`, 100, unit, per100),
+      ...servings.map((item) => {
+        const itemUnit = item.unit || unit;
+        return serving(
+          servingLabelWithGrams(item.label, item.amount, itemUnit, title),
+          item.amount,
+          itemUnit,
+          {
+            ...macrosAt(per100, item.amount),
+            ...(item.macros || {}),
+          },
+        );
+      }),
+    ];
+  const servingNotes = servingUnits.map((item) => {
+    const proteinNote = item.protein !== '' && item.protein != null
+      ? `, ${item.protein}ג׳ חלבון`
       : '';
-    return `${item.label} (${item.amount}${item.unit || unit}) = ${macros.calories} קק״ל${proteinNote}`;
+    return `${item.label} = ${item.calories} קק״ל${proteinNote}`;
   });
+  const ingAmount = ingredientAmount ?? 100;
+  const ingUnit = ingredientUnit || unit;
+  const ingMacros = ingredientMacros || per100;
+  const basis = nutritionBasis || (unit === 'מ"ל' ? '100ml' : '100g');
 
   return {
     id,
@@ -121,15 +151,17 @@ function pantryItem({
     categories: [PANTRY_CATEGORY],
     equipment: [],
     ingredients: [
-      { id: `${id}-100`, amount: 100, unit, name: title, ...per100 },
+      { id: `${id}-100`, amount: ingAmount, unit: ingUnit, name: title, ...ingMacros },
     ],
     steps: [
-      `ערכים תזונתיים מדויקים ל-100 ${unit}.`,
+      basis === 'serving'
+        ? 'ערכים תזונתיים למנה ברירת המחדל.'
+        : `ערכים תזונתיים מדויקים ל-100 ${unit}.`,
       ...(servingNotes.length ? [`מנות מוכנות: ${servingNotes.join(' · ')}.`] : []),
     ],
-    macros: { ...per100 },
+    macros: { ...(recipeMacros || per100) },
     servingUnits,
-    nutritionBasis: unit === 'מ"ל' ? '100ml' : '100g',
+    nutritionBasis: basis,
     recipeType: 'ingredient',
     prepTime: 0,
     cookTime: 0,
@@ -137,6 +169,7 @@ function pantryItem({
     baseServings: 1,
     favorite: false,
     createdAt,
+    updatedAt: updatedAt || createdAt,
   };
 }
 
@@ -247,7 +280,21 @@ const PANTRY_DEFS = [
     key: 'eggL',
     servings: [{ label: 'יחידה', amount: 60, macros: { calories: 80, protein: 7.5 } }],
   },
-  { id: 'pantry-schnitzel-airfryer', key: 'schnitzelAirfryer' },
+  {
+    id: 'pantry-schnitzel-airfryer',
+    key: 'schnitzelAirfryer',
+    nutritionBasis: 'serving',
+    ingredientAmount: 1,
+    ingredientUnit: 'יחידה',
+    ingredientMacros: { calories: 151, protein: 16.8, carbs: 9.1, fat: 4.9 },
+    recipeMacros: { calories: 151, protein: 16.8, carbs: 9.1, fat: 4.9 },
+    servingUnits: [
+      serving('1 יחידה דקה (70 גרם)', 1, 'יחידה', { calories: 151, protein: 16.8, carbs: 9.1, fat: 4.9 }),
+      serving('100 גרם', 10 / 7, 'מנה', { calories: 215, protein: 24, carbs: 13, fat: 7 }),
+      serving('2 יחידות (140 גרם)', 2, 'יחידה', { calories: 302, protein: 33.6, carbs: 18.2, fat: 9.8 }),
+    ],
+    updatedAt: 1791408000000,
+  },
   { id: 'pantry-fries-airfryer', key: 'friesAirfryer' },
   { id: 'pantry-sweet-potato-airfryer', key: 'sweetPotatoAirfryer' },
   { id: 'pantry-green-onion', key: 'greenOnion' },
