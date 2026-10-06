@@ -103,64 +103,110 @@ export const SIDE_DISH_RECIPES = [
 
 export const RUSTIC_AIRFRYER_POTATOES_ID = 'roasted-potatoes-sweet-potatoes-airfryer';
 
+const CLASSIC_INGREDIENTS = [
+  { id: 'rpsa-1', amount: 600, unit: 'גרם', name: 'תפוחי אדמה קטנים' },
+  { id: 'rpsa-2', amount: 700, unit: 'גרם', name: 'בטטה' },
+  { id: 'rpsa-3', amount: 40, unit: 'גרם', name: 'שמן זית' },
+  { id: 'rpsa-4', amount: 15, unit: 'גרם', name: 'מלח גס' },
+  { id: 'rpsa-5', amount: 3, unit: 'גרם', name: 'פלפל שחור' },
+  { id: 'rpsa-6', amount: 20, unit: 'גרם', name: 'שיני שום' },
+  { id: 'rpsa-7', amount: 10, unit: 'גרם', name: 'עשבי תיבול' },
+];
+
+const CLASSIC_STEPS = [
+  'ערבוב: שוטפים את תפוחי האדמה והבטטות (עם הקליפה), חותכים לחצאים/רבעים ופלחים בעובי 2 ס"מ, ומערבבים בקערה עם שמן זית, מלח גס, פלפל שחור, שיני שום ועשבי תיבול.',
+  'צליית תפוחי אדמה: מחממים אייר פרייר ל-200°C. צולים את תפוחי האדמה בלבד בשכבה אחת 18 דקות (מנערים בדקה ה-9). מעבירים לקערת הגשה.',
+  'צליית בטטה: צולים את פלחי הבטטה ב-200°C במשך 13 דקות (מנערים בדקה ה-7).',
+  'איחוד והגשה: מאחדים את הבטטות החמות עם תפוחי האדמה, מקפיצים קלות ומגישים מיד.',
+];
+
+const CLASSIC_PER_SERVING = {
+  label: 'מנה',
+  amount: 1,
+  unit: 'מנה',
+  calories: 370,
+  protein: 5.8,
+  carbs: 61.2,
+  fat: 11.5,
+  fiber: 8.5,
+};
+
+const CRUNCH_PER_SERVING = {
+  label: 'מנה',
+  amount: 1,
+  unit: 'מנה',
+  calories: 382,
+  protein: 5.8,
+  carbs: 64,
+  fat: 11.5,
+  fiber: 8.5,
+};
+
 export const RUSTIC_AIRFRYER_POTATOES_RECIPE = {
   id: RUSTIC_AIRFRYER_POTATOES_ID,
   title: 'פלחי תפוחי אדמה ובטטה כפריים באייר פרייר',
   image: 'https://images.unsplash.com/photo-1518013431117-eb1465fa5752?w=800&q=80',
   categories: ['תוספות', 'אייר פרייר'],
   equipment: ['אייר פרייר', 'קערת ערבוב', 'קרש חיתוך וסכין'],
-  ingredients: [
-    { id: 'rpsa-1', amount: 600, unit: 'גרם', name: 'תפוחי אדמה לבנים קטנים (בייבי)' },
-    { id: 'rpsa-2', amount: 700, unit: 'גרם', name: 'בטטה' },
-    { id: 'rpsa-3', amount: 40, unit: 'גרם', name: 'שמן זית איכותי' },
-    { id: 'rpsa-4', amount: 15, unit: 'גרם', name: 'מלח ים גס' },
-    { id: 'rpsa-5', amount: 3, unit: 'גרם', name: 'פלפל שחור גרוס' },
-    { id: 'rpsa-6', amount: 20, unit: 'גרם', name: 'שיני שום שלמות מעוכות' },
-    { id: 'rpsa-7', amount: 10, unit: 'גרם', name: 'עשבי תיבול טריים (רוזמרין ותימין)' },
-  ],
-  steps: [
-    'חיתוך כפרי: שוטפים ומקרצפים היטב את תפוחי האדמה והבטטות עם הקליפה. חותכים את תפוחי האדמה לחצאים/רבעים לאורך, ואת הבטטות לפלחים בעובי 2 ס"מ.',
-    'תיבול: מניחים את כל הירקות בקערה גדולה, מוסיפים שמן זית, מלח גס, פלפל, שיני שום מעוכות ועשבי תיבול. מערבבים היטב עד שכל הירקות עטופים בשמן.',
-    'צלייה מחזור 1 (תפוחי אדמה): מחממים אייר פרייר ל-200°C. צולים את תפוחי האדמה בלבד בשכבה אחת במשך 18 דקות (מנערים את הסלסילה בדקה ה-9). מעבירים לקערת הגשה.',
-    'צלייה מחזור 2 (בטטה): צולים את פלחי הבטטה ב-200°C במשך 13 דקות (מנערים בדקה ה-7).',
-    'איחוד והגשה: מאחדים את הבטטות החמות בקערה עם תפוחי האדמה, מקפיצים קלות ומגישים מיד.',
-  ],
+  ingredients: CLASSIC_INGREDIENTS.map((ing) => ({ ...ing })),
+  steps: [...CLASSIC_STEPS],
   macros: {
     calories: 1480,
-    protein: 23,
-    carbs: 245,
+    protein: 23.2,
+    carbs: 244.8,
     fat: 46,
+    fiber: 34,
     nutritionBasis: 'recipe',
-    servingUnits: [
-      {
-        label: 'מנה',
-        amount: 1,
-        unit: 'מנה',
-        calories: 370,
-        protein: 5.8,
-        carbs: 61.2,
-        fat: 11.5,
-      },
-    ],
+    servingUnits: [{ ...CLASSIC_PER_SERVING }],
   },
   nutritionBasis: 'recipe',
-  servingUnits: [
-    {
-      label: 'מנה',
-      amount: 1,
-      unit: 'מנה',
-      calories: 370,
-      protein: 5.8,
-      carbs: 61.2,
-      fat: 11.5,
-    },
-  ],
+  servingUnits: [{ ...CLASSIC_PER_SERVING }],
   prepTime: 10,
   cookTime: 31,
+  totalTime: 40,
   rating: 9.0,
   baseServings: 4,
   favorite: false,
   createdAt: 1791288000000,
+  updatedAt: 1791302400000,
+  variations: [
+    {
+      id: 'rpsa-var-classic',
+      name: 'גרסה קלאסית (כפרית)',
+      isDefault: true,
+      description: 'פלחים כפריים עם קליפה, שמן זית ועשבי תיבול.',
+      ingredients: CLASSIC_INGREDIENTS.map((ing) => ({ ...ing })),
+      steps: [...CLASSIC_STEPS],
+      macros: { calories: 1480, protein: 23.2, carbs: 244.8, fat: 46, fiber: 34 },
+      prepTime: 10,
+      cookTime: 31,
+      totalTime: 40,
+      servingUnits: [{ ...CLASSIC_PER_SERVING }],
+    },
+    {
+      id: 'rpsa-var-crunch',
+      name: 'שדרוג קראנץ\' מקסימלי (עם קורנפלור)',
+      isDefault: false,
+      description: 'ציפוי יבש דק של קורנפלור לקריספיות מקסימלית באייר פרייר.',
+      ingredients: [
+        ...CLASSIC_INGREDIENTS.map((ing) => ({ ...ing })),
+        { id: 'rpsa-8', amount: 12, unit: 'גרם', name: 'קורנפלור' },
+      ],
+      steps: [
+        'חיתוך כפרי: שוטפים ומקרצפים היטב את תפוחי האדמה והבטטות (לא מקלפים). חותכים את תפוחי האדמה לחצאים/רבעים לאורך ואת הבטטות לפלחים בעובי 2 ס"מ. מייבשים היטב במגבת נייר לספיגת לחות מרבית.',
+        'ציפוי קראנץ\' יבש: מעבירים את הירקות המיובשים לקערה, מפזרים מעל 1 כף קורנפלור (12 גרם) ומקפיצים עד שכל הפלחים מצופים בשכבה דקיקה.',
+        'תיבול: מוסיפים שמן זית, מלח גס, פלפל שחור, שיני שום מעוכות ועשבי תיבול ומערבבים בידיים עד לציפוי אחיד.',
+        'צלייה מחזור 1 (תפוחי אדמה): מחממים אייר פרייר ל-200°C. צולים את תפוחי האדמה בלבד בשכבה אחת 18 דקות (מנערים בדקה ה-9). מעבירים לקערת הגשה.',
+        'צלייה מחזור 2 (בטטה): צולים את הבטטות ב-200°C במשך 13 דקות (מנערים בדקה ה-7).',
+        'איחוד והגשה: מאחדים את הבטטות והתפוחי אדמה, מקפיצים קלות ומגישים מיד.',
+      ],
+      macros: { calories: 1528, protein: 23.2, carbs: 256, fat: 46, fiber: 34 },
+      prepTime: 10,
+      cookTime: 31,
+      totalTime: 40,
+      servingUnits: [{ ...CRUNCH_PER_SERVING }],
+    },
+  ],
 };
 
 export const SYSTEM_SEED_RECIPES = [RUSTIC_AIRFRYER_POTATOES_RECIPE];

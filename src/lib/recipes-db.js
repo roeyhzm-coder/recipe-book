@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeVariations } from "@/lib/recipe-variations";
 
 // Soft-delete column may still exist; the app never relies on it for visibility.
 let softDeleteSupported = false;
@@ -20,12 +21,14 @@ function parseStoredMinutes(value) {
 
 function displayMacros(macros) {
   const raw = macros && typeof macros === 'object' ? macros : {};
-  return {
+  const next = {
     calories: raw.calories ?? '',
     protein: raw.protein ?? '',
     carbs: raw.carbs ?? '',
     fat: raw.fat ?? '',
   };
+  if (raw.fiber !== '' && raw.fiber != null) next.fiber = raw.fiber;
+  return next;
 }
 
 function normalizeServingUnits(raw) {
@@ -40,6 +43,7 @@ function normalizeServingUnits(raw) {
       protein: unit.protein ?? '',
       carbs: unit.carbs ?? '',
       fat: unit.fat ?? '',
+      ...(unit.fiber !== '' && unit.fiber != null ? { fiber: unit.fiber } : {}),
     }))
     .filter((unit) => unit.label && unit.amount > 0);
 }
@@ -60,6 +64,10 @@ function persistMacros(recipe) {
   if (imageUrl) macros.imageUrl = imageUrl;
   const updatedAt = Number(recipe.updatedAt);
   if (Number.isFinite(updatedAt) && updatedAt > 0) macros.clientUpdatedAt = updatedAt;
+  const fiber = recipe.macros?.fiber;
+  if (fiber !== '' && fiber != null) macros.fiber = fiber;
+  const variations = normalizeVariations(recipe.variations || recipe.macros?.variations);
+  if (variations.length) macros.variations = variations;
   return macros;
 }
 
@@ -76,6 +84,7 @@ function rowToRecipe(row) {
     steps: Array.isArray(row.steps) ? row.steps : [],
     macros: displayMacros(rawMacros),
     servingUnits: normalizeServingUnits(rawMacros.servingUnits),
+    variations: normalizeVariations(rawMacros.variations),
     nutritionBasis: rawMacros.nutritionBasis || '',
     recipeType: rawMacros.recipeType || '',
     prepTime: parseStoredMinutes(rawMacros.prepTime),

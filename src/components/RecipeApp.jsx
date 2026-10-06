@@ -4,6 +4,14 @@ import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
 import {
+  applyVariation,
+  defaultVariationOf,
+  normalizeVariations,
+  persistableVariations,
+  recipeWithDefaultVariation,
+} from '@/lib/recipe-variations';
+import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
+import {
   Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
@@ -160,7 +168,7 @@ function saveHomeCategory(category) {
 }
 
 const EQUIPMENT_ICON_MAP = [
-  { keys: ['גריל', 'תנור', 'כיריים', 'אש', 'טוסטר', 'איירפרייר', 'air fryer'], icon: Flame },
+  { keys: ['גריל', 'תנור', 'כיריים', 'אש', 'טוסטר', 'איירפרייר', 'אייר פרייר', 'air fryer'], icon: Flame },
   { keys: ['משקל'], icon: Scale },
   { keys: ['סכין', 'קרש'], icon: UtensilsCrossed },
   { keys: ['הקפאה', 'פריזר', 'קרח'], icon: Snowflake },
@@ -236,6 +244,8 @@ function asUserRecipe(recipe) {
 }
 
 function totalRecipeMinutes(recipe) {
+  const explicit = Number(recipe?.totalTime);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
   const prep = Number(recipe?.prepTime);
   const cook = Number(recipe?.cookTime);
   const total = (Number.isFinite(prep) ? prep : 0) + (Number.isFinite(cook) ? cook : 0);
@@ -514,15 +524,39 @@ function mergeRecipesById(current, incoming) {
 }
 
 function mergeSystemSeedRecipes(recipes, deletedIds) {
-  const currentIds = new Set(recipes.map((r) => String(r.id)));
-  const incoming = SYSTEM_SEED_RECIPES
-    .filter((recipe) => !deletedIds.has(String(recipe.id)) && !currentIds.has(String(recipe.id)))
-    .map((recipe) => asUserRecipe({
-      ...recipe,
-      updatedAt: Number(recipe.updatedAt) || Number(recipe.createdAt) || Date.now(),
-    }));
-  if (!incoming.length) return recipes;
-  return [...incoming, ...recipes];
+  const byId = new Map((recipes || []).map((recipe) => [String(recipe.id), recipe]));
+  for (const seed of SYSTEM_SEED_RECIPES) {
+    const id = String(seed.id);
+    if (deletedIds.has(id)) continue;
+    const seeded = asUserRecipe({
+      ...seed,
+      updatedAt: Number(seed.updatedAt) || Number(seed.createdAt) || Date.now(),
+    });
+    const current = byId.get(id);
+    if (!current) {
+      byId.set(id, seeded);
+      continue;
+    }
+    const seedUpdated = Number(seeded.updatedAt) || 0;
+    const currentUpdated = Number(current.updatedAt) || 0;
+    const seedHasVariations = Array.isArray(seed.variations) && seed.variations.length > 0;
+    const currentHasVariations = Array.isArray(current.variations) && current.variations.length > 0;
+    if (seedUpdated >= currentUpdated || (seedHasVariations && !currentHasVariations)) {
+      byId.set(id, asUserRecipe({
+        ...seeded,
+        favorite: !!current.favorite,
+        createdAt: current.createdAt || seeded.createdAt,
+        updatedAt: Math.max(seedUpdated, currentUpdated),
+      }));
+    }
+  }
+  const mergedIds = new Set(byId.keys());
+  const extras = (recipes || []).filter((recipe) => !mergedIds.has(String(recipe.id)));
+  const seededOrder = SYSTEM_SEED_RECIPES
+    .map((recipe) => byId.get(String(recipe.id)))
+    .filter(Boolean);
+  const rest = [...byId.values()].filter((recipe) => !SYSTEM_SEED_RECIPES.some((seed) => String(seed.id) === String(recipe.id)));
+  return [...seededOrder, ...rest, ...extras];
 }
 
 function loadSafetySnapshots() {
@@ -1118,7 +1152,11 @@ function HomeView({
       if (!q) return true;
       const inTitle = r.title.toLowerCase().includes(q);
       const inIngredients = r.ingredients.some((i) => i.name.toLowerCase().includes(q));
-      return inTitle || inIngredients;
+      const inVariations = (r.variations || []).some((variation) => (
+        String(variation.name || '').toLowerCase().includes(q)
+        || (variation.ingredients || []).some((i) => String(i.name || '').toLowerCase().includes(q))
+      ));
+      return inTitle || inIngredients || inVariations;
     });
   }, [recipes, search, category, favOnly]);
 
@@ -1289,6 +1327,8 @@ function HomeView({
 /* -------------------------------- detail view -------------------------------- */
 
 function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddToGrocery }) {
+  const variations = normalizeVariations(recipe.variations);
+  const [variationId, setVariationId] = useState(() => defaultVariationOf(recipe)?.id || '');
   const [multiplier, setMultiplier] = useState(1);
   const [customOpen, setCustomOpen] = useState(false);
   const [customInput, setCustomInput] = useState('1');
@@ -1300,6 +1340,10 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
+    setVariationId(defaultVariationOf(recipe)?.id || '');
+    setMultiplier(1);
+    setCustomOpen(false);
+    setCustomInput('1');
   }, [recipe?.id]);
 
   useEffect(() => {
@@ -1405,12 +1449,18 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
     return parts;
   }
 
+  const selectedVariation = variations.find((item) => String(item.id) === String(variationId))
+    || defaultVariationOf(recipe);
+  const displayed = variations.length ? applyVariation(recipe, selectedVariation) : recipe;
   const scaledMacros = {
-    calories: scaleMacro(recipe.macros.calories, multiplier),
-    protein: scaleMacro(recipe.macros.protein, multiplier),
-    carbs: scaleMacro(recipe.macros.carbs, multiplier),
-    fat: scaleMacro(recipe.macros.fat, multiplier),
+    calories: scaleMacro(displayed.macros.calories, multiplier),
+    protein: scaleMacro(displayed.macros.protein, multiplier),
+    carbs: scaleMacro(displayed.macros.carbs, multiplier),
+    fat: scaleMacro(displayed.macros.fat, multiplier),
   };
+  const scaledFiber = displayed.macros?.fiber !== '' && displayed.macros?.fiber != null
+    ? scaleMacro(displayed.macros.fiber, multiplier)
+    : '';
 
   return (
     <div className="pb-28">
@@ -1453,23 +1503,49 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
       <div className="px-4 -mt-6 relative">
         <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xl backdrop-blur-xl">
           <h1 className="font-serif text-3xl text-stone-900 leading-tight">{recipe.title}</h1>
-          {(parseMinutes(recipe.prepTime) !== '' || parseMinutes(recipe.cookTime) !== '') && (
+          {variations.length > 0 && (
+            <div className="mt-4">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                {variations.map((variation) => {
+                  const active = String(variation.id) === String(selectedVariation?.id);
+                  return (
+                    <button
+                      key={variation.id}
+                      type="button"
+                      onClick={() => setVariationId(variation.id)}
+                      className={`shrink-0 min-h-11 px-3.5 py-1.5 rounded-full border text-sm transition whitespace-nowrap ${
+                        active
+                          ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
+                          : 'bg-white border-stone-200 text-stone-600'
+                      }`}
+                    >
+                      {variation.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedVariation?.description ? (
+                <p className="text-xs text-stone-500 mt-2 leading-relaxed">{selectedVariation.description}</p>
+              ) : null}
+            </div>
+          )}
+          {(parseMinutes(displayed.prepTime) !== '' || parseMinutes(displayed.cookTime) !== '') && (
             <div className="mt-4 flex flex-wrap gap-2">
-              {parseMinutes(recipe.prepTime) !== '' && (
+              {parseMinutes(displayed.prepTime) !== '' && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-900 border border-amber-200">
                   <Clock className="w-4 h-4" />
-                  הכנה {recipe.prepTime} דק׳
+                  הכנה {displayed.prepTime} דק׳
                 </span>
               )}
-              {parseMinutes(recipe.cookTime) !== '' && (
+              {parseMinutes(displayed.cookTime) !== '' && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-stone-100 text-stone-800 border border-stone-200">
                   <Flame className="w-4 h-4 text-amber-700" />
-                  בישול / נינג׳ה {recipe.cookTime} דק׳
+                  בישול / נינג׳ה {displayed.cookTime} דק׳
                 </span>
               )}
-              {totalRecipeMinutes(recipe) != null && (
+              {totalRecipeMinutes(displayed) != null && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-white text-stone-800 border border-stone-200">
-                  סה״כ {totalRecipeMinutes(recipe)} דק׳
+                  סה״כ {totalRecipeMinutes(displayed)} דק׳
                 </span>
               )}
             </div>
@@ -1495,14 +1571,25 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             <MacroBadge icon={Wheat} value={scaledMacros.carbs} label="פחמימות" unit="ג'" />
             <MacroBadge icon={Droplet} value={scaledMacros.fat} label="שומן" unit="ג'" />
           </div>
-          {Array.isArray(recipe.servingUnits) && recipe.servingUnits.length > 0 && (
+          {scaledFiber !== '' && (
+            <p className="text-xs text-stone-500 mt-2">סיבים: {scaledFiber} ג׳</p>
+          )}
+          {Array.isArray(displayed.servingUnits) && displayed.servingUnits.length > 0 && (
             <div className="mt-4">
               <p className="text-xs text-stone-500 mb-2">
-                {recipe.nutritionBasis === '100ml' ? 'מנות מוכנות (בסיס: 100 מ״ל)' : 'מנות מוכנות (בסיס: 100 גרם)'}
+                {displayed.nutritionBasis === '100ml'
+                  ? 'מנות מוכנות (בסיס: 100 מ״ל)'
+                  : displayed.nutritionBasis === 'recipe' || displayed.nutritionBasis === 'serving'
+                    ? 'ערכים למנה'
+                    : 'מנות מוכנות (בסיס: 100 גרם)'}
               </p>
               <div className="flex flex-wrap gap-2">
-                {recipe.servingUnits.map((unit) => {
-                  const unitMultiplier = Number(unit.amount) / 100;
+                {displayed.servingUnits.map((unit) => {
+                  const unitMultiplier = displayed.nutritionBasis === 'recipe'
+                    || displayed.nutritionBasis === 'serving'
+                    || unit.unit === 'מנה'
+                    ? Number(unit.amount) / Math.max(1, Number(displayed.baseServings) || 1)
+                    : Number(unit.amount) / 100;
                   const active = Math.abs(multiplier - unitMultiplier) < 0.001;
                   return (
                     <button
@@ -1530,7 +1617,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           {onAddToGrocery && (
             <button
               type="button"
-              onClick={() => onAddToGrocery(recipe)}
+              onClick={() => onAddToGrocery(displayed)}
               className="mt-4 min-h-11 w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-800 flex items-center justify-center gap-2 hover:bg-amber-100 transition"
             >
               <ShoppingCart className="w-4 h-4" />
@@ -1625,7 +1712,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
         <section className="mt-8">
           <h2 className="font-serif text-xl text-stone-900 mb-3">מצרכים וערכים</h2>
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-200 backdrop-blur-md">
-            {recipe.ingredients.map((ing) => {
+            {displayed.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
               const scaledAmount = Number(ing.amount || 0) * multiplier;
               const secondary = ingredientSecondaryLabel(scaledAmount, ing.unit, ing.name);
@@ -1670,7 +1757,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             </button>
           </div>
           <ol className="flex flex-col gap-4">
-            {recipe.steps.map((step, i) => (
+            {displayed.steps.map((step, i) => (
               <li key={i} className="bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
                 <span className="inline-block text-xs font-medium text-amber-800 bg-amber-50 border border-amber-500/20 rounded-full px-2.5 py-0.5 mb-2.5">
                   שלב {i + 1}
@@ -1715,6 +1802,7 @@ function emptyRecipeForm() {
     rating: '',
     baseServings: 1,
     favorite: false,
+    variations: [],
   };
 }
 
@@ -1723,6 +1811,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     const base = initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm();
     base.title = stripServingMarker(base.title);
     base.baseServings = servingsCount(base);
+    base.variations = normalizeVariations(base.variations);
     if (base.nutritionBasis === 'serving' || base.macros?.nutritionBasis === 'serving') return base;
     return recalculateRecipe(base);
   });
@@ -1730,6 +1819,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
   const [expandedIng, setExpandedIng] = useState({});
+  const [expandedVariationId, setExpandedVariationId] = useState(null);
   const [showSmartImport, setShowSmartImport] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1842,11 +1932,12 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       cookTime: parseMinutes(form.cookTime),
       ingredients: form.ingredients.filter((i) => i.name && String(i.name).trim()),
       steps: form.steps.filter((s) => s && String(s).trim()),
+      variations: persistableVariations(form.variations),
       createdAt: form.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
     const keepServingMacros = drafted.nutritionBasis === 'serving' || drafted.macros?.nutritionBasis === 'serving';
-    const clean = keepServingMacros ? drafted : recalculateRecipe(drafted);
+    const clean = recipeWithDefaultVariation(keepServingMacros ? drafted : recalculateRecipe(drafted));
     setSaving(true);
     try {
       onSave(clean);
@@ -2185,6 +2276,15 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             <Plus className="w-4 h-4" /> הוסף שלב ידנית
           </button>
         </div>
+
+        <RecipeVariationsEditor
+          form={form}
+          variations={form.variations || []}
+          expandedId={expandedVariationId}
+          onExpandedId={setExpandedVariationId}
+          makeIngredient={makeIngredient}
+          onChange={(variations) => setForm((f) => ({ ...f, variations }))}
+        />
       </div>
 
       <div className="fixed bottom-0 inset-x-0 bg-stone-50/95 backdrop-blur-xl border-t border-stone-200 p-4 flex gap-3">
@@ -2231,16 +2331,21 @@ function SettingsView({
         servingUnits: Array.isArray(recipe.servingUnits) ? recipe.servingUnits : [],
         nutritionBasis: recipe.nutritionBasis || recipe.macros?.nutritionBasis || '',
         recipeType: recipe.recipeType || recipe.macros?.recipeType || '',
+        variations: normalizeVariations(recipe.variations),
         macros: {
           calories: recipe.macros?.calories ?? '',
           protein: recipe.macros?.protein ?? '',
           carbs: recipe.macros?.carbs ?? '',
           fat: recipe.macros?.fat ?? '',
+          ...(recipe.macros?.fiber != null && recipe.macros.fiber !== '' ? { fiber: recipe.macros.fiber } : {}),
           ...(Array.isArray(recipe.servingUnits) && recipe.servingUnits.length
             ? { servingUnits: recipe.servingUnits }
             : {}),
           ...(recipe.nutritionBasis ? { nutritionBasis: recipe.nutritionBasis } : {}),
           ...(recipe.recipeType ? { recipeType: recipe.recipeType } : {}),
+          ...(Array.isArray(recipe.variations) && recipe.variations.length
+            ? { variations: normalizeVariations(recipe.variations) }
+            : {}),
         },
       };
     });

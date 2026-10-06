@@ -124,6 +124,7 @@ const FOODS = [
   { keys: ['פריכיות אורז'], per100: { calories: 387, protein: 8, carbs: 82, fat: 2.8 }, piece: 9 },
   { keys: ['דיאט לימונדה'], per100: { calories: 2, protein: 0, carbs: 0.2, fat: 0 } },
   { keys: ['דגני', 'סינמון טוסט', 'קורנפלקס'], per100: { calories: 378, protein: 6, carbs: 84, fat: 2 } },
+  { keys: ['קורנפלור', 'עמילן תירס', 'cornstarch'], per100: { calories: 381, protein: 0.3, carbs: 91.3, fat: 0.1 } },
   { keys: ['סוכריות'], per100: { calories: 394, protein: 0, carbs: 98, fat: 0.2 } },
   { keys: ['אוראו', 'לוטוס', 'פתיבר', 'עוגי'], per100: { calories: 480, protein: 5, carbs: 70, fat: 20 } },
   { keys: ['עלה דפנה'], per100: { calories: 313, protein: 8, carbs: 75, fat: 8 } },
