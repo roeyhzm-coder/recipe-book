@@ -16,6 +16,7 @@ import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 import { WEEKEND_CATEGORY } from '@/data/weekend-recipes';
 import { PANTRY_CATEGORY } from '@/data/pantry-ingredients';
+import { SYSTEM_SEED_RECIPES } from '@/data/side-dishes';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -34,6 +35,8 @@ const AUTO_MERGED_CATEGORY_NAMES = [
   ...ICE_CREAM_CATEGORY_NAMES,
   'עוף',
   ...QUICK_SIDE_CATEGORY_NAMES,
+  'תוספות',
+  'אייר פרייר',
   WEEKEND_CATEGORY,
   PANTRY_CATEGORY,
 ];
@@ -42,6 +45,8 @@ const DEFAULT_CATEGORY_NAMES = [
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep', 'עוף',
   WEEKEND_CATEGORY,
   ...QUICK_SIDE_CATEGORY_NAMES,
+  'תוספות',
+  'אייר פרייר',
   ...ICE_CREAM_CATEGORY_NAMES,
 ];
 const PINNED_BY_DEFAULT = [
@@ -506,6 +511,18 @@ function mergeRecipesById(current, incoming) {
     ...current.map((r) => incomingById.get(String(r.id)) ?? r),
     ...incoming.filter((r) => !currentIds.has(String(r.id))),
   ];
+}
+
+function mergeSystemSeedRecipes(recipes, deletedIds) {
+  const currentIds = new Set(recipes.map((r) => String(r.id)));
+  const incoming = SYSTEM_SEED_RECIPES
+    .filter((recipe) => !deletedIds.has(String(recipe.id)) && !currentIds.has(String(recipe.id)))
+    .map((recipe) => asUserRecipe({
+      ...recipe,
+      updatedAt: Number(recipe.updatedAt) || Number(recipe.createdAt) || Date.now(),
+    }));
+  if (!incoming.length) return recipes;
+  return [...incoming, ...recipes];
 }
 
 function loadSafetySnapshots() {
@@ -2396,7 +2413,7 @@ export default function RecipeApp() {
           return remoteRecipe;
         });
         const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
-        const next = [...merged, ...localOnly].map(asUserRecipe);
+        const next = mergeSystemSeedRecipes([...merged, ...localOnly].map(asUserRecipe), deletedIds);
         const toPersist = next.filter((recipe) => {
           const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
           if (!prev) return true;
@@ -2420,7 +2437,7 @@ export default function RecipeApp() {
         }
       } catch (e) {
         if (cancelled) return;
-        setRecipes(local);
+        setRecipes(mergeSystemSeedRecipes(local, deletedIds));
         setSyncMode('offline');
         setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
       }

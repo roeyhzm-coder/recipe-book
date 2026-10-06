@@ -100,3 +100,69 @@ export const SIDE_DISH_RECIPES = [
     createdAt: 1727190054000,
   },
 ];
+
+export const RUSTIC_AIRFRYER_POTATOES_ID = 'roasted-potatoes-sweet-potatoes-airfryer';
+
+export const RUSTIC_AIRFRYER_POTATOES_RECIPE = {
+  id: RUSTIC_AIRFRYER_POTATOES_ID,
+  title: 'פלחי תפוחי אדמה ובטטה כפריים באייר פרייר',
+  image: 'https://images.unsplash.com/photo-1518013431117-eb1465fa5752?w=800&q=80',
+  categories: ['תוספות', 'אייר פרייר'],
+  equipment: ['אייר פרייר', 'קערת ערבוב', 'קרש חיתוך וסכין'],
+  ingredients: [
+    { id: 'rpsa-1', amount: 600, unit: 'גרם', name: 'תפוחי אדמה לבנים קטנים (בייבי)' },
+    { id: 'rpsa-2', amount: 700, unit: 'גרם', name: 'בטטה' },
+    { id: 'rpsa-3', amount: 40, unit: 'גרם', name: 'שמן זית איכותי' },
+    { id: 'rpsa-4', amount: 15, unit: 'גרם', name: 'מלח ים גס' },
+    { id: 'rpsa-5', amount: 3, unit: 'גרם', name: 'פלפל שחור גרוס' },
+    { id: 'rpsa-6', amount: 20, unit: 'גרם', name: 'שיני שום שלמות מעוכות' },
+    { id: 'rpsa-7', amount: 10, unit: 'גרם', name: 'עשבי תיבול טריים (רוזמרין ותימין)' },
+  ],
+  steps: [
+    'חיתוך כפרי: שוטפים ומקרצפים היטב את תפוחי האדמה והבטטות עם הקליפה. חותכים את תפוחי האדמה לחצאים/רבעים לאורך, ואת הבטטות לפלחים בעובי 2 ס"מ.',
+    'תיבול: מניחים את כל הירקות בקערה גדולה, מוסיפים שמן זית, מלח גס, פלפל, שיני שום מעוכות ועשבי תיבול. מערבבים היטב עד שכל הירקות עטופים בשמן.',
+    'צלייה מחזור 1 (תפוחי אדמה): מחממים אייר פרייר ל-200°C. צולים את תפוחי האדמה בלבד בשכבה אחת במשך 18 דקות (מנערים את הסלסילה בדקה ה-9). מעבירים לקערת הגשה.',
+    'צלייה מחזור 2 (בטטה): צולים את פלחי הבטטה ב-200°C במשך 13 דקות (מנערים בדקה ה-7).',
+    'איחוד והגשה: מאחדים את הבטטות החמות בקערה עם תפוחי האדמה, מקפיצים קלות ומגישים מיד.',
+  ],
+  macros: {
+    calories: 1480,
+    protein: 23,
+    carbs: 245,
+    fat: 46,
+    nutritionBasis: 'recipe',
+    servingUnits: [
+      {
+        label: 'מנה',
+        amount: 1,
+        unit: 'מנה',
+        calories: 370,
+        protein: 5.8,
+        carbs: 61.2,
+        fat: 11.5,
+      },
+    ],
+  },
+  nutritionBasis: 'recipe',
+  servingUnits: [
+    {
+      label: 'מנה',
+      amount: 1,
+      unit: 'מנה',
+      calories: 370,
+      protein: 5.8,
+      carbs: 61.2,
+      fat: 11.5,
+    },
+  ],
+  prepTime: 10,
+  cookTime: 31,
+  rating: 9.0,
+  baseServings: 4,
+  favorite: false,
+  createdAt: 1791288000000,
+};
+
+export const SYSTEM_SEED_RECIPES = [RUSTIC_AIRFRYER_POTATOES_RECIPE];
+
+SIDE_DISH_RECIPES.push(RUSTIC_AIRFRYER_POTATOES_RECIPE);
