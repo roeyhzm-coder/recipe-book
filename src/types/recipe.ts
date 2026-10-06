@@ -44,6 +44,8 @@ export interface RecipeServingUnit {
 export interface Recipe {
   id: string;
   title: string;
+  description?: string;
+  notes?: string;
   image?: string;
   imageUrl?: string;
   categories: string[];

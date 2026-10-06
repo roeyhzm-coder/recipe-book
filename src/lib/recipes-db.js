@@ -68,6 +68,8 @@ function persistMacros(recipe) {
   if (fiber !== '' && fiber != null) macros.fiber = fiber;
   const variations = normalizeVariations(recipe.variations || recipe.macros?.variations);
   if (variations.length) macros.variations = variations;
+  macros.description = String(recipe.description ?? recipe.macros?.description ?? '');
+  macros.notes = String(recipe.notes ?? recipe.macros?.notes ?? '');
   return macros;
 }
 
@@ -85,6 +87,8 @@ function rowToRecipe(row) {
     macros: displayMacros(rawMacros),
     servingUnits: normalizeServingUnits(rawMacros.servingUnits),
     variations: normalizeVariations(rawMacros.variations),
+    description: rawMacros.description || '',
+    notes: rawMacros.notes || '',
     nutritionBasis: rawMacros.nutritionBasis || '',
     recipeType: rawMacros.recipeType || '',
     prepTime: parseStoredMinutes(rawMacros.prepTime),
@@ -120,6 +124,15 @@ function recipeToRow(recipe) {
   };
   if (softDeleteSupported) row.deleted_at_ms = null;
   return row;
+}
+
+export async function countRecipes() {
+  await detectSoftDelete();
+  let query = supabase.from("recipes").select("id", { count: "exact", head: true });
+  if (softDeleteSupported) query = query.is("deleted_at_ms", null);
+  const { count, error } = await query;
+  if (error) throw error;
+  return Number(count) || 0;
 }
 
 export async function fetchRecipes() {

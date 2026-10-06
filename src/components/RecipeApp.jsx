@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRecipesDbError } from '@/lib/recipes-db';
+import { fetchRecipes, countRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRecipesDbError } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
@@ -9,7 +9,6 @@ import {
   defaultVariationOf,
   normalizeVariations,
   persistableVariations,
-  recipeWithDefaultVariation,
 } from '@/lib/recipe-variations';
 import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
 import {
@@ -508,40 +507,27 @@ function mergeRecipesById(current, incoming) {
   ];
 }
 
-function mergeSystemSeedRecipes(recipes, deletedIds) {
-  const byId = new Map((recipes || []).map((recipe) => [String(recipe.id), recipe]));
-  for (const seed of SYSTEM_SEED_RECIPES) {
-    const id = String(seed.id);
-    if (deletedIds.has(id)) continue;
-    const seeded = asUserRecipe({
+function initialSeedRecipes(deletedIds) {
+  return SYSTEM_SEED_RECIPES
+    .filter((seed) => !deletedIds.has(String(seed.id)))
+    .map((seed) => asUserRecipe({
       ...seed,
       updatedAt: Number(seed.updatedAt) || Number(seed.createdAt) || Date.now(),
-    });
-    const current = byId.get(id);
-    if (!current) {
-      byId.set(id, seeded);
-      continue;
+    }));
+}
+
+function coalesceCloudAndLocal(fromCloud, local) {
+  const remoteIds = new Set(fromCloud.map((r) => String(r.id)));
+  const localById = new Map(local.map((r) => [String(r.id), r]));
+  const merged = fromCloud.map((remoteRecipe) => {
+    const cached = localById.get(String(remoteRecipe.id));
+    if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
+      return cached;
     }
-    const seedUpdated = Number(seeded.updatedAt) || 0;
-    const currentUpdated = Number(current.updatedAt) || 0;
-    const seedHasVariations = Array.isArray(seed.variations) && seed.variations.length > 0;
-    const currentHasVariations = Array.isArray(current.variations) && current.variations.length > 0;
-    if (seedUpdated >= currentUpdated || (seedHasVariations && !currentHasVariations)) {
-      byId.set(id, asUserRecipe({
-        ...seeded,
-        favorite: !!current.favorite,
-        createdAt: current.createdAt || seeded.createdAt,
-        updatedAt: Math.max(seedUpdated, currentUpdated),
-      }));
-    }
-  }
-  const mergedIds = new Set(byId.keys());
-  const extras = (recipes || []).filter((recipe) => !mergedIds.has(String(recipe.id)));
-  const seededOrder = SYSTEM_SEED_RECIPES
-    .map((recipe) => byId.get(String(recipe.id)))
-    .filter(Boolean);
-  const rest = [...byId.values()].filter((recipe) => !SYSTEM_SEED_RECIPES.some((seed) => String(seed.id) === String(recipe.id)));
-  return [...seededOrder, ...rest, ...extras];
+    return remoteRecipe;
+  });
+  const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
+  return [...merged, ...localOnly];
 }
 
 function loadSafetySnapshots() {
@@ -1490,6 +1476,9 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
       <div className="px-4 -mt-6 relative">
         <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-xl backdrop-blur-xl">
           <h1 className="font-serif text-3xl text-stone-900 leading-tight">{recipe.title}</h1>
+          {recipe.description ? (
+            <p className="text-sm text-stone-600 mt-2 leading-relaxed">{recipe.description}</p>
+          ) : null}
           {variations.length > 0 && (
             <div className="mt-4">
               <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
@@ -1757,6 +1746,15 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             ))}
           </ol>
         </section>
+
+        {recipe.notes ? (
+          <section className="mt-8">
+            <h2 className="font-serif text-xl text-stone-900 mb-3">הערות</h2>
+            <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-wrap bg-white rounded-2xl border border-stone-200 p-4">
+              {recipe.notes}
+            </p>
+          </section>
+        ) : null}
       </div>
 
       <ConfirmModal
@@ -1778,6 +1776,8 @@ function emptyRecipeForm() {
   return {
     id: null,
     title: '',
+    description: '',
+    notes: '',
     image: '',
     imageUrl: '',
     categories: [],
@@ -1915,13 +1915,15 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     });
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
     const drafted = {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
+      description: String(form.description || '').trim(),
+      notes: String(form.notes || '').trim(),
       baseServings: servingsCount(form),
       image: form.image || form.imageUrl || '',
       imageUrl: form.imageUrl || form.image || '',
@@ -1933,11 +1935,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       createdAt: form.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
-    const keepServingMacros = drafted.nutritionBasis === 'serving' || drafted.macros?.nutritionBasis === 'serving';
-    const clean = recipeWithDefaultVariation(keepServingMacros ? drafted : recalculateRecipe(drafted));
     setSaving(true);
     try {
-      onSave(clean);
+      await onSave(drafted);
     } finally {
       setSaving(false);
     }
@@ -1969,6 +1969,17 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
             value={form.title}
             onChange={(e) => update('title', e.target.value)}
             placeholder="לדוגמה: פסטו תרד ביתי"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm text-stone-500 mb-2 block">תיאור</label>
+          <textarea
+            value={form.description || ''}
+            onChange={(e) => update('description', e.target.value)}
+            placeholder="תיאור קצר למתכון"
+            rows={2}
             className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
           />
         </div>
@@ -2130,9 +2141,12 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
               <div key={key}>
                 <input
                   type="number"
-                  readOnly
-                  value={form.macros[key]}
-                  className="w-full min-h-11 bg-emerald-50 border border-emerald-200 rounded-xl px-2 py-2 text-sm text-center text-emerald-800"
+                  value={form.macros[key] ?? ''}
+                  onChange={(e) => setForm((f) => ({
+                    ...f,
+                    macros: { ...f.macros, [key]: e.target.value === '' ? '' : e.target.value },
+                  }))}
+                  className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-2 text-sm text-center text-stone-900"
                 />
                 <p className="text-xs text-emerald-700 text-center mt-1.5">{label}</p>
               </div>
@@ -2272,6 +2286,17 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
           <button type="button" onClick={addBlankStep} className="mt-3 min-h-11 flex items-center gap-1.5 text-sm text-stone-600">
             <Plus className="w-4 h-4" /> הוסף שלב ידנית
           </button>
+        </div>
+
+        <div>
+          <label className="text-sm text-stone-500 mb-2 block">הערות</label>
+          <textarea
+            value={form.notes || ''}
+            onChange={(e) => update('notes', e.target.value)}
+            placeholder="הערות, טיפים או התאמות"
+            rows={3}
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400"
+          />
         </div>
 
         <RecipeVariationsEditor
@@ -2493,7 +2518,8 @@ export default function RecipeApp() {
         .filter((r) => !r.deletedAt && !deletedIds.has(String(r.id)))
         .map(asUserRecipe);
       try {
-        const remote = await fetchRecipes();
+        const remoteCount = await countRecipes();
+        const remote = remoteCount === 0 ? [] : await fetchRecipes();
         if (cancelled) return;
         const toPurge = remote.filter((r) => deletedIds.has(String(r.id)));
         let persistError = null;
@@ -2507,29 +2533,30 @@ export default function RecipeApp() {
         const fromCloud = remote
           .filter((r) => !deletedIds.has(String(r.id)))
           .map(asUserRecipe);
-        const remoteIds = new Set(fromCloud.map((r) => String(r.id)));
-        const localById = new Map(local.map((r) => [String(r.id), r]));
-        const merged = fromCloud.map((remoteRecipe) => {
-          const cached = localById.get(String(remoteRecipe.id));
-          if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
-            return cached;
+
+        let next;
+        if (remoteCount === 0) {
+          next = local.length ? local : initialSeedRecipes(deletedIds);
+          if (next.length) {
+            try {
+              await upsertRecipes(next);
+            } catch (writeError) {
+              persistError = persistError || writeError;
+            }
           }
-          return remoteRecipe;
-        });
-        const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
-        const next = mergeSystemSeedRecipes([...merged, ...localOnly].map(asUserRecipe), deletedIds);
-        const toPersist = next.filter((recipe) => {
-          const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
-          if (!prev) return true;
-          if (prev.title !== recipe.title) return true;
-          if (Number(prev.baseServings) !== Number(recipe.baseServings)) return true;
-          return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
-        });
-        if (toPersist.length) {
-          try {
-            await upsertRecipes(toPersist);
-          } catch (writeError) {
-            persistError = persistError || writeError;
+        } else {
+          next = coalesceCloudAndLocal(fromCloud, local).map(asUserRecipe);
+          const toPersist = next.filter((recipe) => {
+            const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
+            if (!prev) return true;
+            return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
+          });
+          if (toPersist.length) {
+            try {
+              await upsertRecipes(toPersist);
+            } catch (writeError) {
+              persistError = persistError || writeError;
+            }
           }
         }
         if (cancelled) return;
@@ -2541,7 +2568,7 @@ export default function RecipeApp() {
         }
       } catch (e) {
         if (cancelled) return;
-        setRecipes(mergeSystemSeedRecipes(local, deletedIds));
+        setRecipes(local);
         setSyncMode('offline');
         setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
       }
@@ -2599,12 +2626,12 @@ export default function RecipeApp() {
     setView('form');
   }
 
-  function saveRecipe(recipe) {
+  async function saveRecipe(recipe) {
     const existed = recipes.some((r) => String(r.id) === String(recipe.id));
-    const keepServingMacros = recipe.nutritionBasis === 'serving' || recipe.macros?.nutritionBasis === 'serving';
-    const prepared = keepServingMacros ? recipe : applyMacrosFromIngredients(recipe);
     const nextRecipe = asUserRecipe({
-      ...prepared,
+      ...recipe,
+      description: String(recipe.description || ''),
+      notes: String(recipe.notes || ''),
       updatedAt: Date.now(),
     });
     forgetDeletedRecipeIds([nextRecipe.id]);
@@ -2616,9 +2643,13 @@ export default function RecipeApp() {
     setView('detail');
     notify(existed ? 'המתכון עודכן בהצלחה' : 'המתכון נשמר בהצלחה');
     if (syncMode !== 'cloud') return;
-    upsertRecipes([nextRecipe]).catch((error) => {
-      notify(`שמירת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`);
-    });
+    try {
+      await upsertRecipes([nextRecipe]);
+    } catch (error) {
+      const message = `שמירת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`;
+      notify(message);
+      window.alert(message);
+    }
   }
 
   function deleteRecipe(id) {
