@@ -3,6 +3,7 @@ import { fetchRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRec
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
+import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams } from '@/lib/ingredientUnits';
 import {
   applyVariation,
   defaultVariationOf,
@@ -66,7 +67,7 @@ const PINNED_BY_DEFAULT = [
   'גלידות חלבון',
   WEEKEND_CATEGORY,
 ];
-const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'סקופ', 'יחידה', 'חופן', 'קורט'];
+const UNIT_LIST = RECIPE_UNIT_LIST;
 
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
@@ -336,20 +337,10 @@ function isProteinPowderName(name) {
   return /אבקת\s*חלבון|חלבון\s*(וניל|שוקולד|איזולט|טבע|בננה|תות)|myprotein|protein\s*powder|whey/.test(text);
 }
 
-function amountToGrams(amount, unit) {
-  const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  const u = String(unit || '').trim();
-  if (u === 'גרם' || u === "ג'") return value;
-  if (u === 'ק"ג' || u === 'ק״ג') return value * 1000;
-  return null;
-}
-
-/** MyProtein scoop standard: 1 scoop = 25g. */
 function proteinScoopLabel(amount, unit, name) {
   if (!isProteinPowderName(name)) return '';
-  const grams = amountToGrams(amount, unit);
-  if (grams == null) return '';
+  const grams = amountToGrams(amount, unit, name);
+  if (!grams) return '';
   const scoops = Math.round((grams / PROTEIN_SCOOP_GRAMS) * 10) / 10;
   if (scoops <= 0) return '';
   const whole = Number.isInteger(scoops);
@@ -1882,6 +1873,13 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     }));
   }
 
+  function onUnitChange(id, newUnit) {
+    setForm((f) => applyMacrosFromIngredients({
+      ...f,
+      ingredients: f.ingredients.map((ing) => (ing.id === id ? convertIngredientUnit(ing, newUnit) : ing)),
+    }));
+  }
+
   function removeIngredient(id) {
     setForm((f) => applyMacrosFromIngredients({ ...f, ingredients: f.ingredients.filter((ing) => ing.id !== id) }));
   }
@@ -2196,7 +2194,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                   />
                   <select
                     value={ing.unit}
-                    onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
+                    onChange={(e) => onUnitChange(ing.id, e.target.value)}
                     className="min-h-11 bg-white border border-stone-200 rounded-lg px-1.5 py-1.5 text-sm text-stone-900"
                   >
                     {UNIT_LIST.map((u) => (

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, X } from 'lucide-react';
 import { formatQuantityLabel, groupItemsByAisle, UNIT_LIST } from '@/lib/grocery-utils';
 import { getGrocerySubstitutions } from '@/lib/grocery-substitutions';
+import { convertAmountOnUnitChange } from '@/lib/ingredientUnits';
 
 const QUANTITY_UNITS = UNIT_LIST;
 
@@ -128,7 +129,15 @@ function QuantityDialog({ open, item, onConfirm, onCancel }) {
           />
           <select
             value={unit}
-            onChange={(event) => setUnit(event.target.value)}
+            onChange={(event) => {
+              const nextUnit = event.target.value;
+              setAmount((prev) => {
+                const parsed = parseFloat(String(prev).replace(',', '.'));
+                if (!Number.isFinite(parsed) || parsed <= 0) return prev;
+                return String(convertAmountOnUnitChange(parsed, unit, nextUnit, item.name));
+              });
+              setUnit(nextUnit);
+            }}
             className="min-h-11 w-28 bg-white border border-stone-200 rounded-xl px-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
           >
             {QUANTITY_UNITS.map((option) => (

@@ -1,4 +1,5 @@
 import { PANTRY_NAMES, PANTRY_NUTRITION, macrosAt } from '@/data/pantry-ingredients';
+import { amountToGrams as gramsFromUnit } from '@/lib/ingredientUnits';
 
 function round1(value) {
   return Math.round(Number(value) * 10) / 10;
@@ -16,23 +17,6 @@ function normalizeName(name) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-
-const UNIT_TO_GRAMS = {
-  גרם: 1,
-  "ג'": 1,
-  'ק"ג': 1000,
-  'ק״ג': 1000,
-  'מ"ל': 1,
-  'מ״ל': 1,
-  ליטר: 1000,
-  כוס: 240,
-  כף: 15,
-  כפות: 15,
-  כפית: 5,
-  סקופ: 25,
-  חופן: 15,
-  קורט: 0.3,
-};
 
 const FOODS = [
   { keys: ['בננה'], per100: { calories: 89, protein: 1.1, carbs: 22.8, fat: 0.3 }, piece: 118 },
@@ -64,8 +48,9 @@ const FOODS = [
   { keys: ['אורז בסמטי', 'אורז יבש'], per100: { calories: 350, protein: 8.8, carbs: 78, fat: 0.6 } },
   { keys: ['אורז מבושל'], per100: { calories: 123, protein: 2.8, carbs: 27, fat: 0.3 } },
   { keys: ['פסטה', 'פנה', 'מקרוני', 'barilla'], per100: { calories: 359, protein: 13, carbs: 71, fat: 1.5 } },
-  { keys: ['תפוח אדמה', 'תפוחי אדמה', 'פירה'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 } },
-  { keys: ['בטטה'], per100: { calories: 86, protein: 1.6, carbs: 20, fat: 0.1 } },
+  { keys: ['תפוח אדמה בייבי', 'תפוחי אדמה קטנים'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 }, piece: 65 },
+  { keys: ['תפוח אדמה', 'תפוחי אדמה', 'פירה'], per100: { calories: 77, protein: 2, carbs: 17, fat: 0.1 }, piece: 150 },
+  { keys: ['בטטה'], per100: { calories: 86, protein: 1.6, carbs: 20, fat: 0.1 }, piece: 350 },
   { keys: ['שמן זית', 'olive'], per100: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
   { keys: ['שמן לטיגון', 'שמן '], per100: { calories: 884, protein: 0, carbs: 0, fat: 100 } },
   { keys: ['חמאה'], per100: { calories: 717, protein: 0.9, carbs: 0.1, fat: 81 } },
@@ -75,14 +60,14 @@ const FOODS = [
   { keys: ['פיתה'], per100: { calories: 275, protein: 9, carbs: 55, fat: 1.2 }, piece: 60 },
   { keys: ['לחם', 'פרוסות'], per100: { calories: 227, protein: 11.2, carbs: 36.6, fat: 2.4 } },
   { keys: ['טורטייה'], per100: { calories: 310, protein: 8.5, carbs: 54, fat: 6.5 }, piece: 45 },
-  { keys: ['ביצה', 'ביצים'], per100: { calories: 133, protein: 12.5, carbs: 0.7, fat: 9.2 }, piece: 60 },
+  { keys: ['ביצה', 'ביצים'], per100: { calories: 133, protein: 12.5, carbs: 0.7, fat: 9.2 }, piece: 55 },
   { keys: ['טחינה'], per100: { calories: 595, protein: 17, carbs: 21, fat: 54 } },
   { keys: ['פומודורו', 'רסק עגבניות', 'עגבניות מרוסקות'], per100: { calories: 40, protein: 1.8, carbs: 6.5, fat: 0.2 } },
   { keys: ['עגבני'], per100: { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 } },
   { keys: ['מלפפון'], per100: { calories: 15, protein: 0.7, carbs: 3.6, fat: 0.1 }, piece: 200 },
   { keys: ['פלפל אדום'], per100: { calories: 31, protein: 1, carbs: 6, fat: 0.3 }, piece: 120 },
   { keys: ['פלפל ירוק', 'פלפל'], per100: { calories: 20, protein: 0.9, carbs: 4.6, fat: 0.2 }, piece: 120 },
-  { keys: ['בצל סגול', 'בצל אדום', 'בצל מגורד', 'בצל'], per100: { calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1 }, piece: 110 },
+  { keys: ['בצל סגול', 'בצל אדום', 'בצל מגורד', 'בצל'], per100: { calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1 }, piece: 120 },
   { keys: ['בצל ירוק'], per100: { calories: 32, protein: 1.8, carbs: 7.3, fat: 0.2 }, piece: 15 },
   { keys: ['גזר'], per100: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 } },
   { keys: ['ברוקולי'], per100: { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 } },
@@ -163,15 +148,7 @@ export function findIngredientNutrition(name) {
 }
 
 export function amountToGrams(amount, unit, name) {
-  const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0) return 0;
-  const u = String(unit || 'גרם').trim();
-  if (UNIT_TO_GRAMS[u]) return value * UNIT_TO_GRAMS[u];
-  if (u === 'יחידה') {
-    const match = findIngredientNutrition(name);
-    return value * (match?.piece || 50);
-  }
-  return value;
+  return gramsFromUnit(amount, unit, name);
 }
 
 export function macrosForIngredient(ingredient) {

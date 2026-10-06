@@ -1,7 +1,8 @@
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
 import { emptyVariation, moveVariation, recalculateVariation, setDefaultVariation } from '@/lib/recipe-variations';
+import { convertIngredientUnit, RECIPE_UNIT_LIST } from '@/lib/ingredientUnits';
 
-const UNIT_LIST = ['גרם', 'ק"ג', 'מ"ל', 'ליטר', 'כוס', 'כפות', 'כפית', 'סקופ', 'יחידה', 'חופן', 'קורט'];
+const UNIT_LIST = RECIPE_UNIT_LIST;
 
 export default function RecipeVariationsEditor({
   form,
@@ -43,6 +44,15 @@ export default function RecipeVariationsEditor({
     patchVariation(variationId, (item) => ({
       ...item,
       ingredients: item.ingredients.map((ing) => (ing.id === ingredientId ? { ...ing, [field]: value } : ing)),
+    }));
+  }
+
+  function onUnitChange(variationId, ingredientId, newUnit) {
+    patchVariation(variationId, (item) => ({
+      ...item,
+      ingredients: item.ingredients.map((ing) => (
+        ing.id === ingredientId ? convertIngredientUnit(ing, newUnit) : ing
+      )),
     }));
   }
 
@@ -182,7 +192,7 @@ export default function RecipeVariationsEditor({
                         />
                         <select
                           value={ing.unit}
-                          onChange={(e) => updateIngredient(variation.id, ing.id, 'unit', e.target.value)}
+                          onChange={(e) => onUnitChange(variation.id, ing.id, e.target.value)}
                           className="min-h-11 bg-white border border-stone-200 rounded-lg px-1 text-sm"
                         >
                           {UNIT_LIST.map((unit) => (
