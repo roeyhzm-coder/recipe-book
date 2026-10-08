@@ -13,8 +13,9 @@ import {
   servingDisplayName,
   storedMacrosToRecipeTotal,
   totalRecipeGrams,
+  unitWeightOf,
 } from '@/lib/nutrition-macros';
-import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit } from '@/lib/ingredientUnits';
+import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit, HOUSEHOLD_UNIT_GRAMS } from '@/lib/ingredientUnits';
 import {
   applyVariation,
   defaultVariationOf,
@@ -35,7 +36,7 @@ import BottomNav from '@/components/grocery/BottomNav';
 import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 import { WEEKEND_CATEGORY } from '@/data/weekend-recipes';
-import { PANTRY_CATEGORY } from '@/data/pantry-ingredients';
+import { PANTRY_CATEGORY, FRUIT_CATEGORY, VEG_CATEGORY, PRODUCE_PANTRY_RECIPES } from '@/data/pantry-ingredients';
 import { SYSTEM_SEED_RECIPES } from '@/data/side-dishes';
 
 /* ---------------------------------- data & storage ---------------------------------- */
@@ -59,9 +60,11 @@ const AUTO_MERGED_CATEGORY_NAMES = [
   'אייר פרייר',
   WEEKEND_CATEGORY,
   PANTRY_CATEGORY,
+  FRUIT_CATEGORY,
+  VEG_CATEGORY,
 ];
 const DEFAULT_CATEGORY_NAMES = [
-  'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', PANTRY_CATEGORY, 'גלידות',
+  'ארוחת בוקר', 'ארוחת צהריים', 'ארוחת ערב', 'עתיר חלבון', 'בשרי', 'נשנושים', PANTRY_CATEGORY, FRUIT_CATEGORY, VEG_CATEGORY, 'גלידות',
   'דגים', 'דל פחמימה', 'קינוחים', 'שייקים', 'סלטים', 'מהיר להכנה', 'Meal Prep', 'עוף',
   WEEKEND_CATEGORY,
   ...QUICK_SIDE_CATEGORY_NAMES,
@@ -75,6 +78,8 @@ const PINNED_BY_DEFAULT = [
   'ארוחת ערב',
   'עתיר חלבון',
   PANTRY_CATEGORY,
+  FRUIT_CATEGORY,
+  VEG_CATEGORY,
   'גלידות חלבון',
   WEEKEND_CATEGORY,
 ];
@@ -519,13 +524,24 @@ function mergeRecipesById(current, incoming) {
   ];
 }
 
-function initialSeedRecipes(deletedIds) {
-  return SYSTEM_SEED_RECIPES
+function catalogSeedRecipes(deletedIds) {
+  return [...SYSTEM_SEED_RECIPES, ...PRODUCE_PANTRY_RECIPES]
     .filter((seed) => !deletedIds.has(String(seed.id)))
     .map((seed) => asUserRecipe({
       ...seed,
       updatedAt: Number(seed.updatedAt) || Number(seed.createdAt) || Date.now(),
     }));
+}
+
+function initialSeedRecipes(deletedIds) {
+  return catalogSeedRecipes(deletedIds);
+}
+
+function mergeMissingCatalogRecipes(current, deletedIds) {
+  const have = new Set((current || []).map((recipe) => String(recipe.id)));
+  const missing = catalogSeedRecipes(deletedIds).filter((seed) => !have.has(String(seed.id)));
+  if (!missing.length) return { recipes: current, missing };
+  return { recipes: [...missing, ...current], missing };
 }
 
 function coalesceCloudAndLocal(fromCloud, local) {
@@ -1005,7 +1021,7 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
   const [imgError, setImgError] = useState(false);
   const imageSrc = recipe.image || recipe.imageUrl || '';
   const cardServings = servingsCount(recipe);
-  const cardGrams = totalRecipeGrams(recipe.ingredients);
+  const cardGrams = totalRecipeGrams(recipe.ingredients, unitWeightOf(recipe));
   const cardPerServing = recipeTotalToView(
     storedMacrosToRecipeTotal(recipe.macros, {
       servings: cardServings,
@@ -1451,7 +1467,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
     || defaultVariationOf(recipe);
   const displayed = variations.length ? applyVariation(recipe, selectedVariation) : recipe;
   const displayedServings = servingsCount(displayed);
-  const displayedGrams = totalRecipeGrams(displayed.ingredients);
+  const displayedGrams = totalRecipeGrams(displayed.ingredients, unitWeightOf(displayed));
   const displayedTotals = storedMacrosToRecipeTotal(displayed.macros, {
     servings: displayedServings,
     basis: nutritionBasisOf(displayed),
@@ -1583,6 +1599,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
               totalMacros={scaledTotals}
               servings={displayedServings}
               totalGrams={displayedGrams * (Number(multiplier) > 0 ? Number(multiplier) : 1)}
+              unitWeightGrams={unitWeightOf(displayed)}
               mode={nutritionMode}
               onModeChange={setNutritionMode}
               servingName={servingDisplayName(displayed)}
@@ -1624,7 +1641,11 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
                           : 'bg-white border-stone-200 text-stone-600'
                       }`}
                     >
-                      {formatServingUnitLabel(unit)}
+                      {formatServingUnitLabel({
+                        ...unit,
+                        name: displayed.title,
+                        unitWeightGrams: unit.unitWeightGrams || displayed.unitWeightGrams,
+                      })}
                     </button>
                   );
                 })}
@@ -1732,7 +1753,12 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             {displayed.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
               const scaledAmount = Number(ing.amount || 0) * multiplier;
-              const quantityLabel = formatQuantityWithGrams(scaledAmount, ing.unit, ing.name);
+              const quantityLabel = formatQuantityWithGrams(
+                scaledAmount,
+                ing.unit,
+                ing.name,
+                ing.unitWeightGrams || displayed.unitWeightGrams,
+              );
               const scoop = proteinScoopLabel(scaledAmount, ing.unit, ing.name);
               const extra = scoop && !String(ing.unit || '').includes('סקופ')
                 ? scoop
@@ -1829,6 +1855,7 @@ function emptyRecipeForm() {
     macros: { calories: '', protein: '', carbs: '', fat: '' },
     servingUnits: [],
     nutritionBasis: '',
+    unitWeightGrams: '',
     prepTime: '',
     cookTime: '',
     rating: '',
@@ -1920,7 +1947,9 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   function onUnitChange(id, newUnit) {
     setForm((f) => applyMacrosFromIngredients({
       ...f,
-      ingredients: f.ingredients.map((ing) => (ing.id === id ? convertIngredientUnit(ing, newUnit) : ing)),
+      ingredients: f.ingredients.map((ing) => (
+        ing.id === id ? convertIngredientUnit(ing, newUnit, f.unitWeightGrams) : ing
+      )),
     }));
   }
 
@@ -1964,13 +1993,15 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
     const servings = servingsCount(form);
-    const grams = totalRecipeGrams(form.ingredients);
+    const grams = totalRecipeGrams(form.ingredients, unitWeightOf(form));
     const originalBasis = nutritionBasisOf(initial || form);
     const persistBasis = originalBasis === '100g' || originalBasis === '100ml' ? originalBasis : 'recipe';
+    const pieceGrams = unitWeightOf(form);
     const storedMacros = recipeTotalToStored(form.macros, {
       servings,
       basis: persistBasis,
       totalGrams: grams,
+      unitWeightGrams: pieceGrams,
     });
     const drafted = {
       ...form,
@@ -1979,6 +2010,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       description: String(form.description || '').trim(),
       notes: String(form.notes || '').trim(),
       baseServings: servings,
+      unitWeightGrams: pieceGrams || '',
       image: form.image || form.imageUrl || '',
       imageUrl: form.imageUrl || form.image || '',
       prepTime: parseMinutes(form.prepTime),
@@ -2155,6 +2187,33 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
         </div>
 
         <div>
+          <label className="text-sm text-stone-500 mb-2 block">משקל יחידה / מנה בגרמים</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            value={form.unitWeightGrams ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value;
+              if (raw === '') {
+                update('unitWeightGrams', '');
+                return;
+              }
+              const next = parseFloat(String(raw).replace(',', '.'));
+              if (Number.isFinite(next) && next > 0) update('unitWeightGrams', next);
+            }}
+            placeholder="לדוגמה: יחידה אחת = 200 גרם"
+            className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-center text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
+          />
+          <p className="text-xs text-stone-500 mt-1.5 leading-relaxed">
+            יחידה אחת = {form.unitWeightGrams ? `${form.unitWeightGrams} גרם` : '—'}
+            {' · '}
+            כף = {HOUSEHOLD_UNIT_GRAMS['כף']} גרם · כפית = {HOUSEHOLD_UNIT_GRAMS['כפית']} גרם · כוס = {HOUSEHOLD_UNIT_GRAMS['כוס']} גרם/מ״ל
+          </p>
+        </div>
+
+        <div>
           <label className="text-sm text-stone-500 mb-2 block">זמני עבודה</label>
           <div className="grid grid-cols-2 gap-2.5">
             <div>
@@ -2188,7 +2247,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
         <NutritionMacrosPanel
           totalMacros={form.macros}
           servings={servingsCount(form)}
-          totalGrams={totalRecipeGrams(form.ingredients)}
+          totalGrams={totalRecipeGrams(form.ingredients, unitWeightOf(form))}
+          unitWeightGrams={unitWeightOf(form)}
           mode={nutritionMode}
           onModeChange={setNutritionMode}
           onChangeTotalMacros={(macros) => setForm((f) => ({ ...f, macros: { ...f.macros, ...macros } }))}
@@ -2274,6 +2334,20 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   </button>
                 </div>
+                {(() => {
+                  const grams = amountToGrams(
+                    ing.amount,
+                    ing.unit,
+                    ing.name,
+                    ing.unitWeightGrams || form.unitWeightGrams,
+                  );
+                  if (!(grams > 0) || isGramUnit(ing.unit)) return null;
+                  return (
+                    <p className="text-[11px] text-stone-500 mt-1.5">
+                      {formatQuantityWithGrams(ing.amount, ing.unit, ing.name, ing.unitWeightGrams || form.unitWeightGrams)}
+                    </p>
+                  );
+                })()}
                 {expandedIng[ing.id] && (
                   <div className="grid grid-cols-4 gap-1.5 mt-3">
                     {['calories', 'protein', 'carbs', 'fat'].map((k) => (
@@ -2579,29 +2653,21 @@ export default function RecipeApp() {
           .filter((r) => !deletedIds.has(String(r.id)))
           .map(asUserRecipe);
 
-        let next;
-        if (remoteCount === 0) {
-          next = local.length ? local : initialSeedRecipes(deletedIds);
-          if (next.length) {
-            try {
-              await upsertRecipes(next);
-            } catch (writeError) {
-              persistError = persistError || writeError;
-            }
-          }
-        } else {
-          next = coalesceCloudAndLocal(fromCloud, local).map(asUserRecipe);
-          const toPersist = next.filter((recipe) => {
-            const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
-            if (!prev) return true;
-            return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
-          });
-          if (toPersist.length) {
-            try {
-              await upsertRecipes(toPersist);
-            } catch (writeError) {
-              persistError = persistError || writeError;
-            }
+        let next = remoteCount === 0
+          ? (local.length ? local : initialSeedRecipes(deletedIds))
+          : coalesceCloudAndLocal(fromCloud, local).map(asUserRecipe);
+        const mergedCatalog = mergeMissingCatalogRecipes(next, deletedIds);
+        next = mergedCatalog.recipes;
+        const toPersist = next.filter((recipe) => {
+          const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
+          if (!prev) return true;
+          return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
+        });
+        if (toPersist.length) {
+          try {
+            await upsertRecipes(toPersist);
+          } catch (writeError) {
+            persistError = persistError || writeError;
           }
         }
         if (cancelled) return;

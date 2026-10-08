@@ -58,6 +58,8 @@ function persistMacros(recipe) {
   if (servingUnits.length) macros.servingUnits = servingUnits;
   const nutritionBasis = recipe.nutritionBasis || recipe.macros?.nutritionBasis;
   if (nutritionBasis) macros.nutritionBasis = nutritionBasis;
+  const unitWeightGrams = Number(recipe.unitWeightGrams ?? recipe.macros?.unitWeightGrams);
+  if (Number.isFinite(unitWeightGrams) && unitWeightGrams > 0) macros.unitWeightGrams = unitWeightGrams;
   const recipeType = recipe.recipeType || recipe.macros?.recipeType;
   if (recipeType) macros.recipeType = recipeType;
   const imageUrl = recipe.imageUrl || recipe.image;
@@ -91,6 +93,7 @@ function rowToRecipe(row) {
     notes: rawMacros.notes || '',
     nutritionBasis: rawMacros.nutritionBasis || '',
     recipeType: rawMacros.recipeType || '',
+    unitWeightGrams: Number(rawMacros.unitWeightGrams) > 0 ? Number(rawMacros.unitWeightGrams) : '',
     prepTime: parseStoredMinutes(rawMacros.prepTime),
     cookTime: parseStoredMinutes(rawMacros.cookTime),
     rating: row.rating === null || row.rating === undefined ? '' : Number(row.rating),

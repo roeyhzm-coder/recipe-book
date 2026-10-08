@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChevronDown, Plus, Star, Trash2 } from 'lucide-reac
 import { emptyVariation, moveVariation, recalculateVariation, setDefaultVariation } from '@/lib/recipe-variations';
 import { convertIngredientUnit, RECIPE_UNIT_LIST } from '@/lib/ingredientUnits';
 import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
-import { hasAutoIngredientMacros, servingsOf, totalRecipeGrams } from '@/lib/nutrition-macros';
+import { hasAutoIngredientMacros, servingsOf, totalRecipeGrams, unitWeightOf } from '@/lib/nutrition-macros';
 
 const UNIT_LIST = RECIPE_UNIT_LIST;
 
@@ -55,7 +55,7 @@ export default function RecipeVariationsEditor({
     patchVariation(variationId, (item) => ({
       ...item,
       ingredients: item.ingredients.map((ing) => (
-        ing.id === ingredientId ? convertIngredientUnit(ing, newUnit) : ing
+        ing.id === ingredientId ? convertIngredientUnit(ing, newUnit, form?.unitWeightGrams) : ing
       )),
     }));
   }
@@ -169,7 +169,8 @@ export default function RecipeVariationsEditor({
                   <NutritionMacrosPanel
                     totalMacros={variation.macros}
                     servings={servingsOf(form)}
-                    totalGrams={totalRecipeGrams(variation.ingredients)}
+                    totalGrams={totalRecipeGrams(variation.ingredients, unitWeightOf(form))}
+                    unitWeightGrams={unitWeightOf(form)}
                     mode={nutritionMode}
                     onModeChange={setNutritionMode}
                     servingName={variation.name || form?.title || 'מנה'}

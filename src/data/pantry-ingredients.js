@@ -1,18 +1,20 @@
 import { amountToGrams, formatGramsNumber } from '@/lib/ingredientUnits';
 
 export const PANTRY_CATEGORY = 'רכיבים ומוצרי בסיס';
+export const FRUIT_CATEGORY = 'פירות';
+export const VEG_CATEGORY = 'ירקות';
 
-function round1(value) {
-  return Math.round(Number(value) * 10) / 10;
+function round2(value) {
+  return Math.round(Number(value) * 100) / 100;
 }
 
 export function macrosAt(per100, amount) {
   const factor = Number(amount) / 100;
   return {
-    calories: round1(per100.calories * factor),
-    protein: round1(per100.protein * factor),
-    carbs: round1(per100.carbs * factor),
-    fat: round1(per100.fat * factor),
+    calories: round2(per100.calories * factor),
+    protein: round2(per100.protein * factor),
+    carbs: round2(per100.carbs * factor),
+    fat: round2(per100.fat * factor),
   };
 }
 
@@ -52,6 +54,13 @@ export const PANTRY_NUTRITION = {
   friesAirfryer: { calories: 125, protein: 2.5, carbs: 23, fat: 2.8 },
   sweetPotatoAirfryer: { calories: 95, protein: 1.8, carbs: 21, fat: 0.3 },
   greenOnion: { calories: 32, protein: 1.8, carbs: 7.3, fat: 0.2 },
+  produceMango: { calories: 60, protein: 0.82, carbs: 15, fat: 0.38 },
+  produceBanana: { calories: 89, protein: 1.09, carbs: 22.8, fat: 0.33 },
+  produceStrawberry: { calories: 32, protein: 0.67, carbs: 7.68, fat: 0.3 },
+  produceOnion: { calories: 40, protein: 1.1, carbs: 9.34, fat: 0.1 },
+  produceGreenOnion: { calories: 32, protein: 1.83, carbs: 7.34, fat: 0.19 },
+  produceCucumber: { calories: 15, protein: 0.65, carbs: 3.63, fat: 0.11 },
+  produceTomato: { calories: 18, protein: 0.88, carbs: 3.89, fat: 0.2 },
 };
 
 export const PANTRY_NAMES = {
@@ -84,6 +93,13 @@ export const PANTRY_NAMES = {
   friesAirfryer: 'צ\'יפס תפו"א באייר פרייר',
   sweetPotatoAirfryer: 'בטטה באייר פרייר',
   greenOnion: 'בצל ירוק',
+  produceMango: 'מנגו',
+  produceBanana: 'בננה',
+  produceStrawberry: 'תות שדה',
+  produceOnion: 'בצל',
+  produceGreenOnion: 'בצל ירוק',
+  produceCucumber: 'מלפפון',
+  produceTomato: 'עגבנייה',
 };
 
 function servingLabelWithGrams(label, amount, unit, name) {
@@ -112,6 +128,8 @@ function pantryItem({
   recipeMacros,
   createdAt,
   updatedAt,
+  categories,
+  unitWeightGrams,
 }) {
   const title = PANTRY_NAMES[key];
   const per100 = PANTRY_NUTRITION[key];
@@ -142,16 +160,25 @@ function pantryItem({
   const ingUnit = ingredientUnit || unit;
   const ingMacros = ingredientMacros || per100;
   const basis = nutritionBasis || (unit === 'מ"ל' ? '100ml' : '100g');
+  const pieceGrams = Number(unitWeightGrams) > 0 ? Number(unitWeightGrams) : '';
+  const extraCategories = Array.isArray(categories) ? categories : [];
 
   return {
     id,
     title,
     image,
     imageUrl: image,
-    categories: [PANTRY_CATEGORY],
+    categories: [...new Set([PANTRY_CATEGORY, ...extraCategories])],
     equipment: [],
     ingredients: [
-      { id: `${id}-100`, amount: ingAmount, unit: ingUnit, name: title, ...ingMacros },
+      {
+        id: `${id}-100`,
+        amount: ingAmount,
+        unit: ingUnit,
+        name: title,
+        ...ingMacros,
+        ...(pieceGrams ? { unitWeightGrams: pieceGrams } : {}),
+      },
     ],
     steps: [
       basis === 'serving'
@@ -163,6 +190,7 @@ function pantryItem({
     servingUnits,
     nutritionBasis: basis,
     recipeType: 'ingredient',
+    unitWeightGrams: pieceGrams,
     prepTime: 0,
     cookTime: 0,
     rating: '',
@@ -203,6 +231,13 @@ const PANTRY_IMAGES = {
   friesAirfryer: '',
   sweetPotatoAirfryer: '',
   greenOnion: '',
+  produceMango: 'https://images.unsplash.com/photo-1553279768-865429fa0078?auto=format&fit=crop&w=800&q=80',
+  produceBanana: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=800&q=80',
+  produceStrawberry: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&w=800&q=80',
+  produceOnion: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?auto=format&fit=crop&w=800&q=80',
+  produceGreenOnion: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?auto=format&fit=crop&w=800&q=80',
+  produceCucumber: 'https://images.unsplash.com/photo-1449339854873-750e6df51301?auto=format&fit=crop&w=800&q=80',
+  produceTomato: 'https://images.unsplash.com/photo-1546470427-227c7369a5b9?auto=format&fit=crop&w=800&q=80',
 };
 
 const PANTRY_DEFS = [
@@ -298,6 +333,65 @@ const PANTRY_DEFS = [
   { id: 'pantry-fries-airfryer', key: 'friesAirfryer' },
   { id: 'pantry-sweet-potato-airfryer', key: 'sweetPotatoAirfryer' },
   { id: 'pantry-green-onion', key: 'greenOnion' },
+  {
+    id: 'pantry-produce-mango',
+    key: 'produceMango',
+    categories: [FRUIT_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 200,
+    servings: [{ label: 'יחידה בינונית', amount: 200, macros: { calories: 120, protein: 1.64, carbs: 30, fat: 0.76 } }],
+    updatedAt: 1791417600000,
+  },
+  {
+    id: 'pantry-produce-banana',
+    key: 'produceBanana',
+    categories: [FRUIT_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 120,
+    servings: [{ label: 'יחידה בינונית', amount: 120, macros: { calories: 107, protein: 1.31, carbs: 27.4, fat: 0.4 } }],
+    updatedAt: 1791417601000,
+  },
+  {
+    id: 'pantry-produce-strawberry',
+    key: 'produceStrawberry',
+    categories: [FRUIT_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 18,
+    servings: [
+      { label: 'יחידה ממוצעת', amount: 18, macros: { calories: 5.8, protein: 0.12, carbs: 1.38, fat: 0.05 } },
+      { label: 'סלסלה', amount: 250, macros: { calories: 80, protein: 1.68, carbs: 19.2, fat: 0.75 } },
+    ],
+    updatedAt: 1791417602000,
+  },
+  {
+    id: 'pantry-produce-onion',
+    key: 'produceOnion',
+    categories: [VEG_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 150,
+    servings: [{ label: 'יחידה בינונית', amount: 150, macros: { calories: 60, protein: 1.65, carbs: 14, fat: 0.15 } }],
+    updatedAt: 1791417603000,
+  },
+  {
+    id: 'pantry-produce-green-onion',
+    key: 'produceGreenOnion',
+    categories: [VEG_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 15,
+    servings: [{ label: 'גבעול בינוני', amount: 15, macros: { calories: 4.8, protein: 0.27, carbs: 1.1, fat: 0.03 } }],
+    updatedAt: 1791417604000,
+  },
+  {
+    id: 'pantry-produce-cucumber',
+    key: 'produceCucumber',
+    categories: [VEG_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 100,
+    servings: [{ label: 'יחידה בינונית', amount: 100, macros: { calories: 15, protein: 0.65, carbs: 3.63, fat: 0.11 } }],
+    updatedAt: 1791417605000,
+  },
+  {
+    id: 'pantry-produce-tomato',
+    key: 'produceTomato',
+    categories: [VEG_CATEGORY, PANTRY_CATEGORY],
+    unitWeightGrams: 120,
+    servings: [{ label: 'יחידה בינונית', amount: 120, macros: { calories: 21.6, protein: 1.06, carbs: 4.67, fat: 0.24 } }],
+    updatedAt: 1791417606000,
+  },
 ];
 
 export const PANTRY_INGREDIENT_RECIPES = PANTRY_DEFS.map((def, index) => pantryItem({
@@ -305,3 +399,5 @@ export const PANTRY_INGREDIENT_RECIPES = PANTRY_DEFS.map((def, index) => pantryI
   image: PANTRY_IMAGES[def.key] || '',
   createdAt: 1727190100000 + index * 1000,
 }));
+
+export const PRODUCE_PANTRY_RECIPES = PANTRY_INGREDIENT_RECIPES.filter((recipe) => String(recipe.id).startsWith('pantry-produce-'));

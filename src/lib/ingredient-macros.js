@@ -1,5 +1,5 @@
 import { PANTRY_NAMES, PANTRY_NUTRITION, macrosAt } from '@/data/pantry-ingredients';
-import { amountToGrams as gramsFromUnit } from '@/lib/ingredientUnits';
+import { amountToGrams as gramsFromUnit, getPieceWeightGrams } from '@/lib/ingredientUnits';
 
 function round2(value) {
   return Math.round(Number(value) * 100) / 100;
@@ -19,9 +19,9 @@ function normalizeName(name) {
 }
 
 const FOODS = [
-  { keys: ['בננה'], per100: { calories: 89, protein: 1.1, carbs: 22.8, fat: 0.3 }, piece: 118 },
-  { keys: ['תות', 'תותים'], per100: { calories: 32, protein: 0.7, carbs: 7.7, fat: 0.3 } },
-  { keys: ['מנגו'], per100: { calories: 60, protein: 0.8, carbs: 15, fat: 0.4 } },
+  { keys: ['בננה'], per100: { calories: 89, protein: 1.09, carbs: 22.8, fat: 0.33 }, piece: 120 },
+  { keys: ['תות שדה', 'תות', 'תותים'], per100: { calories: 32, protein: 0.67, carbs: 7.68, fat: 0.3 }, piece: 18 },
+  { keys: ['מנגו'], per100: { calories: 60, protein: 0.82, carbs: 15, fat: 0.38 }, piece: 200 },
   { keys: ['פירות יער', 'אוכמניות', 'פטל'], per100: { calories: 43, protein: 0.7, carbs: 9.6, fat: 0.3 } },
   { keys: ['אבטיח'], per100: { calories: 30, protein: 0.6, carbs: 7.6, fat: 0.2 } },
   { keys: ['תפוח עץ', 'תפוח'], per100: { calories: 52, protein: 0.3, carbs: 14, fat: 0.2 }, piece: 150 },
@@ -63,12 +63,12 @@ const FOODS = [
   { keys: ['ביצה', 'ביצים'], per100: { calories: 133, protein: 12.5, carbs: 0.7, fat: 9.2 }, piece: 55 },
   { keys: ['טחינה'], per100: { calories: 595, protein: 17, carbs: 21, fat: 54 } },
   { keys: ['פומודורו', 'רסק עגבניות', 'עגבניות מרוסקות'], per100: { calories: 40, protein: 1.8, carbs: 6.5, fat: 0.2 } },
-  { keys: ['עגבני'], per100: { calories: 18, protein: 0.9, carbs: 3.9, fat: 0.2 } },
-  { keys: ['מלפפון'], per100: { calories: 15, protein: 0.7, carbs: 3.6, fat: 0.1 }, piece: 200 },
+  { keys: ['עגבני'], per100: { calories: 18, protein: 0.88, carbs: 3.89, fat: 0.2 }, piece: 120 },
+  { keys: ['מלפפון'], per100: { calories: 15, protein: 0.65, carbs: 3.63, fat: 0.11 }, piece: 100 },
   { keys: ['פלפל אדום'], per100: { calories: 31, protein: 1, carbs: 6, fat: 0.3 }, piece: 120 },
   { keys: ['פלפל ירוק', 'פלפל'], per100: { calories: 20, protein: 0.9, carbs: 4.6, fat: 0.2 }, piece: 120 },
-  { keys: ['בצל סגול', 'בצל אדום', 'בצל מגורד', 'בצל'], per100: { calories: 40, protein: 1.1, carbs: 9.3, fat: 0.1 }, piece: 120 },
-  { keys: ['בצל ירוק'], per100: { calories: 32, protein: 1.8, carbs: 7.3, fat: 0.2 }, piece: 15 },
+  { keys: ['בצל סגול', 'בצל אדום', 'בצל מגורד', 'בצל'], per100: { calories: 40, protein: 1.1, carbs: 9.34, fat: 0.1 }, piece: 150 },
+  { keys: ['בצל ירוק'], per100: { calories: 32, protein: 1.83, carbs: 7.34, fat: 0.19 }, piece: 15 },
   { keys: ['גזר'], per100: { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 } },
   { keys: ['ברוקולי'], per100: { calories: 34, protein: 2.8, carbs: 7, fat: 0.4 } },
   { keys: ['שעועית ירוקה'], per100: { calories: 31, protein: 1.8, carbs: 7, fat: 0.2 } },
@@ -131,8 +131,9 @@ for (const food of FOODS) {
 for (const [pantryKey, title] of Object.entries(PANTRY_NAMES)) {
   const per100 = PANTRY_NUTRITION[pantryKey];
   if (!per100) continue;
-  addAlias(title, per100, pantryKey === 'eggL' ? 60 : pantryKey === 'schnitzelAirfryer' ? 70 : 0);
-  addAlias(pantryKey, per100, pantryKey === 'eggL' ? 60 : 0);
+  const piece = pantryKey === 'eggL' ? 60 : pantryKey === 'schnitzelAirfryer' ? 70 : getPieceWeightGrams(title);
+  addAlias(title, per100, piece);
+  addAlias(pantryKey, per100, piece);
 }
 
 ALIAS_INDEX.sort((a, b) => b.length - a.length);
@@ -148,8 +149,8 @@ export function findIngredientNutrition(name) {
   return null;
 }
 
-export function amountToGrams(amount, unit, name) {
-  return gramsFromUnit(amount, unit, name);
+export function amountToGrams(amount, unit, name, unitWeightGrams) {
+  return gramsFromUnit(amount, unit, name, unitWeightGrams);
 }
 
 export function macrosForIngredient(ingredient) {
@@ -158,7 +159,7 @@ export function macrosForIngredient(ingredient) {
   const unit = ingredient?.unit || 'גרם';
   const match = findIngredientNutrition(name);
   if (match?.per100) {
-    const grams = amountToGrams(amount, unit, name);
+    const grams = amountToGrams(amount, unit, name, ingredient?.unitWeightGrams);
     return macrosAt(match.per100, grams);
   }
   if (Number.isFinite(amount) && amount > 0) {

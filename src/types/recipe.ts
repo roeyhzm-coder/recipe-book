@@ -15,6 +15,7 @@ export interface RecipeIngredient {
   protein?: number | string;
   carbs?: number | string;
   fat?: number | string;
+  unitWeightGrams?: number | string;
 }
 
 export interface RecipeVariation {
@@ -56,6 +57,7 @@ export interface Recipe {
   servingUnits?: RecipeServingUnit[];
   nutritionBasis?: string;
   recipeType?: string;
+  unitWeightGrams?: number | string;
   prepTime?: string | number;
   cookTime?: string | number;
   rating?: number | string;

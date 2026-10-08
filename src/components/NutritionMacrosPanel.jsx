@@ -28,9 +28,10 @@ export default function NutritionMacrosPanel({
   servingName = 'מנה',
   autoCalculated = false,
   editable = false,
+  unitWeightGrams = 0,
 }) {
   const safeServings = Number(servings) > 0 ? Number(servings) : 1;
-  const ctx = { servings: safeServings, totalGrams };
+  const ctx = { servings: safeServings, totalGrams, unitWeightGrams };
   const tabs = nutritionTabOptions(ctx);
   const activeMode = tabs.some((tab) => tab.id === mode) ? mode : 'serving';
   const viewMacros = recipeTotalToView(totalMacros, activeMode, ctx);
@@ -44,7 +45,7 @@ export default function NutritionMacrosPanel({
 
   useEffect(() => {
     setFocusedKey(null);
-  }, [activeMode, safeServings, totalGrams]);
+  }, [activeMode, safeServings, totalGrams, unitWeightGrams]);
 
   function setMode(nextMode) {
     if (nextMode === activeMode) return;
@@ -67,6 +68,7 @@ export default function NutritionMacrosPanel({
   const hint = nutritionHint(activeMode, {
     servings: safeServings,
     totalGrams,
+    unitWeightGrams,
     servingName,
   });
 

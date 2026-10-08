@@ -40,11 +40,21 @@ export function servingsOf(recipe) {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-export function totalRecipeGrams(ingredients) {
+export function unitWeightOf(recipe) {
+  const n = Number(recipe?.unitWeightGrams ?? recipe?.macros?.unitWeightGrams);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+export function totalRecipeGrams(ingredients, recipeUnitWeight = 0) {
   let total = 0;
   let counted = false;
   for (const ing of ingredients || []) {
-    const grams = amountToGrams(ing?.amount, ing?.unit, ing?.name);
+    const grams = amountToGrams(
+      ing?.amount,
+      ing?.unit,
+      ing?.name,
+      ing?.unitWeightGrams || recipeUnitWeight,
+    );
     if (grams > 0) {
       total += grams;
       counted = true;
@@ -87,20 +97,31 @@ export function storedMacrosToRecipeTotal(macros, { servings = 1, basis = 'recip
   return scaleMacroSet(macros, 1);
 }
 
-export function recipeTotalToView(totalMacros, mode, { servings = 1, totalGrams = 0 } = {}) {
+function servingFactor({ servings = 1, totalGrams = 0, unitWeightGrams = 0 } = {}) {
+  const unitGrams = Number(unitWeightGrams);
+  const grams = Number(totalGrams);
+  if (unitGrams > 0 && grams > 0) return unitGrams / grams;
   const safeServings = Number(servings) > 0 ? Number(servings) : 1;
-  if (mode === 'serving') return scaleMacroSet(totalMacros, 1 / safeServings);
+  return 1 / safeServings;
+}
+
+export function recipeTotalToView(totalMacros, mode, ctx = {}) {
+  const { totalGrams = 0 } = ctx;
+  if (mode === 'serving') return scaleMacroSet(totalMacros, servingFactor(ctx));
   if (mode === '100g' && Number(totalGrams) > 0) {
     return scaleMacroSet(totalMacros, 100 / Number(totalGrams));
   }
   return scaleMacroSet(totalMacros, 1);
 }
 
-export function viewValueToRecipeTotal(value, mode, { servings = 1, totalGrams = 0 } = {}) {
+export function viewValueToRecipeTotal(value, mode, ctx = {}) {
   const parsed = parseMacroInput(value);
   if (parsed === '') return '';
-  const safeServings = Number(servings) > 0 ? Number(servings) : 1;
-  if (mode === 'serving') return roundMacro(parsed * safeServings);
+  const { servings = 1, totalGrams = 0, unitWeightGrams = 0 } = ctx;
+  if (mode === 'serving') {
+    const factor = servingFactor({ servings, totalGrams, unitWeightGrams });
+    return factor ? roundMacro(parsed / factor) : parsed;
+  }
   if (mode === '100g' && Number(totalGrams) > 0) {
     return roundMacro(parsed * Number(totalGrams) / 100);
   }
@@ -123,8 +144,12 @@ export function servingDisplayName(recipe) {
   return title || 'מנה';
 }
 
-export function nutritionHint(mode, { servings = 1, totalGrams = 0, servingName = 'מנה' } = {}) {
-  if (mode === 'serving') return `מציג ערכים ל${servingName} / מנה אחת בלבד`;
+export function nutritionHint(mode, { servings = 1, totalGrams = 0, unitWeightGrams = 0, servingName = 'מנה' } = {}) {
+  const unitGrams = Number(unitWeightGrams);
+  if (mode === 'serving') {
+    if (unitGrams > 0) return `מציג ערכים ל${servingName} / יחידה אחת (${formatMacro(unitGrams)} גרם)`;
+    return `מציג ערכים ל${servingName} / מנה אחת בלבד`;
+  }
   if (mode === '100g') {
     const gramsLabel = formatMacro(totalGrams);
     return gramsLabel
@@ -135,10 +160,14 @@ export function nutritionHint(mode, { servings = 1, totalGrams = 0, servingName 
   return `מציג ערכים לכל המתכון השלם (${count} מנות)`;
 }
 
-export function nutritionTabOptions({ servings = 1, totalGrams = 0 } = {}) {
+export function nutritionTabOptions({ servings = 1, totalGrams = 0, unitWeightGrams = 0 } = {}) {
   const count = Number(servings) > 0 ? Number(servings) : 1;
+  const unitGrams = Number(unitWeightGrams);
+  const servingLabel = unitGrams > 0
+    ? `מנה / יחידה בודדת (1 × ${formatMacro(unitGrams)} גרם)`
+    : `מנה / יחידה בודדת (1 מתוך ${count})`;
   const tabs = [
-    { id: 'serving', label: `מנה / יחידה בודדת (1 מתוך ${count})` },
+    { id: 'serving', label: servingLabel },
     { id: 'recipe', label: `כל המתכון השלם (${count} מנות)` },
   ];
   if (Number(totalGrams) > 0) {
@@ -156,7 +185,7 @@ export function defaultNutritionMode(recipe) {
 
 export function hydrateRecipeMacrosForForm(recipe) {
   const servings = servingsOf(recipe);
-  const grams = totalRecipeGrams(recipe?.ingredients);
+  const grams = totalRecipeGrams(recipe?.ingredients, unitWeightOf(recipe));
   const basis = nutritionBasisOf(recipe);
   const macros = storedMacrosToRecipeTotal(recipe?.macros, {
     servings,
