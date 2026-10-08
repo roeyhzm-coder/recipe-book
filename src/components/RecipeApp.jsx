@@ -3,6 +3,17 @@ import { fetchRecipes, countRecipes, syncRecipes, upsertRecipes, deleteRecipesBy
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
+import {
+  defaultNutritionMode,
+  hasAutoIngredientMacros,
+  hydrateRecipeMacrosForForm,
+  nutritionBasisOf,
+  recipeTotalToStored,
+  recipeTotalToView,
+  servingDisplayName,
+  storedMacrosToRecipeTotal,
+  totalRecipeGrams,
+} from '@/lib/nutrition-macros';
 import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit } from '@/lib/ingredientUnits';
 import {
   applyVariation,
@@ -11,6 +22,7 @@ import {
   persistableVariations,
 } from '@/lib/recipe-variations';
 import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
+import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
 import {
   Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
@@ -379,7 +391,7 @@ function scaleMacro(v, multiplier) {
   if (v === '' || v === undefined || v === null) return '';
   const n = Number(v) * multiplier;
   if (!Number.isFinite(n)) return '';
-  return Math.round(n * 10) / 10;
+  return Math.round(n * 100) / 100;
 }
 
 function normalizeUnit(u) {
@@ -992,6 +1004,17 @@ function ratingBadgeClass(v) {
 function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
   const [imgError, setImgError] = useState(false);
   const imageSrc = recipe.image || recipe.imageUrl || '';
+  const cardServings = servingsCount(recipe);
+  const cardGrams = totalRecipeGrams(recipe.ingredients);
+  const cardPerServing = recipeTotalToView(
+    storedMacrosToRecipeTotal(recipe.macros, {
+      servings: cardServings,
+      basis: nutritionBasisOf(recipe),
+      totalGrams: cardGrams,
+    }),
+    'serving',
+    { servings: cardServings, totalGrams: cardGrams },
+  );
   useEffect(() => {
     setImgError(false);
   }, [imageSrc]);
@@ -1064,10 +1087,10 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
           ))}
         </div>
         <div className="mt-auto grid grid-cols-4 divide-x divide-x-reverse divide-stone-200 border-t border-stone-200 pt-2 -mx-1">
-          <MacroBadge icon={Flame} value={recipe.macros.calories} label="קלוריות" />
-          <MacroBadge icon={Dumbbell} value={recipe.macros.protein} label="חלבון" unit="ג'" />
-          <MacroBadge icon={Wheat} value={recipe.macros.carbs} label="פחמימות" unit="ג'" />
-          <MacroBadge icon={Droplet} value={recipe.macros.fat} label="שומן" unit="ג'" />
+          <MacroBadge icon={Flame} value={cardPerServing.calories} label="קלוריות" />
+          <MacroBadge icon={Dumbbell} value={cardPerServing.protein} label="חלבון" unit="ג'" />
+          <MacroBadge icon={Wheat} value={cardPerServing.carbs} label="פחמימות" unit="ג'" />
+          <MacroBadge icon={Droplet} value={cardPerServing.fat} label="שומן" unit="ג'" />
         </div>
         {onAddToGrocery && (
           <button
@@ -1310,6 +1333,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
   const [wakeLockOn, setWakeLockOn] = useState(false);
   const wakeLockRef = useRef(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [nutritionMode, setNutritionMode] = useState(() => defaultNutritionMode(recipe));
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1317,6 +1341,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
     setMultiplier(1);
     setCustomOpen(false);
     setCustomInput('1');
+    setNutritionMode(defaultNutritionMode(recipe));
   }, [recipe?.id]);
 
   useEffect(() => {
@@ -1425,15 +1450,27 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
   const selectedVariation = variations.find((item) => String(item.id) === String(variationId))
     || defaultVariationOf(recipe);
   const displayed = variations.length ? applyVariation(recipe, selectedVariation) : recipe;
-  const scaledMacros = {
-    calories: scaleMacro(displayed.macros.calories, multiplier),
-    protein: scaleMacro(displayed.macros.protein, multiplier),
-    carbs: scaleMacro(displayed.macros.carbs, multiplier),
-    fat: scaleMacro(displayed.macros.fat, multiplier),
+  const displayedServings = servingsCount(displayed);
+  const displayedGrams = totalRecipeGrams(displayed.ingredients);
+  const displayedTotals = storedMacrosToRecipeTotal(displayed.macros, {
+    servings: displayedServings,
+    basis: nutritionBasisOf(displayed),
+    totalGrams: displayedGrams,
+  });
+  const scaledTotals = {
+    calories: scaleMacro(displayedTotals.calories, multiplier),
+    protein: scaleMacro(displayedTotals.protein, multiplier),
+    carbs: scaleMacro(displayedTotals.carbs, multiplier),
+    fat: scaleMacro(displayedTotals.fat, multiplier),
+    ...(displayedTotals.fiber !== '' && displayedTotals.fiber != null
+      ? { fiber: scaleMacro(displayedTotals.fiber, multiplier) }
+      : {}),
   };
-  const scaledFiber = displayed.macros?.fiber !== '' && displayed.macros?.fiber != null
-    ? scaleMacro(displayed.macros.fiber, multiplier)
-    : '';
+  const scaledFiber = scaledTotals.fiber !== undefined ? scaledTotals.fiber : (
+    displayed.macros?.fiber !== '' && displayed.macros?.fiber != null
+      ? scaleMacro(displayed.macros.fiber, multiplier)
+      : ''
+  );
 
   return (
     <div className="pb-28">
@@ -1541,11 +1578,16 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             </div>
           )}
 
-          <div className="mt-5 grid grid-cols-4 divide-x divide-x-reverse divide-stone-200 border border-stone-200 rounded-2xl overflow-hidden bg-stone-50">
-            <MacroBadge icon={Flame} value={scaledMacros.calories} label="קלוריות" />
-            <MacroBadge icon={Dumbbell} value={scaledMacros.protein} label="חלבון" unit="ג'" />
-            <MacroBadge icon={Wheat} value={scaledMacros.carbs} label="פחמימות" unit="ג'" />
-            <MacroBadge icon={Droplet} value={scaledMacros.fat} label="שומן" unit="ג'" />
+          <div className="mt-5">
+            <NutritionMacrosPanel
+              totalMacros={scaledTotals}
+              servings={displayedServings}
+              totalGrams={displayedGrams * (Number(multiplier) > 0 ? Number(multiplier) : 1)}
+              mode={nutritionMode}
+              onModeChange={setNutritionMode}
+              servingName={servingDisplayName(displayed)}
+              autoCalculated={hasAutoIngredientMacros(displayed.ingredients)}
+            />
           </div>
           {scaledFiber !== '' && (
             <p className="text-xs text-stone-500 mt-2">סיבים: {scaledFiber} ג׳</p>
@@ -1802,9 +1844,12 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     base.title = stripServingMarker(base.title);
     base.baseServings = servingsCount(base);
     base.variations = normalizeVariations(base.variations);
-    if (base.nutritionBasis === 'serving' || base.macros?.nutritionBasis === 'serving') return base;
-    return recalculateRecipe(base);
+    const hydrated = hydrateRecipeMacrosForForm(base);
+    const basis = nutritionBasisOf(base);
+    if (basis === 'serving' || basis === '100g' || basis === '100ml') return hydrated;
+    return recalculateRecipe(hydrated);
   });
+  const [nutritionMode, setNutritionMode] = useState(() => defaultNutritionMode(initial));
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
@@ -1918,13 +1963,22 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   async function handleSubmit(e) {
     e?.preventDefault?.();
     if (!form.title.trim() || saving) return;
+    const servings = servingsCount(form);
+    const grams = totalRecipeGrams(form.ingredients);
+    const originalBasis = nutritionBasisOf(initial || form);
+    const persistBasis = originalBasis === '100g' || originalBasis === '100ml' ? originalBasis : 'recipe';
+    const storedMacros = recipeTotalToStored(form.macros, {
+      servings,
+      basis: persistBasis,
+      totalGrams: grams,
+    });
     const drafted = {
       ...form,
       id: form.id || uid(),
       title: form.title.trim(),
       description: String(form.description || '').trim(),
       notes: String(form.notes || '').trim(),
-      baseServings: servingsCount(form),
+      baseServings: servings,
       image: form.image || form.imageUrl || '',
       imageUrl: form.imageUrl || form.image || '',
       prepTime: parseMinutes(form.prepTime),
@@ -1932,6 +1986,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       ingredients: form.ingredients.filter((i) => i.name && String(i.name).trim()),
       steps: form.steps.filter((s) => s && String(s).trim()),
       variations: persistableVariations(form.variations),
+      macros: storedMacros,
+      nutritionBasis: persistBasis,
       createdAt: form.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
@@ -2129,30 +2185,17 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
         </div>
 
         {/* macros */}
-        <div>
-          <label className="text-sm text-stone-500 mb-2 block">ערכים תזונתיים כוללים — מחושבים אוטומטית מהמצרכים</label>
-          <div className="grid grid-cols-4 gap-2.5">
-            {[
-              ['calories', 'קלוריות'],
-              ['protein', "חלבון (ג')"],
-              ['carbs', "פחמימות (ג')"],
-              ['fat', "שומן (ג')"],
-            ].map(([key, label]) => (
-              <div key={key}>
-                <input
-                  type="number"
-                  value={form.macros[key] ?? ''}
-                  onChange={(e) => setForm((f) => ({
-                    ...f,
-                    macros: { ...f.macros, [key]: e.target.value === '' ? '' : e.target.value },
-                  }))}
-                  className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-2 text-sm text-center text-stone-900"
-                />
-                <p className="text-xs text-emerald-700 text-center mt-1.5">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <NutritionMacrosPanel
+          totalMacros={form.macros}
+          servings={servingsCount(form)}
+          totalGrams={totalRecipeGrams(form.ingredients)}
+          mode={nutritionMode}
+          onModeChange={setNutritionMode}
+          onChangeTotalMacros={(macros) => setForm((f) => ({ ...f, macros: { ...f.macros, ...macros } }))}
+          servingName={servingDisplayName(form)}
+          autoCalculated={hasAutoIngredientMacros(form.ingredients)}
+          editable
+        />
 
         {/* equipment */}
         <div>
@@ -2237,8 +2280,10 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                       <input
                         key={k}
                         type="number"
+                        step="0.01"
+                        inputMode="decimal"
                         value={ing[k]}
-                        onChange={(e) => updateIngredient(ing.id, k, e.target.value)}
+                        onChange={(e) => updateIngredient(ing.id, k, e.target.value === '' ? '' : parseFloat(String(e.target.value).replace(',', '.')))}
                         placeholder={k === 'calories' ? 'קק"ל' : k === 'protein' ? "חלבון" : k === 'carbs' ? "פחמימות" : "שומן"}
                         className="min-h-11 bg-white border border-emerald-200 rounded-lg px-1.5 py-1.5 text-xs text-center text-emerald-800 placeholder:text-emerald-400"
                       />

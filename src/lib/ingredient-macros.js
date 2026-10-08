@@ -1,8 +1,8 @@
 import { PANTRY_NAMES, PANTRY_NUTRITION, macrosAt } from '@/data/pantry-ingredients';
 import { amountToGrams as gramsFromUnit } from '@/lib/ingredientUnits';
 
-function round1(value) {
-  return Math.round(Number(value) * 10) / 10;
+function round2(value) {
+  return Math.round(Number(value) * 100) / 100;
 }
 
 function emptyMacros() {
@@ -170,10 +170,10 @@ export function macrosForIngredient(ingredient) {
     };
     if (Object.values(stored).some((n) => Number.isFinite(n))) {
       return {
-        calories: Number.isFinite(stored.calories) ? round1(stored.calories) : 0,
-        protein: Number.isFinite(stored.protein) ? round1(stored.protein) : 0,
-        carbs: Number.isFinite(stored.carbs) ? round1(stored.carbs) : 0,
-        fat: Number.isFinite(stored.fat) ? round1(stored.fat) : 0,
+        calories: Number.isFinite(stored.calories) ? round2(stored.calories) : 0,
+        protein: Number.isFinite(stored.protein) ? round2(stored.protein) : 0,
+        carbs: Number.isFinite(stored.carbs) ? round2(stored.carbs) : 0,
+        fat: Number.isFinite(stored.fat) ? round2(stored.fat) : 0,
       };
     }
   }
@@ -195,10 +195,10 @@ export function sumIngredientMacros(ingredients) {
     totals.fat += macros.fat;
   }
   return {
-    calories: round1(totals.calories),
-    protein: round1(totals.protein),
-    carbs: round1(totals.carbs),
-    fat: round1(totals.fat),
+    calories: round2(totals.calories),
+    protein: round2(totals.protein),
+    carbs: round2(totals.carbs),
+    fat: round2(totals.fat),
   };
 }
 

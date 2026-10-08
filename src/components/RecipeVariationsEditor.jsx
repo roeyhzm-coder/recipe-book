@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
 import { emptyVariation, moveVariation, recalculateVariation, setDefaultVariation } from '@/lib/recipe-variations';
 import { convertIngredientUnit, RECIPE_UNIT_LIST } from '@/lib/ingredientUnits';
+import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
+import { hasAutoIngredientMacros, servingsOf, totalRecipeGrams } from '@/lib/nutrition-macros';
 
 const UNIT_LIST = RECIPE_UNIT_LIST;
 
@@ -13,6 +16,7 @@ export default function RecipeVariationsEditor({
   makeIngredient,
 }) {
   const list = Array.isArray(variations) ? variations : [];
+  const [nutritionMode, setNutritionMode] = useState('serving');
 
   function patchList(next) {
     onChange(next);
@@ -162,23 +166,15 @@ export default function RecipeVariationsEditor({
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[
-                      ['calories', 'קק״ל'],
-                      ['protein', 'חלבון'],
-                      ['carbs', 'פחמ׳'],
-                      ['fat', 'שומן'],
-                    ].map(([key, label]) => (
-                      <div key={key}>
-                        <input
-                          readOnly
-                          value={variation.macros?.[key] ?? ''}
-                          className="w-full min-h-11 bg-emerald-50 border border-emerald-200 rounded-lg px-1 text-xs text-center text-emerald-800"
-                        />
-                        <p className="text-[10px] text-emerald-700 text-center mt-1">{label}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <NutritionMacrosPanel
+                    totalMacros={variation.macros}
+                    servings={servingsOf(form)}
+                    totalGrams={totalRecipeGrams(variation.ingredients)}
+                    mode={nutritionMode}
+                    onModeChange={setNutritionMode}
+                    servingName={variation.name || form?.title || 'מנה'}
+                    autoCalculated={hasAutoIngredientMacros(variation.ingredients)}
+                  />
 
                   <p className="text-xs text-stone-500">מצרכים</p>
                   <div className="flex flex-col gap-2">
