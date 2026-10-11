@@ -20,8 +20,11 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
   useEffect(() => {
     if (!open) return;
     setListId(defaultListId || lists[0]?.id || '');
+    const override = Number(recipe?.groceryServings);
     const base = Number(recipe?.baseServings);
-    const next = Number.isFinite(base) && base > 0 ? base : 1;
+    const next = Number.isFinite(override) && override > 0
+      ? override
+      : (Number.isFinite(base) && base > 0 ? base : 1);
     setServingsInput(String(next));
   }, [open, defaultListId, lists, recipe]);
 
@@ -114,7 +117,11 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
                 onChange={(e) => handleServingsInput(e.target.value)}
                 className="w-full min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 font-serif text-2xl text-stone-900 tabular-nums text-center"
               />
-              <p className="text-[11px] text-stone-400 mt-1">בסיס המתכון: {baseServings}</p>
+              <p className="text-[11px] text-stone-400 mt-1">
+                {recipe.groceryServings != null
+                  ? `לפי האחוז שנבחר במנה הבודדת · בסיס המתכון: ${baseServings}`
+                  : `בסיס המתכון: ${baseServings}`}
+              </p>
             </div>
             <button
               type="button"

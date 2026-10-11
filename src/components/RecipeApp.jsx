@@ -22,11 +22,20 @@ import {
   normalizeVariations,
   persistableVariations,
 } from '@/lib/recipe-variations';
+import {
+  MEAL_PREP_PERCENTS,
+  formatMealPrepNumber,
+  isMealPrepRecipe,
+  mealPrepGroceryServings,
+  normalizeMealPrepPercent,
+  totalPortionsOf,
+  withMealPrep,
+} from '@/lib/meal-prep';
 import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
 import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
 import {
   Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
-  Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale, CloudUpload,
+  Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale, CloudUpload, Package,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
   Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown,
   Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart, Pin
@@ -225,6 +234,8 @@ function asUserRecipe(recipe) {
     ...recipe,
     baseServings,
     title: recipe?.title || '',
+    isMealPrep: isMealPrepRecipe(recipe),
+    totalPortions: totalPortionsOf(recipe),
     deletedAt: null,
   };
   delete next.isDefault;
@@ -438,6 +449,8 @@ function draftFromExtracted(parsed) {
     },
     rating: '',
     baseServings: 1,
+    totalPortions: 1,
+    isMealPrep: false,
     favorite: false,
   };
 }
@@ -978,7 +991,7 @@ function ratingBadgeClass(v) {
   return 'bg-amber-50 text-amber-800 border-amber-200';
 }
 
-function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery, onEdit, onDelete }) {
+function RecipeCard({ recipe, onOpen, onToggleFavorite, onToggleMealPrep, onAddToGrocery, onEdit, onDelete }) {
   const [imgError, setImgError] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const imageSrc = recipe.image || recipe.imageUrl || '';
@@ -1023,15 +1036,37 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery, onEdit, 
             <ChefHat className="w-10 h-10 text-stone-400" />
           </div>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(recipe.id);
-          }}
-          className="absolute top-2 left-2 min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-900/40 backdrop-blur-md border border-stone-200 flex items-center justify-center shadow-sm"
-        >
-          <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-stone-500'}`} />
-        </button>
+        <div className="absolute top-2 left-2 flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(recipe.id);
+            }}
+            className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-stone-900/40 backdrop-blur-md border border-stone-200 flex items-center justify-center shadow-sm"
+          >
+            <Star className={`w-4 h-4 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-stone-500'}`} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleMealPrep?.(recipe.id);
+            }}
+            className={`min-h-11 min-w-11 w-11 h-11 rounded-full backdrop-blur-md border flex items-center justify-center shadow-sm ${
+              isMealPrepRecipe(recipe)
+                ? 'bg-amber-500/95 border-amber-400'
+                : 'bg-stone-900/40 border-stone-200'
+            }`}
+            aria-label="Meal Prep"
+          >
+            <Package className={`w-4 h-4 ${isMealPrepRecipe(recipe) ? 'text-amber-950' : 'text-stone-300'}`} />
+          </button>
+        </div>
+        {isMealPrepRecipe(recipe) && (
+          <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-medium bg-teal-500 text-white border border-teal-400 shadow-sm">
+            Meal Prep · {totalPortionsOf(recipe)} קופסאות
+          </span>
+        )}
         {hasRating(recipe.rating) && (
           <span
             className={`absolute top-2 right-2 px-2.5 py-1 rounded-full text-xs font-semibold border ${ratingBadgeClass(recipe.rating)}`}
@@ -1138,6 +1173,7 @@ function HomeView({
   onManageCategories,
   onOpen,
   onToggleFavorite,
+  onToggleMealPrep,
   onAdd,
   onOpenSettings,
   onOpenSmartImport,
@@ -1319,7 +1355,7 @@ function HomeView({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((r) => (
-              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onAddToGrocery={onAddToGrocery} onEdit={onEdit} onDelete={onDelete} />
+              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onToggleMealPrep={onToggleMealPrep} onAddToGrocery={onAddToGrocery} onEdit={onEdit} onDelete={onDelete} />
             ))}
           </div>
         )}
@@ -1338,10 +1374,12 @@ function HomeView({
 
 /* -------------------------------- detail view -------------------------------- */
 
-function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddToGrocery }) {
+function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onToggleMealPrep, onAddToGrocery }) {
   const variations = normalizeVariations(recipe.variations);
   const [variationId, setVariationId] = useState(() => defaultVariationOf(recipe)?.id || '');
   const [multiplier, setMultiplier] = useState(1);
+  const [eatPercent, setEatPercent] = useState(100);
+  const [percentInput, setPercentInput] = useState('100');
   const [customOpen, setCustomOpen] = useState(false);
   const [customInput, setCustomInput] = useState('1');
   const [checkedEquipment, setCheckedEquipment] = useState({});
@@ -1355,6 +1393,8 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
     window.scrollTo({ top: 0, behavior: 'instant' });
     setVariationId(defaultVariationOf(recipe)?.id || '');
     setMultiplier(1);
+    setEatPercent(100);
+    setPercentInput('100');
     setCustomOpen(false);
     setCustomInput('1');
     setNutritionMode(defaultNutritionMode(recipe));
@@ -1473,18 +1513,32 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
     basis: nutritionBasisOf(displayed),
     totalGrams: displayedGrams,
   });
-  const scaledTotals = {
-    calories: scaleMacro(displayedTotals.calories, multiplier),
-    protein: scaleMacro(displayedTotals.protein, multiplier),
-    carbs: scaleMacro(displayedTotals.carbs, multiplier),
-    fat: scaleMacro(displayedTotals.fat, multiplier),
+  const mealPrep = isMealPrepRecipe(recipe);
+  const portions = totalPortionsOf(recipe);
+  const portionFactor = 1 / portions;
+  const eatFactor = mealPrep ? normalizeMealPrepPercent(eatPercent) / 100 : (Number(multiplier) > 0 ? Number(multiplier) : 1);
+  const displayFactor = mealPrep ? portionFactor * eatFactor : eatFactor;
+  const portionTotals = {
+    calories: scaleMacro(displayedTotals.calories, portionFactor),
+    protein: scaleMacro(displayedTotals.protein, portionFactor),
+    carbs: scaleMacro(displayedTotals.carbs, portionFactor),
+    fat: scaleMacro(displayedTotals.fat, portionFactor),
     ...(displayedTotals.fiber !== '' && displayedTotals.fiber != null
-      ? { fiber: scaleMacro(displayedTotals.fiber, multiplier) }
+      ? { fiber: scaleMacro(displayedTotals.fiber, portionFactor) }
+      : {}),
+  };
+  const scaledTotals = {
+    calories: scaleMacro(displayedTotals.calories, displayFactor),
+    protein: scaleMacro(displayedTotals.protein, displayFactor),
+    carbs: scaleMacro(displayedTotals.carbs, displayFactor),
+    fat: scaleMacro(displayedTotals.fat, displayFactor),
+    ...(displayedTotals.fiber !== '' && displayedTotals.fiber != null
+      ? { fiber: scaleMacro(displayedTotals.fiber, displayFactor) }
       : {}),
   };
   const scaledFiber = scaledTotals.fiber !== undefined ? scaledTotals.fiber : (
     displayed.macros?.fiber !== '' && displayed.macros?.fiber != null
-      ? scaleMacro(displayed.macros.fiber, multiplier)
+      ? scaleMacro(displayed.macros.fiber, displayFactor)
       : ''
   );
 
@@ -1500,6 +1554,16 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
             className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-white border border-stone-200 flex items-center justify-center"
           >
             <Star className={`w-5 h-5 ${recipe.favorite ? 'fill-amber-400 text-amber-400' : 'text-stone-500'}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleMealPrep?.(recipe.id)}
+            className={`min-h-11 min-w-11 w-11 h-11 rounded-full border flex items-center justify-center ${
+              mealPrep ? 'bg-amber-500 border-amber-500' : 'bg-white border-stone-200'
+            }`}
+            aria-label="Meal Prep"
+          >
+            <Package className={`w-4 h-4 ${mealPrep ? 'text-amber-950' : 'text-stone-600'}`} />
           </button>
           <button
             onClick={() => onEdit(recipe)}
@@ -1595,14 +1659,28 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           )}
 
           <div className="mt-5">
+            {mealPrep && (
+              <div className="mb-3 rounded-2xl border border-teal-200 bg-teal-50 px-3.5 py-2.5">
+                <p className="text-sm font-medium text-teal-900">
+                  קופסה / מנה בודדת (1 מתוך {portions})
+                </p>
+                <p className="text-xs text-teal-800 mt-1 leading-relaxed">
+                  {eatPercent === 100
+                    ? `מציג ערכים למנה בודדת: ${formatMealPrepNumber(portionTotals.calories)} קק״ל`
+                    : `מציג ערכים עבור ${formatMealPrepNumber(eatPercent)}% ממנה בודדת (${formatMealPrepNumber(scaledTotals.calories)} קק״ל מתוך ${formatMealPrepNumber(portionTotals.calories)} קק״ל למנה)`}
+                </p>
+              </div>
+            )}
             <NutritionMacrosPanel
               totalMacros={scaledTotals}
-              servings={displayedServings}
-              totalGrams={displayedGrams * (Number(multiplier) > 0 ? Number(multiplier) : 1)}
+              servings={mealPrep ? 1 : displayedServings}
+              totalGrams={mealPrep
+                ? displayedGrams * displayFactor
+                : displayedGrams * (Number(multiplier) > 0 ? Number(multiplier) : 1)}
               unitWeightGrams={unitWeightOf(displayed)}
-              mode={nutritionMode}
+              mode={mealPrep ? 'serving' : nutritionMode}
               onModeChange={setNutritionMode}
-              servingName={servingDisplayName(displayed)}
+              servingName={mealPrep ? 'קופסה / מנה בודדת' : servingDisplayName(displayed)}
               autoCalculated={hasAutoIngredientMacros(displayed.ingredients)}
             />
           </div>
@@ -1655,7 +1733,10 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           {onAddToGrocery && (
             <button
               type="button"
-              onClick={() => onAddToGrocery(displayed)}
+              onClick={() => onAddToGrocery(
+                displayed,
+                mealPrep ? mealPrepGroceryServings(displayed, eatPercent) : undefined,
+              )}
               className="mt-4 min-h-11 w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-800 flex items-center justify-center gap-2 hover:bg-amber-100 transition"
             >
               <ShoppingCart className="w-4 h-4" />
@@ -1664,59 +1745,104 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           )}
         </div>
 
-        {/* portion scaler */}
-        <div className="mt-5 flex items-center justify-between bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md gap-3">
-          <span className="text-sm text-stone-600">כמות מנות</span>
-          <div className="inline-flex bg-stone-100 rounded-full p-1">
-            {[1, 1.5, 2].map((p) => (
-              <button
-                key={p}
-                onClick={() => {
-                  setMultiplier(p);
-                  setCustomInput(String(p));
-                  setCustomOpen(false);
+        {mealPrep ? (
+          <div className="mt-5 bg-white rounded-2xl border border-teal-200 p-4 backdrop-blur-md">
+            <p className="text-sm font-medium text-stone-800">אכילה ממנה בודדת</p>
+            <p className="text-xs text-stone-500 mt-1">1 מתוך {portions} קופסאות · {formatMealPrepNumber(eatPercent)}%</p>
+            <div className="grid grid-cols-5 gap-1.5 mt-3">
+              {MEAL_PREP_PERCENTS.map((percent) => (
+                <button
+                  key={percent}
+                  type="button"
+                  onClick={() => {
+                    setEatPercent(percent);
+                    setPercentInput(String(percent));
+                  }}
+                  className={`min-h-11 rounded-xl border text-[11px] transition ${
+                    Math.abs(eatPercent - percent) < 0.001
+                      ? 'bg-amber-500 border-amber-500 text-amber-950 font-medium'
+                      : 'bg-stone-50 border-stone-200 text-stone-600'
+                  }`}
+                >
+                  {percent === 33 ? '33%' : `${percent}%`}
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <label className="text-xs text-stone-500 shrink-0">אחוז מותאם</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={percentInput}
+                onChange={(e) => {
+                  const raw = e.target.value.trim();
+                  if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
+                  setPercentInput(raw);
+                  if (raw === '' || raw === '.' || raw === ',') return;
+                  const next = Number(normalizeDecimalText(raw));
+                  if (Number.isFinite(next) && next > 0) setEatPercent(normalizeMealPrepPercent(next));
                 }}
-                className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${
-                  !customOpen && Math.abs(multiplier - p) < 0.001 ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'
-                }`}
-              >
-                {p}x
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setCustomOpen((open) => {
-                  const next = !open;
-                  if (next) setCustomInput(String(multiplier));
-                  return next;
-                });
-              }}
-              className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'}`}
-            >
-              מותאם
-            </button>
+                className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center text-stone-900"
+              />
+              <span className="text-sm text-stone-500">%</span>
+            </div>
           </div>
-        </div>
-        {customOpen && (
-          <div className="mt-3 flex items-center gap-3 bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
-            <span className="text-sm text-stone-500 shrink-0">מכפיל אישי:</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              min="0.01"
-              step="any"
-              value={customInput}
-              onChange={(e) => {
-                const raw = e.target.value.trim();
-                if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
-                setCustomInput(raw);
-                if (raw === '' || raw === '.' || raw === ',') return;
-                const next = Number(normalizeDecimalText(raw));
-                if (Number.isFinite(next) && next > 0) setMultiplier(next);
-              }}
-              className="w-24 min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center text-stone-900"
-            />
-          </div>
+        ) : (
+          <>
+            <div className="mt-5 flex items-center justify-between bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md gap-3">
+              <span className="text-sm text-stone-600">כמות מנות</span>
+              <div className="inline-flex bg-stone-100 rounded-full p-1">
+                {[1, 1.5, 2].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setMultiplier(p);
+                      setCustomInput(String(p));
+                      setCustomOpen(false);
+                    }}
+                    className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${
+                      !customOpen && Math.abs(multiplier - p) < 0.001 ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'
+                    }`}
+                  >
+                    {p}x
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setCustomOpen((open) => {
+                      const next = !open;
+                      if (next) setCustomInput(String(multiplier));
+                      return next;
+                    });
+                  }}
+                  className={`min-h-11 px-3.5 py-1.5 rounded-full text-sm transition ${customOpen ? 'bg-amber-500 text-amber-950 font-medium' : 'text-stone-500'}`}
+                >
+                  מותאם
+                </button>
+              </div>
+            </div>
+            {customOpen && (
+              <div className="mt-3 flex items-center gap-3 bg-white rounded-2xl border border-stone-200 p-4 backdrop-blur-md">
+                <span className="text-sm text-stone-500 shrink-0">מכפיל אישי:</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="any"
+                  value={customInput}
+                  onChange={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
+                    setCustomInput(raw);
+                    if (raw === '' || raw === '.' || raw === ',') return;
+                    const next = Number(normalizeDecimalText(raw));
+                    if (Number.isFinite(next) && next > 0) setMultiplier(next);
+                  }}
+                  className="w-24 min-h-11 bg-white border border-stone-200 rounded-xl px-2 py-1.5 text-sm text-center text-stone-900"
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* equipment */}
@@ -1752,7 +1878,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-200 backdrop-blur-md">
             {displayed.ingredients.map((ing) => {
               const hasMacro = [ing.calories, ing.protein, ing.carbs, ing.fat].some((v) => v !== '' && v !== undefined);
-              const scaledAmount = Number(ing.amount || 0) * multiplier;
+              const scaledAmount = Number(ing.amount || 0) * displayFactor;
               const quantityLabel = formatQuantityWithGrams(
                 scaledAmount,
                 ing.unit,
@@ -1778,8 +1904,8 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onAddT
 
                     {hasMacro && (
                       <div className="text-xs text-emerald-700 tabular-nums mt-0.5">
-                        {ing.calories !== '' && `${scaleMacro(ing.calories, multiplier)} קק"ל `}
-                        {ing.protein !== '' && `· ${scaleMacro(ing.protein, multiplier)}ג' חלבון`}
+                        {ing.calories !== '' && `${scaleMacro(ing.calories, displayFactor)} קק"ל `}
+                        {ing.protein !== '' && `· ${scaleMacro(ing.protein, displayFactor)}ג' חלבון`}
                       </div>
                     )}
                   </div>
@@ -1860,6 +1986,8 @@ function emptyRecipeForm() {
     cookTime: '',
     rating: '',
     baseServings: 1,
+    totalPortions: 1,
+    isMealPrep: false,
     favorite: false,
     variations: [],
   };
@@ -1870,6 +1998,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     const base = initial ? JSON.parse(JSON.stringify(initial)) : emptyRecipeForm();
     base.title = stripServingMarker(base.title);
     base.baseServings = servingsCount(base);
+    base.totalPortions = totalPortionsOf(base);
+    base.isMealPrep = isMealPrepRecipe(base);
     base.variations = normalizeVariations(base.variations);
     const hydrated = hydrateRecipeMacrosForForm(base);
     const basis = nutritionBasisOf(base);
@@ -2010,6 +2140,8 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
       description: String(form.description || '').trim(),
       notes: String(form.notes || '').trim(),
       baseServings: servings,
+      totalPortions: isMealPrepRecipe(form) ? servings : totalPortionsOf({ ...form, baseServings: servings }),
+      isMealPrep: isMealPrepRecipe(form),
       unitWeightGrams: pieceGrams || '',
       image: form.image || form.imageUrl || '',
       imageUrl: form.imageUrl || form.image || '',
@@ -2132,8 +2264,34 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
           />
         </div>
 
-        <div>
-          <label className="text-sm text-stone-500 mb-2 block">מספר מנות</label>
+        <div className="bg-white rounded-2xl border border-stone-200 p-4">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isMealPrepRecipe(form);
+              setForm((current) => withMealPrep({
+                ...current,
+                totalPortions: servingsCount(current),
+              }, next));
+            }}
+            className={`w-full min-h-11 rounded-xl border px-3.5 py-2.5 text-sm font-medium flex items-center justify-between gap-3 transition ${
+              isMealPrepRecipe(form)
+                ? 'bg-amber-500 border-amber-500 text-amber-950'
+                : 'bg-stone-50 border-stone-200 text-stone-700'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              מתכון Meal Prep (הכנה מראש למספר ימים)
+            </span>
+            <span className="text-xs">{isMealPrepRecipe(form) ? 'פעיל' : 'כבוי'}</span>
+          </button>
+        </div>
+
+        <div className={isMealPrepRecipe(form) ? 'rounded-2xl border border-teal-200 bg-teal-50 p-4' : ''}>
+          <label className="text-sm text-stone-500 mb-2 block">
+            {isMealPrepRecipe(form) ? 'כמות מנות / קופסאות להכנה' : 'מספר מנות'}
+          </label>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -2727,6 +2885,23 @@ export default function RecipeApp() {
     setRecipes((rs) => rs.map((r) => (r.id === id ? { ...r, favorite: !r.favorite } : r)));
   }
 
+  async function toggleMealPrep(id) {
+    const target = recipes.find((r) => String(r.id) === String(id));
+    if (!target) return;
+    const nextRecipe = asUserRecipe(withMealPrep(target, !isMealPrepRecipe(target)));
+    const nextRecipes = upsertRecipeInList(recipes, nextRecipe);
+    lastSyncedRef.current = upsertRecipeInList(lastSyncedRef.current, nextRecipe);
+    setRecipes(nextRecipes);
+    saveLocalRecipes(nextRecipes);
+    notify(nextRecipe.isMealPrep ? 'סומן כ-Meal Prep' : 'הוסר מ-Meal Prep');
+    if (syncMode !== 'cloud') return;
+    try {
+      await upsertRecipes([nextRecipe]);
+    } catch (error) {
+      notify(`שמירת Meal Prep בענן נכשלה: ${formatRecipesDbError(error)}`);
+    }
+  }
+
   function startAdd() {
     setEditingRecipe(null);
     setView('form');
@@ -2892,8 +3067,10 @@ export default function RecipeApp() {
     setView('form');
   }
 
-  function openAddToGrocery(recipe) {
-    setGroceryRecipe(recipe);
+  function openAddToGrocery(recipe, servingsOverride) {
+    setGroceryRecipe(servingsOverride != null
+      ? { ...recipe, groceryServings: servingsOverride }
+      : recipe);
   }
 
   function confirmAddToGrocery(listId, servings = 1) {
@@ -2960,6 +3137,7 @@ export default function RecipeApp() {
             onManageCategories={manageCategories}
             onOpen={openRecipe}
             onToggleFavorite={toggleFavorite}
+            onToggleMealPrep={toggleMealPrep}
             onAdd={startAdd}
             onOpenSettings={() => setView('settings')}
             onOpenSmartImport={() => setShowSmartImportHome(true)}
@@ -2976,6 +3154,7 @@ export default function RecipeApp() {
             onEdit={startEdit}
             onDelete={deleteRecipe}
             onToggleFavorite={toggleFavorite}
+            onToggleMealPrep={toggleMealPrep}
             onAddToGrocery={openAddToGrocery}
           />
         )}

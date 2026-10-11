@@ -62,6 +62,9 @@ export interface Recipe {
   cookTime?: string | number;
   rating?: number | string;
   baseServings: number;
+  servings?: number;
+  totalPortions?: number;
+  isMealPrep?: boolean;
   favorite?: boolean;
   createdAt?: number;
   updatedAt?: number;

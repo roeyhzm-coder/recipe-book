@@ -1,8 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeVariations } from "@/lib/recipe-variations";
+import { isMealPrepRecipe, totalPortionsOf } from "@/lib/meal-prep";
 
 // Soft-delete column may still exist; the app never relies on it for visibility.
 let softDeleteSupported = false;
+let mealPrepColumnsSupported = false;
 
 export function isSoftDeleteSupported() {
   return softDeleteSupported;
@@ -11,6 +13,11 @@ export function isSoftDeleteSupported() {
 async function detectSoftDelete() {
   const { error } = await supabase.from("recipes").select("deleted_at_ms").limit(1);
   softDeleteSupported = !error;
+}
+
+async function detectMealPrepColumns() {
+  const { error } = await supabase.from("recipes").select("is_meal_prep,total_portions").limit(1);
+  mealPrepColumnsSupported = !error;
 }
 
 function parseStoredMinutes(value) {
@@ -72,6 +79,8 @@ function persistMacros(recipe) {
   if (variations.length) macros.variations = variations;
   macros.description = String(recipe.description ?? recipe.macros?.description ?? '');
   macros.notes = String(recipe.notes ?? recipe.macros?.notes ?? '');
+  macros.isMealPrep = isMealPrepRecipe(recipe);
+  macros.totalPortions = totalPortionsOf(recipe);
   return macros;
 }
 
@@ -98,6 +107,14 @@ function rowToRecipe(row) {
     cookTime: parseStoredMinutes(rawMacros.cookTime),
     rating: row.rating === null || row.rating === undefined ? '' : Number(row.rating),
     baseServings: Number(row.base_servings) || 1,
+    totalPortions: Number(row.total_portions) > 0
+      ? Number(row.total_portions)
+      : (Number(rawMacros.totalPortions) > 0 ? Number(rawMacros.totalPortions) : (Number(row.base_servings) || 1)),
+    isMealPrep: row.is_meal_prep == null
+      ? (rawMacros.isMealPrep == null
+        ? isMealPrepRecipe({ categories: Array.isArray(row.categories) ? row.categories : [], isMealPrep: rawMacros.isMealPrep })
+        : !!rawMacros.isMealPrep)
+      : !!row.is_meal_prep,
     favorite: !!row.favorite,
     createdAt: Number(row.created_at_ms) || 0,
     updatedAt: Number(rawMacros.clientUpdatedAt)
@@ -126,11 +143,20 @@ function recipeToRow(recipe) {
     created_at_ms: Number(recipe.createdAt) || Date.now(),
   };
   if (softDeleteSupported) row.deleted_at_ms = null;
+  if (mealPrepColumnsSupported) {
+    row.is_meal_prep = isMealPrepRecipe(recipe);
+    row.total_portions = totalPortionsOf(recipe);
+  }
   return row;
 }
 
-export async function countRecipes() {
+async function prepareRecipeTable() {
   await detectSoftDelete();
+  await detectMealPrepColumns();
+}
+
+export async function countRecipes() {
+  await prepareRecipeTable();
   let query = supabase.from("recipes").select("id", { count: "exact", head: true });
   if (softDeleteSupported) query = query.is("deleted_at_ms", null);
   const { count, error } = await query;
@@ -139,7 +165,7 @@ export async function countRecipes() {
 }
 
 export async function fetchRecipes() {
-  await detectSoftDelete();
+  await prepareRecipeTable();
   const { data, error } = await supabase
     .from("recipes")
     .select("*")
@@ -164,6 +190,7 @@ export function formatRecipesDbError(error) {
 
 export async function upsertRecipes(recipes) {
   if (!recipes.length) return;
+  await prepareRecipeTable();
   const { error } = await supabase.from("recipes").upsert(recipes.map(recipeToRow));
   if (error) throw error;
 }

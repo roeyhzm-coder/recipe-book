@@ -23,6 +23,7 @@ export type Database = {
           deleted_at_ms: number | null
           equipment: Json
           favorite: boolean
+          is_meal_prep: boolean
           id: string
           image: string
           ingredients: Json
@@ -30,6 +31,7 @@ export type Database = {
           rating: number | null
           steps: Json
           title: string
+          total_portions: number
           updated_at: string
         }
         Insert: {
@@ -40,6 +42,7 @@ export type Database = {
           deleted_at_ms?: number | null
           equipment?: Json
           favorite?: boolean
+          is_meal_prep?: boolean
           id: string
           image?: string
           ingredients?: Json
@@ -47,6 +50,7 @@ export type Database = {
           rating?: number | null
           steps?: Json
           title?: string
+          total_portions?: number
           updated_at?: string
         }
         Update: {
@@ -57,6 +61,7 @@ export type Database = {
           deleted_at_ms?: number | null
           equipment?: Json
           favorite?: boolean
+          is_meal_prep?: boolean
           id?: string
           image?: string
           ingredients?: Json
@@ -64,6 +69,7 @@ export type Database = {
           rating?: number | null
           steps?: Json
           title?: string
+          total_portions?: number
           updated_at?: string
         }
         Relationships: []
