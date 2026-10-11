@@ -15,7 +15,7 @@ import {
   totalRecipeGrams,
   unitWeightOf,
 } from '@/lib/nutrition-macros';
-import { convertIngredientUnit, RECIPE_UNIT_LIST, amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit, HOUSEHOLD_UNIT_GRAMS } from '@/lib/ingredientUnits';
+import { amountToGrams, formatQuantityWithGrams, formatServingUnitLabel, isGramUnit, HOUSEHOLD_UNIT_GRAMS } from '@/lib/ingredientUnits';
 import {
   applyVariation,
   defaultVariationOf,
@@ -26,6 +26,7 @@ import {
   MEAL_PREP_PERCENTS,
   formatMealPrepNumber,
   isMealPrepRecipe,
+  mealPrepDisplayFactor,
   mealPrepGroceryServings,
   normalizeMealPrepPercent,
   totalPortionsOf,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/meal-prep';
 import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
 import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
+import IngredientUnitFields from '@/components/IngredientUnitFields';
 import {
   Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
   Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale, CloudUpload, Package,
@@ -92,8 +94,6 @@ const PINNED_BY_DEFAULT = [
   'גלידות חלבון',
   WEEKEND_CATEGORY,
 ];
-const UNIT_LIST = RECIPE_UNIT_LIST;
-
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 function isProtectedCategory(name) {
@@ -403,9 +403,9 @@ function parseIngredientsPaste(text) {
         /^([\d.,]+)\s*(גרם|ג'|מ"ל|מ״ל|מל|ליטר|כוסות|כוס|כפות|כף|כפית|כפיות|יחידות|יחידה|ק"ג|ק״ג|קג|חופן|קורט)?\s+(.*)$/
       );
       if (m) {
-        return makeIngredient(parseFloat(m[1].replace(',', '.')) || 1, normalizeUnit(m[2]) || 'יחידה', m[3].trim());
+        return makeIngredient(parseFloat(m[1].replace(',', '.')) || 1, normalizeUnit(m[2]) || 'גרם', m[3].trim());
       }
-      return makeIngredient(1, 'יחידה', line);
+      return makeIngredient(1, 'גרם', line);
     });
 }
 
@@ -575,7 +575,7 @@ function Toast({ message }) {
 function ConfirmModal({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={(e) => e.stopPropagation()}>
+    <div dir="rtl" className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={(e) => e.stopPropagation()}>
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200 backdrop-blur-xl">
         <div className="flex items-start gap-3 mb-2">
           <div className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-200">
@@ -672,6 +672,7 @@ function SmartImportModal({ open, onClose, onExtracted }) {
 
   return (
     <div
+      dir="rtl"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
       onClick={handleClose}
     >
@@ -802,6 +803,7 @@ function CategoryModal({ open, categories, active, onSelect, onClose }) {
 
   return (
     <div
+      dir="rtl"
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
       onClick={onClose}
     >
@@ -871,6 +873,7 @@ function CategoryManageModal({ open, categories, onTogglePin, onDelete, onClose 
   return (
     <>
       <div
+        dir="rtl"
         className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4"
         onClick={onClose}
       >
@@ -1288,7 +1291,7 @@ function HomeView({
       </div>
 
       {showQuickCategory && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={() => setShowQuickCategory(false)}>
+        <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={() => setShowQuickCategory(false)}>
           <form
             onSubmit={submitQuickCategory}
             onClick={(e) => e.stopPropagation()}
@@ -1515,9 +1518,9 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onTogg
   });
   const mealPrep = isMealPrepRecipe(recipe);
   const portions = totalPortionsOf(recipe);
-  const portionFactor = 1 / portions;
+  const portionFactor = 1 / Math.max(1, portions);
   const eatFactor = mealPrep ? normalizeMealPrepPercent(eatPercent) / 100 : (Number(multiplier) > 0 ? Number(multiplier) : 1);
-  const displayFactor = mealPrep ? portionFactor * eatFactor : eatFactor;
+  const displayFactor = mealPrep ? mealPrepDisplayFactor(recipe, eatPercent) : eatFactor;
   const portionTotals = {
     calories: scaleMacro(displayedTotals.calories, portionFactor),
     protein: scaleMacro(displayedTotals.protein, portionFactor),
@@ -1677,8 +1680,8 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onTogg
               totalGrams={mealPrep
                 ? displayedGrams * displayFactor
                 : displayedGrams * (Number(multiplier) > 0 ? Number(multiplier) : 1)}
-              unitWeightGrams={unitWeightOf(displayed)}
-              mode={mealPrep ? 'serving' : nutritionMode}
+              unitWeightGrams={mealPrep ? 0 : unitWeightOf(displayed)}
+              mode={mealPrep ? 'recipe' : nutritionMode}
               onModeChange={setNutritionMode}
               servingName={mealPrep ? 'קופסה / מנה בודדת' : servingDisplayName(displayed)}
               autoCalculated={hasAutoIngredientMacros(displayed.ingredients)}
@@ -1722,7 +1725,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onTogg
                       {formatServingUnitLabel({
                         ...unit,
                         name: displayed.title,
-                        unitWeightGrams: unit.unitWeightGrams || displayed.unitWeightGrams,
+                        unitWeightGrams: unit.unitWeightGrams,
                       })}
                     </button>
                   );
@@ -1749,7 +1752,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onTogg
           <div className="mt-5 bg-white rounded-2xl border border-teal-200 p-4 backdrop-blur-md">
             <p className="text-sm font-medium text-stone-800">אכילה ממנה בודדת</p>
             <p className="text-xs text-stone-500 mt-1">1 מתוך {portions} קופסאות · {formatMealPrepNumber(eatPercent)}%</p>
-            <div className="grid grid-cols-5 gap-1.5 mt-3">
+            <div className="grid grid-cols-6 gap-1.5 mt-3">
               {MEAL_PREP_PERCENTS.map((percent) => (
                 <button
                   key={percent}
@@ -1883,7 +1886,7 @@ function DetailView({ recipe, onBack, onEdit, onDelete, onToggleFavorite, onTogg
                 scaledAmount,
                 ing.unit,
                 ing.name,
-                ing.unitWeightGrams || displayed.unitWeightGrams,
+                ing.unitWeightGrams,
               );
               const scoop = proteinScoopLabel(scaledAmount, ing.unit, ing.name);
               const extra = scoop && !String(ing.unit || '').includes('סקופ')
@@ -2074,12 +2077,10 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
     }));
   }
 
-  function onUnitChange(id, newUnit) {
+  function patchIngredient(id, patch) {
     setForm((f) => applyMacrosFromIngredients({
       ...f,
-      ingredients: f.ingredients.map((ing) => (
-        ing.id === id ? convertIngredientUnit(ing, newUnit, f.unitWeightGrams) : ing
-      )),
+      ingredients: f.ingredients.map((ing) => (ing.id === id ? { ...ing, ...patch } : ing)),
     }));
   }
 
@@ -2459,28 +2460,16 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
           <div className="flex flex-col gap-3 mt-4">
             {form.ingredients.map((ing) => (
               <div key={ing.id} className="border border-stone-200 bg-white rounded-xl p-3 backdrop-blur-md">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="number"
-                    value={ing.amount}
-                    onChange={(e) => updateIngredient(ing.id, 'amount', parseFloat(e.target.value) || 0)}
-                    className="w-16 min-h-11 bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-sm text-center text-stone-900"
-                  />
-                  <select
-                    value={ing.unit}
-                    onChange={(e) => onUnitChange(ing.id, e.target.value)}
-                    className="min-h-11 bg-white border border-stone-200 rounded-lg px-1.5 py-1.5 text-sm text-stone-900"
-                  >
-                    {UNIT_LIST.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                  <input
-                    value={ing.name}
-                    onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
-                    placeholder="שם המצרך"
-                    className="flex-1 min-h-11 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400"
-                  />
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1 min-w-0">
+                    <IngredientUnitFields
+                      amount={ing.amount}
+                      unit={ing.unit}
+                      name={ing.name}
+                      unitWeightGrams={ing.unitWeightGrams}
+                      onChange={(patch) => patchIngredient(ing.id, patch)}
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setExpandedIng((prev) => ({ ...prev, [ing.id]: !prev[ing.id] }))}
@@ -2492,20 +2481,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   </button>
                 </div>
-                {(() => {
-                  const grams = amountToGrams(
-                    ing.amount,
-                    ing.unit,
-                    ing.name,
-                    ing.unitWeightGrams || form.unitWeightGrams,
-                  );
-                  if (!(grams > 0) || isGramUnit(ing.unit)) return null;
-                  return (
-                    <p className="text-[11px] text-stone-500 mt-1.5">
-                      {formatQuantityWithGrams(ing.amount, ing.unit, ing.name, ing.unitWeightGrams || form.unitWeightGrams)}
-                    </p>
-                  );
-                })()}
                 {expandedIng[ing.id] && (
                   <div className="grid grid-cols-4 gap-1.5 mt-3">
                     {['calories', 'protein', 'carbs', 'fat'].map((k) => (
@@ -2852,10 +2827,13 @@ export default function RecipeApp() {
     saveLocalRecipes(recipes);
     if (syncMode !== 'cloud') return;
     const previous = lastSyncedRef.current;
-    lastSyncedRef.current = recipes;
-    syncRecipes(previous, recipes).catch((error) => {
-      setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(error)}`);
-    });
+    syncRecipes(previous, recipes)
+      .then(() => {
+        lastSyncedRef.current = recipes;
+      })
+      .catch((error) => {
+        setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(error)}`);
+      });
   }, [recipes, syncMode]);
 
   useEffect(() => saveCategories(categories), [categories]);
@@ -2927,6 +2905,7 @@ export default function RecipeApp() {
     saveLocalRecipes(nextRecipes);
     setSelectedId(nextRecipe.id);
     setView('detail');
+    grocery.syncRecipeSources(nextRecipe);
     notify(existed ? 'המתכון עודכן בהצלחה' : 'המתכון נשמר בהצלחה');
     if (syncMode !== 'cloud') return;
     try {
@@ -2973,6 +2952,7 @@ export default function RecipeApp() {
     lastSyncedRef.current = lastSyncedRef.current.filter((r) => String(r.id) !== String(id));
     setRecipes(nextRecipes);
     saveLocalRecipes(nextRecipes);
+    grocery.pruneRecipeSources(id);
     notify('המתכון נמחק לצמיתות');
     setView('home');
     if (syncMode !== 'cloud') return;

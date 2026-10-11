@@ -10,14 +10,35 @@ export function isSoftDeleteSupported() {
   return softDeleteSupported;
 }
 
+function isMissingColumnError(error) {
+  const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return error?.code === '42703' || /column|does not exist|schema cache/i.test(text);
+}
+
 async function detectSoftDelete() {
   const { error } = await supabase.from("recipes").select("deleted_at_ms").limit(1);
-  softDeleteSupported = !error;
+  if (!error) {
+    softDeleteSupported = true;
+    return;
+  }
+  if (isMissingColumnError(error)) {
+    softDeleteSupported = false;
+    return;
+  }
+  throw error;
 }
 
 async function detectMealPrepColumns() {
   const { error } = await supabase.from("recipes").select("is_meal_prep,total_portions").limit(1);
-  mealPrepColumnsSupported = !error;
+  if (!error) {
+    mealPrepColumnsSupported = true;
+    return;
+  }
+  if (isMissingColumnError(error)) {
+    mealPrepColumnsSupported = false;
+    return;
+  }
+  throw error;
 }
 
 function parseStoredMinutes(value) {

@@ -13,9 +13,11 @@ import {
   createList,
   demotePantryStaple,
   promotePantryStaple,
+  pruneRecipeSourcesFromItems,
   setItemQuantity,
   sortGroceryItems,
   substituteItemName,
+  syncRecipeIngredientSources,
 } from '@/lib/grocery-utils';
 
 export function useGroceryLists() {
@@ -51,10 +53,13 @@ export function useGroceryLists() {
     saveLocalGrocery(state);
     if (syncMode !== 'cloud') return;
     const previous = lastSyncedRef.current;
-    lastSyncedRef.current = state;
-    syncGrocery(previous, state).catch(() => {
-      // Keep the optimistic local state; the next edit retries the cloud write.
-    });
+    syncGrocery(previous, state)
+      .then(() => {
+        lastSyncedRef.current = state;
+      })
+      .catch(() => {
+        setSyncMode('offline');
+      });
   }, [state, syncMode]);
 
   const lists = useMemo(
@@ -221,6 +226,18 @@ export function useGroceryLists() {
     }));
   }
 
+  function pruneRecipeSources(recipeId) {
+    updateState((current) => ({
+      items: pruneRecipeSourcesFromItems(current.items, recipeId),
+    }));
+  }
+
+  function syncRecipeSources(recipe) {
+    updateState((current) => ({
+      items: syncRecipeIngredientSources(current.items, recipe),
+    }));
+  }
+
   return {
     lists,
     items: state.items,
@@ -244,5 +261,7 @@ export function useGroceryLists() {
     demoteStaple,
     clearChecked,
     clearList,
+    pruneRecipeSources,
+    syncRecipeSources,
   };
 }

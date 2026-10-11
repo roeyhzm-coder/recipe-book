@@ -1,5 +1,5 @@
 export const MEAL_PREP_CATEGORY = 'Meal Prep';
-export const MEAL_PREP_PERCENTS = [25, 33, 50, 75, 100];
+export const MEAL_PREP_PERCENTS = [25, 30, 33, 50, 75, 100];
 
 export function isMealPrepRecipe(recipe) {
   if (recipe?.isMealPrep === true || recipe?.is_meal_prep === true) return true;
@@ -24,10 +24,15 @@ export function formatMealPrepNumber(value) {
   return n.toFixed(2);
 }
 
+export function mealPrepDisplayFactor(recipe, percent) {
+  const portions = totalPortionsOf(recipe);
+  return (normalizeMealPrepPercent(percent) / 100) / portions;
+}
+
 export function mealPrepGroceryServings(recipe, percent) {
   const portions = totalPortionsOf(recipe);
   const base = Number(recipe?.baseServings) > 0 ? Number(recipe.baseServings) : portions;
-  return (base * normalizeMealPrepPercent(percent)) / 100 / portions;
+  return base * mealPrepDisplayFactor(recipe, percent);
 }
 
 export function withMealPrep(recipe, enabled) {

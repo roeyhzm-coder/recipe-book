@@ -8,13 +8,21 @@ function round2(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
-export function macrosAt(per100, amount) {
-  const factor = Number(amount) / 100;
+export function macrosAt(per100, amount, { round = true } = {}) {
+  const grams = Number(amount);
+  const factor = Number.isFinite(grams) && grams > 0 ? grams / 100 : 0;
+  const next = {
+    calories: (Number(per100?.calories) || 0) * factor,
+    protein: (Number(per100?.protein) || 0) * factor,
+    carbs: (Number(per100?.carbs) || 0) * factor,
+    fat: (Number(per100?.fat) || 0) * factor,
+  };
+  if (!round) return next;
   return {
-    calories: round2(per100.calories * factor),
-    protein: round2(per100.protein * factor),
-    carbs: round2(per100.carbs * factor),
-    fat: round2(per100.fat * factor),
+    calories: round2(next.calories),
+    protein: round2(next.protein),
+    carbs: round2(next.carbs),
+    fat: round2(next.fat),
   };
 }
 

@@ -1,3 +1,5 @@
+import { amountToGrams, getPieceWeightGrams } from '@/lib/ingredientUnits';
+
 export const DEFAULT_GROCERY_LIST_NAMES = ['קניות שבועיות', 'מוצרי בסיס', 'ירקן'];
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -119,18 +121,7 @@ const AISLE_KEYWORDS = {
   ],
 };
 
-/** Produce items sold as whole units — convert grams → medium-size counts. */
-const PRODUCE_UNIT_WEIGHTS = [
-  { keys: ['מלפפון', 'מלפפונים'], grams: 90 },
-  { keys: ['עגבניה', 'עגבנייה', 'עגבניות'], grams: 135 },
-  { keys: ['בצל', 'בצלים', 'בצל סגול'], grams: 150 },
-  { keys: ['לימון', 'לימונים'], grams: 100 },
-  { keys: ['תפוח אדמה', 'תפוחי אדמה'], grams: 175 },
-  { keys: ['גזר', 'גזרים'], grams: 80 },
-  { keys: ['קישוא', 'קישואים'], grams: 150 },
-  { keys: ['בטטה', 'בטטות'], grams: 200 },
-  { keys: ['אבוקדו'], grams: 150 },
-];
+/** Produce items sold as whole units — convert grams → catalog medium-size counts. */
 
 const PREP_PHRASES = [
   'חתוך לקוביות', 'חתוכה לקוביות', 'חתוכים לקוביות', 'חתוכות לקוביות',
@@ -322,20 +313,8 @@ function isEggName(nameOrKey) {
 }
 
 function findProduceWeight(name) {
-  const key = normalizeItemName(name);
-  if (!key) return null;
-  // Prefer longer key matches (בצל סגול over בצל).
-  let best = null;
-  PRODUCE_UNIT_WEIGHTS.forEach((entry) => {
-    entry.keys.forEach((candidate) => {
-      const candidateKey = normalizeItemName(candidate);
-      if (!nameMatchesKeyword(key, candidate)) return;
-      if (!best || candidateKey.length > best.keyLength) {
-        best = { grams: entry.grams, keyLength: candidateKey.length };
-      }
-    });
-  });
-  return best?.grams || null;
+  const grams = getPieceWeightGrams(name);
+  return grams > 0 ? grams : null;
 }
 
 export function getItemAisleId(name) {
@@ -379,7 +358,8 @@ export function getPantryDrawerItems(items) {
 export function scaleGroceryAmount(amount, multiplier) {
   const value = Number(amount);
   if (!Number.isFinite(value) || value <= 0) return null;
-  const scaled = value * (Number(multiplier) || 1);
+  const factor = Number(multiplier);
+  const scaled = value * (Number.isFinite(factor) && factor > 0 ? factor : 0);
   if (!Number.isFinite(scaled) || scaled <= 0) return null;
   return Math.round(scaled * 100) / 100;
 }
@@ -408,13 +388,9 @@ function toQuantityPart(amount, unit) {
   return { amount: Math.round(value * 100) / 100, unit: normalizedUnit };
 }
 
-function gramsFromPart(part) {
-  const unit = normalizeGroceryUnit(part?.unit);
-  const amount = Number(part?.amount);
-  if (!Number.isFinite(amount) || amount <= 0) return null;
-  if (unit === 'גרם') return amount;
-  if (unit === 'ק"ג') return amount * 1000;
-  return null;
+function gramsFromPart(part, name = '') {
+  const grams = amountToGrams(part?.amount, part?.unit, name);
+  return grams > 0 ? grams : null;
 }
 
 /**
@@ -460,9 +436,9 @@ export function toShoppingQuantities(name, quantities) {
         cloves += Number(part.amount) || 0;
         usedCloveUnits = true;
       } else {
-        const grams = gramsFromPart(part);
+        const grams = gramsFromPart(part, name);
         if (grams != null) {
-          cloves += grams / 5;
+          cloves += grams / (findProduceWeight(name) || 4);
           usedCloveUnits = true;
         }
       }
@@ -480,26 +456,16 @@ export function toShoppingQuantities(name, quantities) {
   const gramsPerUnit = findProduceWeight(name);
   if (gramsPerUnit) {
     let totalGrams = 0;
-    let totalUnits = 0;
-    let hasMass = false;
-    let hasUnits = false;
+    let counted = false;
     parts.forEach((part) => {
-      const grams = gramsFromPart(part);
+      const grams = gramsFromPart(part, name);
       if (grams != null) {
         totalGrams += grams;
-        hasMass = true;
-        return;
-      }
-      const unit = normalizeGroceryUnit(part.unit);
-      const meta = UNIT_FAMILIES[unit];
-      if (meta?.family === 'unit' || meta?.family === 'medium_unit' || unit === 'יחידה') {
-        totalUnits += Number(part.amount) || 0;
-        hasUnits = true;
+        counted = true;
       }
     });
-    if (hasMass || hasUnits) {
-      const fromGrams = hasMass ? totalGrams / gramsPerUnit : 0;
-      const count = ceilWhole(fromGrams + totalUnits);
+    if (counted) {
+      const count = ceilWhole(totalGrams / gramsPerUnit);
       if (!count) return [];
       return [{ amount: count, unit: mediumUnitLabel(count) }];
     }
@@ -877,6 +843,43 @@ export function addRecipeIngredientsToItems(items, listId, recipe, servings = 1)
   });
 
   return { items: next, added, merged, skipped: stapled, stapled };
+}
+
+export function pruneRecipeSourcesFromItems(items, recipeId) {
+  const id = String(recipeId || '');
+  if (!id) return items;
+  return (items || []).map((item) => {
+    const sources = stripMetaSources(item.sourceRecipes);
+    const next = sources.filter((source) => String(source.id) !== id);
+    if (next.length === sources.length) return item;
+    return {
+      ...item,
+      sourceRecipes: next,
+      quantities: deriveQuantities(next, item.quantities, item.name),
+      updatedAt: Date.now(),
+    };
+  });
+}
+
+export function syncRecipeIngredientSources(items, recipe) {
+  if (!recipe?.id) return items;
+  const remaining = new Set(
+    (recipe.ingredients || [])
+      .map((ing) => normalizeItemName(sanitizeGroceryName(ing?.name) || ing?.name))
+      .filter(Boolean)
+  );
+  return (items || []).map((item) => {
+    const sources = stripMetaSources(item.sourceRecipes);
+    if (!sources.some((source) => String(source.id) === String(recipe.id))) return item;
+    if (remaining.has(normalizeItemName(item.name))) return item;
+    const next = sources.filter((source) => String(source.id) !== String(recipe.id));
+    return {
+      ...item,
+      sourceRecipes: next,
+      quantities: deriveQuantities(next, item.quantities, item.name),
+      updatedAt: Date.now(),
+    };
+  });
 }
 
 export function setItemQuantity(items, itemId, amount, unit) {

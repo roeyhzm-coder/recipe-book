@@ -48,12 +48,14 @@ export function unitWeightOf(recipe) {
 export function totalRecipeGrams(ingredients, recipeUnitWeight = 0) {
   let total = 0;
   let counted = false;
-  for (const ing of ingredients || []) {
+  const list = ingredients || [];
+  const singleIngredient = list.filter((ing) => String(ing?.name || '').trim()).length === 1;
+  for (const ing of list) {
     const grams = amountToGrams(
       ing?.amount,
       ing?.unit,
       ing?.name,
-      ing?.unitWeightGrams || recipeUnitWeight,
+      ing?.unitWeightGrams || (singleIngredient ? recipeUnitWeight : 0),
     );
     if (grams > 0) {
       total += grams;
@@ -120,7 +122,8 @@ export function viewValueToRecipeTotal(value, mode, ctx = {}) {
   const { servings = 1, totalGrams = 0, unitWeightGrams = 0 } = ctx;
   if (mode === 'serving') {
     const factor = servingFactor({ servings, totalGrams, unitWeightGrams });
-    return factor ? roundMacro(parsed / factor) : parsed;
+    if (!(factor > 0) || !Number.isFinite(factor)) return parsed;
+    return roundMacro(parsed / factor);
   }
   if (mode === '100g' && Number(totalGrams) > 0) {
     return roundMacro(parsed * Number(totalGrams) / 100);

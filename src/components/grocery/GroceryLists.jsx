@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, ChevronDown, Pencil, Plus, RefreshCw, ShoppingCart, Trash2, X } from 'lucide-react';
-import { formatQuantityLabel, groupItemsByAisle, UNIT_LIST } from '@/lib/grocery-utils';
+import { formatQuantityLabel, groupItemsByAisle } from '@/lib/grocery-utils';
 import { getGrocerySubstitutions } from '@/lib/grocery-substitutions';
-import { convertAmountOnUnitChange } from '@/lib/ingredientUnits';
-
-const QUANTITY_UNITS = UNIT_LIST;
+import IngredientUnitFields from '@/components/IngredientUnitFields';
 
 function ConfirmDialog({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
+    <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200">
         <h3 className="font-serif text-lg text-stone-900">{title}</h3>
         <p className="text-sm text-stone-500 mt-1 leading-relaxed">{message}</p>
@@ -46,7 +44,7 @@ function NameDialog({ open, title, initialValue = '', placeholder, confirmLabel,
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onCancel}>
+    <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onCancel}>
       <form
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
@@ -82,18 +80,20 @@ function QuantityDialog({ open, item, onConfirm, onCancel }) {
   const initial = item?.quantities?.[0] || {};
   const [amount, setAmount] = useState(initial.amount != null ? String(initial.amount) : '');
   const [unit, setUnit] = useState(initial.unit || 'גרם');
+  const [unitWeightGrams, setUnitWeightGrams] = useState('');
 
   useEffect(() => {
     if (!open || !item) return;
     const part = item.quantities?.[0] || {};
     setAmount(part.amount != null ? String(part.amount) : '');
     setUnit(part.unit || 'גרם');
+    setUnitWeightGrams(part.unitWeightGrams || '');
   }, [open, item]);
 
   if (!open || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onCancel}>
+    <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onCancel}>
       <form
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
@@ -116,35 +116,18 @@ function QuantityDialog({ open, item, onConfirm, onCancel }) {
             <X className="w-4 h-4 text-stone-500" />
           </button>
         </div>
-        <div className="flex gap-2">
-          <input
-            autoFocus
-            type="number"
-            min="0"
-            step="any"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            placeholder="כמות"
-            className="flex-1 min-h-11 bg-white border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
-          />
-          <select
-            value={unit}
-            onChange={(event) => {
-              const nextUnit = event.target.value;
-              setAmount((prev) => {
-                const parsed = parseFloat(String(prev).replace(',', '.'));
-                if (!Number.isFinite(parsed) || parsed <= 0) return prev;
-                return String(convertAmountOnUnitChange(parsed, unit, nextUnit, item.name));
-              });
-              setUnit(nextUnit);
-            }}
-            className="min-h-11 w-28 bg-white border border-stone-200 rounded-xl px-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500/70"
-          >
-            {QUANTITY_UNITS.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        </div>
+        <IngredientUnitFields
+          amount={amount}
+          unit={unit}
+          name={item.name}
+          unitWeightGrams={unitWeightGrams}
+          showName={false}
+          onChange={(patch) => {
+            setAmount(patch.amount);
+            setUnit(patch.unit);
+            setUnitWeightGrams(patch.unitWeightGrams);
+          }}
+        />
         <button type="submit" className="w-full min-h-11 mt-4 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium hover:bg-amber-400 transition">
           שמור כמות
         </button>
@@ -273,7 +256,7 @@ function SubstituteDialog({ open, item, options, onPick, onClose }) {
   const context = (item.sourceRecipes || []).map((source) => source.title).filter(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
+    <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
       <div
         onClick={(event) => event.stopPropagation()}
         className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200"

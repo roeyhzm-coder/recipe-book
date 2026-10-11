@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronDown, Plus, Star, Trash2 } from 'lucide-react';
 import { emptyVariation, moveVariation, recalculateVariation, setDefaultVariation } from '@/lib/recipe-variations';
-import { convertIngredientUnit, RECIPE_UNIT_LIST } from '@/lib/ingredientUnits';
+import IngredientUnitFields from '@/components/IngredientUnitFields';
 import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
 import { hasAutoIngredientMacros, servingsOf, totalRecipeGrams, unitWeightOf } from '@/lib/nutrition-macros';
-
-const UNIT_LIST = RECIPE_UNIT_LIST;
 
 export default function RecipeVariationsEditor({
   form,
@@ -44,19 +42,10 @@ export default function RecipeVariationsEditor({
     if (expandedId === id) onExpandedId(next[0]?.id || null);
   }
 
-  function updateIngredient(variationId, ingredientId, field, value) {
+  function patchIngredient(variationId, ingredientId, patch) {
     patchVariation(variationId, (item) => ({
       ...item,
-      ingredients: item.ingredients.map((ing) => (ing.id === ingredientId ? { ...ing, [field]: value } : ing)),
-    }));
-  }
-
-  function onUnitChange(variationId, ingredientId, newUnit) {
-    patchVariation(variationId, (item) => ({
-      ...item,
-      ingredients: item.ingredients.map((ing) => (
-        ing.id === ingredientId ? convertIngredientUnit(ing, newUnit, form?.unitWeightGrams) : ing
-      )),
+      ingredients: item.ingredients.map((ing) => (ing.id === ingredientId ? { ...ing, ...patch } : ing)),
     }));
   }
 
@@ -180,28 +169,17 @@ export default function RecipeVariationsEditor({
                   <p className="text-xs text-stone-500">מצרכים</p>
                   <div className="flex flex-col gap-2">
                     {(variation.ingredients || []).map((ing) => (
-                      <div key={ing.id} className="flex gap-1.5 items-center">
-                        <input
-                          type="number"
-                          value={ing.amount}
-                          onChange={(e) => updateIngredient(variation.id, ing.id, 'amount', parseFloat(e.target.value) || 0)}
-                          className="w-14 min-h-11 bg-white border border-stone-200 rounded-lg px-1.5 text-sm text-center"
-                        />
-                        <select
-                          value={ing.unit}
-                          onChange={(e) => onUnitChange(variation.id, ing.id, e.target.value)}
-                          className="min-h-11 bg-white border border-stone-200 rounded-lg px-1 text-sm"
-                        >
-                          {UNIT_LIST.map((unit) => (
-                            <option key={unit} value={unit}>{unit}</option>
-                          ))}
-                        </select>
-                        <input
-                          value={ing.name}
-                          onChange={(e) => updateIngredient(variation.id, ing.id, 'name', e.target.value)}
-                          placeholder="שם המצרך"
-                          className="flex-1 min-h-11 bg-white border border-stone-200 rounded-lg px-2 text-sm"
-                        />
+                      <div key={ing.id} className="flex gap-1.5 items-start">
+                        <div className="flex-1 min-w-0">
+                          <IngredientUnitFields
+                            amount={ing.amount}
+                            unit={ing.unit}
+                            name={ing.name}
+                            unitWeightGrams={ing.unitWeightGrams}
+                            onChange={(patch) => patchIngredient(variation.id, ing.id, patch)}
+                            showPresets={false}
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => patchVariation(variation.id, {

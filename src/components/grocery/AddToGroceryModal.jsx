@@ -52,7 +52,7 @@ export default function AddToGroceryModal({ open, recipe, lists, defaultListId, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
+    <div dir="rtl" className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={onClose}>
       <div
         onClick={(event) => event.stopPropagation()}
         className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200"

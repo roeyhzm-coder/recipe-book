@@ -100,10 +100,22 @@ export function saveLocalGrocery(state) {
   }
 }
 
+function isMissingRelationError(error) {
+  const text = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return error?.code === '42P01' || /does not exist|schema cache|relation/i.test(text);
+}
+
 async function detectGroceryTables() {
   const { error } = await supabase.from('grocery_lists').select('id').limit(1);
-  groceryTablesSupported = !error;
-  return groceryTablesSupported;
+  if (!error) {
+    groceryTablesSupported = true;
+    return true;
+  }
+  if (isMissingRelationError(error)) {
+    groceryTablesSupported = false;
+    return false;
+  }
+  throw error;
 }
 
 function newerWins(local, remote, getUpdatedAt) {
