@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import {
-  convertAmountOnUnitChange,
-} from '@/lib/ingredientUnits';
-import {
   CUSTOM_UNIT_PORTION,
-  findIsraeliFood,
+  bindCatalogSelection,
+  findCatalogItem,
   formatLiveGramsHint,
   getPortionOptions,
   israeliFoodSuggestions,
@@ -49,10 +47,13 @@ export default function IngredientUnitFields({
   const selected = options.find((option) => option.unit === unit || option.label === unit)
     || options.find((option) => option.id === 'gram')
     || options[0];
-  const suggestions = nameOpen ? israeliFoodSuggestions(name) : [];
-  const matched = findIsraeliFood(name);
+  const suggestions = useMemo(
+    () => (nameOpen && String(name || '').trim() ? israeliFoodSuggestions(name) : []),
+    [nameOpen, name],
+  );
+  const matched = findCatalogItem(name);
   const hint = formatLiveGramsHint(amount, unit, name, unitWeightGrams);
-  const needsWeight = !!(selected?.requiresWeight || (selected?.kind === 'piece' && !(optionWeight(selected, unitWeightGrams) > 0)));
+  const needsWeight = !matched && !!(selected?.requiresWeight || (selected?.kind === 'piece' && !(optionWeight(selected, unitWeightGrams) > 0)));
 
   function patch(next) {
     onChange?.({
@@ -80,22 +81,11 @@ export default function IngredientUnitFields({
 
   function handleUnit(optionId) {
     const option = options.find((row) => row.id === optionId) || portionOption(CUSTOM_UNIT_PORTION);
+    const previous = parseAmount(amount);
+    const nextAmount = previous > 0 ? previous : 1;
     const nextWeight = option.requiresWeight
       ? (Number(unitWeightGrams) > 0 ? Number(unitWeightGrams) : '')
-      : (option.kind === 'piece' || option.kind === 'household' ? option.grams : '');
-    const converted = convertAmountOnUnitChange(
-      parseAmount(amount),
-      unit,
-      option.unit,
-      name,
-      unitWeightGrams,
-      nextWeight,
-    );
-    const previous = parseAmount(amount);
-    const defaultGramRow = String(unit || '') === 'גרם' && previous === 1;
-    const nextAmount = option.defaultAmount
-      || (option.kind === 'piece' && defaultGramRow ? 1 : 0)
-      || (converted > 0 ? converted : (option.kind === 'piece' && previous > 0 ? 1 : converted));
+      : (option.kind === 'piece' || option.kind === 'household' || Number(option.grams) > 1 ? option.grams : '');
     patch({
       amount: nextAmount,
       unit: option.unit,
@@ -104,24 +94,20 @@ export default function IngredientUnitFields({
   }
 
   function handleName(nextName) {
-    const food = findIsraeliFood(nextName);
-    const nextOptions = getPortionOptions(nextName, { unit, unitWeightGrams });
-    const stillValid = nextOptions.some((option) => option.unit === unit || option.label === unit);
-    if (stillValid) {
-      patch({ name: nextName });
+    setNameOpen(true);
+    const exact = findCatalogItem(nextName);
+    const normalized = String(nextName || '').trim();
+    if (exact && String(exact.label || '').trim() === normalized) {
+      patch(bindCatalogSelection(exact, amount));
+      setNameOpen(false);
       return;
     }
-    const fallback = food
-      ? nextOptions.find((option) => option.unit === food.defaultUnit || option.label === food.defaultUnit) || nextOptions[0]
-      : nextOptions.find((option) => option.id === 'gram') || nextOptions[0];
-    const nextWeight = fallback?.requiresWeight
-      ? ''
-      : (fallback?.kind === 'piece' || fallback?.kind === 'household' ? fallback.grams : '');
-    patch({
-      name: nextName,
-      unit: fallback?.unit || 'גרם',
-      unitWeightGrams: nextWeight,
-    });
+    patch({ name: nextName });
+  }
+
+  function handleSelectSuggestion(suggestion) {
+    patch(bindCatalogSelection(suggestion.item || suggestion, amount));
+    setNameOpen(false);
   }
 
   return (
@@ -130,7 +116,7 @@ export default function IngredientUnitFields({
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={() => setAmountValue(parseAmount(amount) - 0.5)}
+            onClick={() => setAmountValue(Math.max(0, parseAmount(amount) - 0.5))}
             className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center"
             aria-label="הפחת כמות"
           >
@@ -170,24 +156,22 @@ export default function IngredientUnitFields({
             value={name}
             onChange={(e) => handleName(e.target.value)}
             onFocus={() => setNameOpen(true)}
-            onBlur={() => setTimeout(() => setNameOpen(false), 150)}
+            onBlur={() => setTimeout(() => setNameOpen(false), 180)}
             placeholder="שם המצרך"
             className="w-full min-h-11 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400"
+            autoComplete="off"
           />
           {suggestions.length > 0 && (
             <div className="absolute z-20 top-full inset-x-0 mt-1 rounded-xl border border-stone-200 bg-white shadow-lg overflow-hidden">
               {suggestions.map((suggestion) => (
                 <button
-                  key={suggestion}
+                  key={suggestion.label}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    handleName(suggestion);
-                    setNameOpen(false);
-                  }}
+                  onClick={() => handleSelectSuggestion(suggestion)}
                   className="w-full min-h-11 px-3 text-right text-sm text-stone-800 hover:bg-amber-50"
                 >
-                  {suggestion}
+                  {suggestion.label}
                 </button>
               ))}
             </div>

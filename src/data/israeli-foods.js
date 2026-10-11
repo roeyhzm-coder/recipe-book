@@ -19,6 +19,57 @@ const G100 = () => portion('100 גרם', 100, { unit: '100 גרם', kind: 'mass'
 
 export const ISRAELI_FOODS = [
   {
+    keys: ['רסק עגבניות', 'פומודורו', 'עגבניות מרוסקות'],
+    defaultUnit: 'כף',
+    per100: { calories: 40, protein: 1.8, carbs: 6.5, fat: 0.2 },
+    portions: [
+      portion('כף', 30, { unit: 'כף', kind: 'household' }),
+      portion('כפית', 10, { unit: 'כפית', kind: 'household' }),
+      portion('קופסה קטנה', 100, { unit: 'קופסה קטנה' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['רוטב סויה'],
+    defaultUnit: 'כף',
+    per100: { calories: 53, protein: 8, carbs: 5, fat: 0.1 },
+    portions: [
+      portion('כף', 15, { unit: 'כף', kind: 'household' }),
+      portion('כפית', 5, { unit: 'כפית', kind: 'household' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['ריבה'],
+    defaultUnit: 'כף',
+    per100: { calories: 278, protein: 0.4, carbs: 69, fat: 0.1 },
+    portions: [
+      portion('כף', 20, { unit: 'כף', kind: 'household' }),
+      portion('כפית', 7, { unit: 'כפית', kind: 'household' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['רוטב ברביקיו', 'ברביקיו'],
+    defaultUnit: 'כף',
+    per100: { calories: 172, protein: 0.8, carbs: 41, fat: 0.6 },
+    portions: [
+      portion('כף', 15, { unit: 'כף', kind: 'household' }),
+      portion('כפית', 5, { unit: 'כפית', kind: 'household' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['רוטב חריף'],
+    defaultUnit: 'כפית',
+    per100: { calories: 93, protein: 2, carbs: 19, fat: 0.8 },
+    portions: [
+      portion('כף', 15, { unit: 'כף', kind: 'household' }),
+      portion('כפית', 5, { unit: 'כפית', kind: 'household' }),
+      G(),
+    ],
+  },
+  {
     keys: ['מלפפון', 'מלפפונים'],
     defaultUnit: 'יחידה בינונית',
     portions: [

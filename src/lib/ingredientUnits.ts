@@ -104,11 +104,14 @@ function pieceOverrideGrams(unitWeightGrams?: number | string | null): number {
 export function getPieceWeightGrams(name: string | null | undefined): number {
   const food = findIsraeliFood(name);
   if (!food) return 0;
-  const preferred = food.portions.find((portion) => (
+  const portions = Array.isArray(food.portions) ? food.portions : [];
+  const preferred = portions.find((portion) => (
     portion.label === food.defaultUnit || portion.unit === food.defaultUnit
   ));
-  const piece = preferred || food.portions.find((portion) => portion.kind === 'piece' && Number(portion.grams) > 0);
-  return Number(piece?.grams) > 0 ? Number(piece.grams) : 0;
+  const piece = preferred
+    || portions.find((portion) => portion.kind === 'piece' && Number(portion.grams) > 0);
+  if (Number(piece?.grams) > 0) return Number(piece.grams);
+  return Number(food.piece) > 0 ? Number(food.piece) : 0;
 }
 
 function getDensityOverride(unit: string, ingredientName?: string | null): number | null {

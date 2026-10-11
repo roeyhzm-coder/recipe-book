@@ -1,4 +1,5 @@
 import { ISRAELI_FOODS } from '@/data/israeli-foods';
+import { NUTRITION_FOODS } from '@/data/nutrition-foods';
 
 export const UNIVERSAL_PORTIONS = [
   { id: 'gram', label: 'גרם', unit: 'גרם', grams: 1, kind: 'mass' },
@@ -26,39 +27,22 @@ export function normalizeFoodName(name) {
     .trim();
 }
 
-const INDEX = ISRAELI_FOODS
-  .flatMap((food) => food.keys.map((key) => ({
-    key: normalizeFoodName(key),
-    food,
-    length: normalizeFoodName(key).length,
-  })))
-  .filter((row) => row.key)
-  .sort((a, b) => b.length - a.length);
-
-export function findIsraeliFood(name) {
-  const hay = normalizeFoodName(name);
-  if (!hay) return null;
-  for (const row of INDEX) {
-    if (row.food.exclude?.some((token) => hay.includes(normalizeFoodName(token)))) continue;
-    if (hay === row.key || hay.includes(row.key)) return row.food;
-  }
-  return null;
+function wordsOf(name) {
+  return normalizeFoodName(name).split(' ').filter(Boolean);
 }
 
-export function searchIsraeliFoods(query, limit = 6) {
-  const hay = normalizeFoodName(query);
-  if (!hay) return [];
-  const seen = new Set();
-  const hits = [];
-  for (const row of INDEX) {
-    if (seen.has(row.food)) continue;
-    if (row.key.includes(hay) || hay.includes(row.key)) {
-      seen.add(row.food);
-      hits.push(row.food);
-      if (hits.length >= limit) break;
-    }
-  }
-  return hits;
+function round2(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
+function macrosFromPer100(per100, grams) {
+  const factor = Number(grams) > 0 ? Number(grams) / 100 : 0;
+  return {
+    calories: round2((Number(per100?.calories) || 0) * factor),
+    protein: round2((Number(per100?.protein) || 0) * factor),
+    carbs: round2((Number(per100?.carbs) || 0) * factor),
+    fat: round2((Number(per100?.fat) || 0) * factor),
+  };
 }
 
 function optionId(portion) {
@@ -77,9 +61,134 @@ export function portionOption(portion) {
   };
 }
 
+function upsertCatalog(map, item) {
+  const label = String(item.label || item.keys?.[0] || '').trim();
+  if (!label) return;
+  const id = normalizeFoodName(label);
+  const prev = map.get(id) || {};
+  const keys = [...new Set([...(prev.keys || []), ...(item.keys || []), label])].filter(Boolean);
+  map.set(id, {
+    ...prev,
+    ...item,
+    id,
+    label,
+    keys,
+    known: true,
+    portions: (item.portions && item.portions.length) ? item.portions : prev.portions,
+    per100: item.per100 || prev.per100,
+    defaultUnit: item.defaultUnit || prev.defaultUnit,
+    exclude: item.exclude || prev.exclude,
+    piece: item.piece || prev.piece,
+  });
+}
+
+function buildCatalog() {
+  const map = new Map();
+  for (const food of ISRAELI_FOODS) {
+    upsertCatalog(map, {
+      label: food.keys[0],
+      keys: food.keys,
+      portions: food.portions,
+      defaultUnit: food.defaultUnit,
+      per100: food.per100,
+      exclude: food.exclude,
+    });
+  }
+  for (const food of NUTRITION_FOODS) {
+    upsertCatalog(map, {
+      label: food.keys[0],
+      keys: food.keys,
+      per100: food.per100,
+      piece: food.piece,
+    });
+  }
+  return [...map.values()];
+}
+
+const CATALOG = buildCatalog();
+
+function itemExcluded(item, hay) {
+  return item.exclude?.some((token) => hay.includes(normalizeFoodName(token)));
+}
+
+function lookupScore(hay, key) {
+  if (!key) return 0;
+  if (hay === key) return 400 + key.length;
+  if (hay.startsWith(`${key} `) || hay.startsWith(key)) return 300 + key.length;
+  if (wordsOf(hay).some((word) => word === key || word.startsWith(`${key}`))) return 200 + key.length;
+  return 0;
+}
+
+export function findCatalogItem(name) {
+  const hay = normalizeFoodName(name);
+  if (!hay) return null;
+  let best = null;
+  let bestScore = 0;
+  for (const item of CATALOG) {
+    if (itemExcluded(item, hay)) continue;
+    for (const rawKey of item.keys) {
+      const key = normalizeFoodName(rawKey);
+      const score = lookupScore(hay, key);
+      if (score > bestScore) {
+        bestScore = score;
+        best = item;
+      }
+    }
+  }
+  return best;
+}
+
+export function findIsraeliFood(name) {
+  return findCatalogItem(name);
+}
+
+function prefixScore(text, query) {
+  const value = normalizeFoodName(text);
+  if (!value || !query) return 0;
+  if (value.startsWith(query)) return 2;
+  if (wordsOf(value).some((word) => word.startsWith(query))) return 1;
+  return 0;
+}
+
+export function searchFoodCatalog(query, limit = 8) {
+  const hay = normalizeFoodName(query);
+  if (!hay) return [];
+  const ranked = [];
+  for (const item of CATALOG) {
+    let score = 0;
+    for (const key of item.keys) {
+      score = Math.max(score, prefixScore(key, hay), prefixScore(item.label, hay));
+    }
+    if (score > 0) {
+      ranked.push({
+        item,
+        score,
+        length: normalizeFoodName(item.label).length,
+      });
+    }
+  }
+  ranked.sort((a, b) => b.score - a.score || a.length - b.length || a.item.label.localeCompare(b.item.label, 'he'));
+  return ranked.slice(0, limit).map((row) => row.item);
+}
+
+export function searchIsraeliFoods(query, limit = 8) {
+  return searchFoodCatalog(query, limit);
+}
+
+export function israeliFoodSuggestions(query) {
+  const hay = normalizeFoodName(query);
+  return searchFoodCatalog(query).map((item) => {
+    const matchedKey = item.keys.find((key) => prefixScore(key, hay) > 0) || item.label;
+    return {
+      label: matchedKey,
+      item: { ...item, label: matchedKey },
+    };
+  });
+}
+
 export function getPortionOptions(name, current = {}) {
-  const food = findIsraeliFood(name);
-  const options = food
+  const food = findCatalogItem(name);
+  const options = food?.portions?.length
     ? food.portions.map(portionOption)
     : UNIVERSAL_PORTIONS.map(portionOption);
 
@@ -111,8 +220,8 @@ export function findPortionOption(name, unit, unitWeightGrams) {
 }
 
 export function defaultPortionForFood(name) {
-  const food = findIsraeliFood(name);
-  if (!food) return UNIVERSAL_PORTIONS[0];
+  const food = findCatalogItem(name);
+  if (!food?.portions?.length) return UNIVERSAL_PORTIONS[0];
   return food.portions.find((portion) => portion.unit === food.defaultUnit || portion.label === food.defaultUnit)
     || food.portions[0];
 }
@@ -120,10 +229,10 @@ export function defaultPortionForFood(name) {
 export function resolvePortionGrams(name, unit, unitWeightGrams) {
   const custom = Number(unitWeightGrams);
   const hasCustom = Number.isFinite(custom) && custom > 0;
-  const food = findIsraeliFood(name);
+  const food = findCatalogItem(name);
   const normalized = String(unit || '').trim();
 
-  if (food) {
+  if (food?.portions?.length) {
     const match = food.portions.find((portion) => portion.unit === normalized || portion.label === normalized);
     if (match) {
       if (match.requiresWeight) return hasCustom ? custom : 0;
@@ -135,7 +244,7 @@ export function resolvePortionGrams(name, unit, unitWeightGrams) {
     }
   }
 
-  if (hasCustom && /יחידה|מנה|פרוסה|גביע|שן|ראש|שרי|סלסלה|חלמון|חלבון/.test(normalized)) {
+  if (hasCustom && /יחידה|מנה|פרוסה|גביע|שן|ראש|שרי|סלסלה|חלמון|חלבון|קופסה/.test(normalized)) {
     return custom;
   }
 
@@ -151,21 +260,44 @@ export function formatLiveGramsHint(amount, unit, name, unitWeightGrams) {
     || Number(unitWeightGrams)
     || 0;
   const total = safeQty * (Number.isFinite(unitGrams) ? unitGrams : 0);
+  const qtyLabel = Number.isInteger(safeQty) ? String(safeQty) : String(round2(safeQty));
+  const unitLabel = option?.label || unit || 'יחידה';
 
   if (!(total > 0)) {
     if (option?.requiresWeight || /יחידה|מנה/.test(String(unit || ''))) {
       return 'הזינו משקל יחידה בגרמים כדי לכלול בחישוב';
     }
+    if (safeQty > 0 && unitLabel) return `${qtyLabel} × ${unitLabel} = 0 גרם`;
     return '';
   }
 
-  const qtyLabel = Number.isInteger(safeQty) ? String(safeQty) : String(Math.round(safeQty * 100) / 100);
-  const totalLabel = Number.isInteger(total) ? String(total) : String(Math.round(total * 100) / 100);
-  const unitLabel = option?.label || unit || 'יחידה';
-  if (option?.kind === 'mass' && option.grams === 1) return `${totalLabel} גרם`;
+  const totalLabel = Number.isInteger(total) ? String(total) : String(round2(total));
   return `${qtyLabel} × ${unitLabel} = ${totalLabel} גרם`;
 }
 
-export function israeliFoodSuggestions(query) {
-  return searchIsraeliFoods(query).map((food) => food.keys[0]);
+export function bindCatalogSelection(item, currentAmount) {
+  const food = item?.item || item;
+  if (!food) return null;
+  const options = getPortionOptions(food.label);
+  const preferred = options.find((option) => option.unit === food.defaultUnit || option.label === food.defaultUnit)
+    || options.find((option) => option.id === 'gram')
+    || options[0];
+  const parsed = Number(String(currentAmount ?? '').replace(',', '.'));
+  const amount = Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  const unitWeightGrams = preferred?.requiresWeight
+    ? ''
+    : (preferred?.kind === 'piece' || preferred?.kind === 'household' || preferred?.grams > 1 ? preferred.grams : '');
+  const grams = amount * (Number(preferred?.grams) > 0 ? Number(preferred.grams) : 0);
+  const macros = food.per100 ? macrosFromPer100(food.per100, grams || (amount * (preferred?.grams === 1 ? 1 : 0))) : {};
+  return {
+    name: food.label,
+    unit: preferred?.unit || 'גרם',
+    unitWeightGrams,
+    amount,
+    per100: food.per100 || undefined,
+    calories: macros.calories ?? '',
+    protein: macros.protein ?? '',
+    carbs: macros.carbs ?? '',
+    fat: macros.fat ?? '',
+  };
 }
