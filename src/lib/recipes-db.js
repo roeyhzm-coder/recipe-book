@@ -171,8 +171,22 @@ export async function upsertRecipes(recipes) {
 export async function deleteRecipesByIds(ids) {
   const unique = [...new Set((ids || []).map(String).filter(Boolean))];
   if (!unique.length) return;
-  const { error } = await supabase.from("recipes").delete().in("id", unique);
-  if (error) throw error;
+  const chunkSize = 100;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const { error } = await supabase.from("recipes").delete().in("id", unique.slice(i, i + chunkSize));
+    if (error) throw error;
+  }
+}
+
+export async function replaceAllRecipes(recipes) {
+  const remote = await fetchRecipes();
+  const keepIds = new Set((recipes || []).map((recipe) => String(recipe.id)));
+  const toDelete = remote.map((recipe) => String(recipe.id)).filter((id) => !keepIds.has(id));
+  await deleteRecipesByIds(toDelete);
+  const chunkSize = 25;
+  for (let i = 0; i < recipes.length; i += chunkSize) {
+    await upsertRecipes(recipes.slice(i, i + chunkSize));
+  }
 }
 
 function sameRecipe(a, b) {

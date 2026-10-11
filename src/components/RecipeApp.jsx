@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { fetchRecipes, countRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, formatRecipesDbError } from '@/lib/recipes-db';
+import { fetchRecipes, syncRecipes, upsertRecipes, deleteRecipesByIds, replaceAllRecipes, formatRecipesDbError } from '@/lib/recipes-db';
 import { extractRecipe } from '@/lib/extract-recipe.functions';
 import { registerPwaUpdates } from '@/lib/pwa-register';
 import { recalculateRecipe } from '@/lib/ingredient-macros';
@@ -26,7 +26,7 @@ import RecipeVariationsEditor from '@/components/RecipeVariationsEditor';
 import NutritionMacrosPanel from '@/components/NutritionMacrosPanel';
 import {
   Search, Star, Plus, Minus, X, ArrowRight, Settings, Download, Upload,
-  Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale,
+  Trash2, Pencil, Check, Clock, RotateCcw, Sun, Moon, Flame, Scale, CloudUpload,
   UtensilsCrossed, Snowflake, Thermometer, Timer as TimerIcon, Soup,
   Refrigerator, Wrench, ChefHat, Utensils, ImagePlus, ChevronDown,
   Dumbbell, Wheat, Droplet, AlertTriangle, ShoppingCart, Pin
@@ -36,8 +36,7 @@ import BottomNav from '@/components/grocery/BottomNav';
 import GroceryLists from '@/components/grocery/GroceryLists';
 import AddToGroceryModal from '@/components/grocery/AddToGroceryModal';
 import { WEEKEND_CATEGORY } from '@/data/weekend-recipes';
-import { PANTRY_CATEGORY, FRUIT_CATEGORY, VEG_CATEGORY, PRODUCE_PANTRY_RECIPES } from '@/data/pantry-ingredients';
-import { SYSTEM_SEED_RECIPES } from '@/data/side-dishes';
+import { PANTRY_CATEGORY, FRUIT_CATEGORY, VEG_CATEGORY } from '@/data/pantry-ingredients';
 
 /* ---------------------------------- data & storage ---------------------------------- */
 
@@ -47,6 +46,7 @@ const CATEGORIES_STORAGE_KEY = 'mitbach_categories_v1';
 const MERGED_CATEGORIES_STORAGE_KEY = 'mitbach_merged_categories_v1';
 const HOME_CATEGORY_STORAGE_KEY = 'mitbach_home_category_v1';
 const SAFETY_BACKUP_KEY = 'recipes_safety_backup';
+const DEVICE_MASTER_SNAPSHOT_KEY = 'mitbach_device_master_snapshot_v1';
 const MAX_SAFETY_SNAPSHOTS = 5;
 const PROTEIN_SCOOP_GRAMS = 25;
 
@@ -219,44 +219,21 @@ function parseMinutes(value) {
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : '';
 }
 
-function guessRecipeTimes(recipe) {
-  const hay = [recipe.id, recipe.title, ...(recipe.categories || []), ...(recipe.equipment || [])]
-    .join(' ')
-    .toLowerCase();
-  if ((recipe.categories || []).includes(PANTRY_CATEGORY)) return { prepTime: 0, cookTime: 0 };
-  if (hay.includes('קרימי') || hay.includes('גליד') || hay.includes('creami')) return { prepTime: 8, cookTime: 3 };
-  if (hay.includes('overnight') || hay.includes('קרה')) return { prepTime: 5, cookTime: 0 };
-  if (hay.includes('ארוחת בוקר')) return { prepTime: 5, cookTime: 5 };
-  if (hay.includes('אייר') || hay.includes('נינג')) return { prepTime: 8, cookTime: 12 };
-  if (hay.includes('meal prep')) return { prepTime: 15, cookTime: 25 };
-  if (hay.includes('ארוחת ערב')) return { prepTime: 8, cookTime: 10 };
-  if (hay.includes('נשנוש') || String(recipe.id || '').startsWith('snack')) return { prepTime: 5, cookTime: 3 };
-  return { prepTime: 10, cookTime: 15 };
-}
-
-function ensureRecipeTimes(recipe) {
-  const prepTime = parseMinutes(recipe.prepTime);
-  const cookTime = parseMinutes(recipe.cookTime);
-  if (prepTime !== '' && cookTime !== '') return { ...recipe, prepTime, cookTime };
-  const guessed = guessRecipeTimes(recipe);
-  return {
-    ...recipe,
-    prepTime: prepTime === '' ? guessed.prepTime : prepTime,
-    cookTime: cookTime === '' ? guessed.cookTime : cookTime,
-  };
-}
-
 function asUserRecipe(recipe) {
   const baseServings = servingsCount(recipe);
   const next = {
-    ...ensureRecipeTimes(recipe),
+    ...recipe,
     baseServings,
-    title: titleWithServingMarker(recipe?.title, baseServings),
+    title: recipe?.title || '',
     deletedAt: null,
   };
   delete next.isDefault;
   delete next.is_default;
   delete next.locked;
+  delete next.system;
+  delete next.isSystem;
+  delete next.readOnly;
+  delete next.protected;
   return next;
 }
 
@@ -476,10 +453,6 @@ function loadRawLocalRecipes() {
   return [];
 }
 
-function loadLocalRecipes() {
-  return loadRawLocalRecipes().filter((r) => !r.deletedAt);
-}
-
 function saveLocalRecipes(recipes) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
@@ -524,38 +497,26 @@ function mergeRecipesById(current, incoming) {
   ];
 }
 
-function catalogSeedRecipes(deletedIds) {
-  return [...SYSTEM_SEED_RECIPES, ...PRODUCE_PANTRY_RECIPES]
-    .filter((seed) => !deletedIds.has(String(seed.id)))
-    .map((seed) => asUserRecipe({
-      ...seed,
-      updatedAt: Number(seed.updatedAt) || Number(seed.createdAt) || Date.now(),
-    }));
+function captureDeviceMasterSnapshot(recipes) {
+  if (!recipes.length) return;
+  try {
+    if (localStorage.getItem(DEVICE_MASTER_SNAPSHOT_KEY)) return;
+    localStorage.setItem(DEVICE_MASTER_SNAPSHOT_KEY, JSON.stringify(recipes));
+  } catch (e) {}
 }
 
-function initialSeedRecipes(deletedIds) {
-  return catalogSeedRecipes(deletedIds);
+function loadDeviceMasterSnapshot() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DEVICE_MASTER_SNAPSHOT_KEY) || 'null');
+    if (Array.isArray(parsed)) return parsed.filter((r) => r && r.id != null).map(asUserRecipe);
+  } catch (e) {}
+  return [];
 }
 
-function mergeMissingCatalogRecipes(current, deletedIds) {
-  const have = new Set((current || []).map((recipe) => String(recipe.id)));
-  const missing = catalogSeedRecipes(deletedIds).filter((seed) => !have.has(String(seed.id)));
-  if (!missing.length) return { recipes: current, missing };
-  return { recipes: [...missing, ...current], missing };
-}
-
-function coalesceCloudAndLocal(fromCloud, local) {
-  const remoteIds = new Set(fromCloud.map((r) => String(r.id)));
-  const localById = new Map(local.map((r) => [String(r.id), r]));
-  const merged = fromCloud.map((remoteRecipe) => {
-    const cached = localById.get(String(remoteRecipe.id));
-    if (cached && Number(cached.updatedAt || 0) > Number(remoteRecipe.updatedAt || 0)) {
-      return cached;
-    }
-    return remoteRecipe;
-  });
-  const localOnly = local.filter((r) => !remoteIds.has(String(r.id)));
-  return [...merged, ...localOnly];
+function clearDeviceMasterSnapshot() {
+  try {
+    localStorage.removeItem(DEVICE_MASTER_SNAPSHOT_KEY);
+  } catch (e) {}
 }
 
 function loadSafetySnapshots() {
@@ -601,7 +562,7 @@ function Toast({ message }) {
 function ConfirmModal({ open, title, message, confirmLabel = 'אישור', danger, onConfirm, onCancel }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-stone-900/40 backdrop-blur-md p-4" onClick={(e) => e.stopPropagation()}>
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-stone-200 backdrop-blur-xl">
         <div className="flex items-start gap-3 mb-2">
           <div className="min-h-11 min-w-11 w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center shrink-0 border border-rose-200">
@@ -1017,8 +978,9 @@ function ratingBadgeClass(v) {
   return 'bg-amber-50 text-amber-800 border-amber-200';
 }
 
-function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
+function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery, onEdit, onDelete }) {
   const [imgError, setImgError] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const imageSrc = recipe.image || recipe.imageUrl || '';
   const cardServings = servingsCount(recipe);
   const cardGrams = totalRecipeGrams(recipe.ingredients, unitWeightOf(recipe));
@@ -1108,6 +1070,30 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
           <MacroBadge icon={Wheat} value={cardPerServing.carbs} label="פחמימות" unit="ג'" />
           <MacroBadge icon={Droplet} value={cardPerServing.fat} label="שומן" unit="ג'" />
         </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit?.(recipe);
+            }}
+            className="min-h-11 rounded-xl border border-stone-200 bg-white px-2 py-2 text-[11px] font-medium text-stone-700 flex items-center justify-center gap-1.5 hover:bg-stone-50 transition"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            עריכה
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setConfirmDelete(true);
+            }}
+            className="min-h-11 rounded-xl border border-rose-200 bg-rose-50 px-2 py-2 text-[11px] font-medium text-rose-700 flex items-center justify-center gap-1.5 hover:bg-rose-100 transition"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            מחיקה
+          </button>
+        </div>
         {onAddToGrocery && (
           <button
             type="button"
@@ -1122,6 +1108,18 @@ function RecipeCard({ recipe, onOpen, onToggleFavorite, onAddToGrocery }) {
           </button>
         )}
       </div>
+      <ConfirmModal
+        open={confirmDelete}
+        title="מחיקת מתכון"
+        message={`למחוק את "${recipe.title}" לצמיתות?`}
+        confirmLabel="מחק"
+        danger
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          onDelete?.(recipe.id);
+        }}
+      />
     </div>
   );
 }
@@ -1145,6 +1143,8 @@ function HomeView({
   onOpenSmartImport,
   onAddCategory,
   onAddToGrocery,
+  onEdit,
+  onDelete,
 }) {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
@@ -1319,7 +1319,7 @@ function HomeView({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {filtered.map((r) => (
-              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onAddToGrocery={onAddToGrocery} />
+              <RecipeCard key={r.id} recipe={r} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onAddToGrocery={onAddToGrocery} onEdit={onEdit} onDelete={onDelete} />
             ))}
           </div>
         )}
@@ -2457,10 +2457,11 @@ function formatDateTime(ms) {
 }
 
 function SettingsView({
-  recipes, categories, onBack, onImport, safetySnapshots, onRestoreSnapshot, notify,
+  recipes, categories, onBack, onImport, safetySnapshots, onRestoreSnapshot, notify, onPushAllToCloud, pushingCloud, pushCount,
 }) {
   const fileRef = useRef(null);
   const [snapshotToRestore, setSnapshotToRestore] = useState(null);
+  const [confirmPush, setConfirmPush] = useState(false);
 
   function exportData() {
     const exportRecipes = recipes.map((recipe) => {
@@ -2530,6 +2531,22 @@ function SettingsView({
 
       <div className="px-4 mt-5 flex flex-col gap-4">
         <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
+          <h2 className="font-serif text-lg text-stone-900 mb-1.5">סנכרון לענן</h2>
+          <p className="text-sm text-stone-500 leading-relaxed">
+            מעלה את כל המתכונים מהמכשיר הזה ודורס את הטבלה ב-Supabase כך שהענן יכיל בדיוק את מה שיש כאן.
+          </p>
+          <button
+            type="button"
+            disabled={pushingCloud}
+            onClick={() => setConfirmPush(true)}
+            className="min-h-11 w-full mt-4 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 text-amber-950 text-sm font-medium hover:bg-amber-400 transition disabled:opacity-50"
+          >
+            <CloudUpload className="w-4 h-4" />
+            {pushingCloud ? 'מסנכרן…' : 'סנכרן את כל המתכונים מהמכשיר לענן'}
+          </button>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-stone-200 p-5 backdrop-blur-md">
           <h2 className="font-serif text-lg text-stone-900 mb-1.5">ייבוא חכם עם AI</h2>
           <p className="text-sm text-stone-500 leading-relaxed">
             הייבוא החכם פועל דרך השרת של האפליקציה — אין צורך במפתח אישי.
@@ -2582,6 +2599,18 @@ function SettingsView({
       </div>
 
       <ConfirmModal
+        open={confirmPush}
+        title="דריסת הענן"
+        message={`כל המתכונים שכרגע במכשיר (${pushCount || recipes.length}) יועלו ל-Supabase ויחליפו את מה שיש בענן. להמשיך?`}
+        confirmLabel="סנכרן לענן"
+        onCancel={() => setConfirmPush(false)}
+        onConfirm={() => {
+          setConfirmPush(false);
+          onPushAllToCloud?.();
+        }}
+      />
+
+      <ConfirmModal
         open={!!snapshotToRestore}
         title="שחזור גיבוי"
         message={
@@ -2608,6 +2637,8 @@ export default function RecipeApp() {
   // 'loading' → no writes at all; 'cloud' → local cache + Supabase; 'offline' → local cache only.
   const [syncMode, setSyncMode] = useState('loading');
   const lastSyncedRef = useRef([]);
+  const deviceMasterRef = useRef([]);
+  const [pushingCloud, setPushingCloud] = useState(false);
   const [safetySnapshots, setSafetySnapshots] = useState(loadSafetySnapshots);
   const [categories, setCategories] = useState(loadCategories);
   const [homeCategory, setHomeCategory] = useState(loadHomeCategory);
@@ -2632,53 +2663,22 @@ export default function RecipeApp() {
     (async () => {
       const rawLocal = loadRawLocalRecipes();
       const previouslyTrashed = rawLocal.filter((r) => r.deletedAt).map((r) => String(r.id));
-      const deletedIds = rememberDeletedRecipeIds(previouslyTrashed);
+      rememberDeletedRecipeIds(previouslyTrashed);
       const local = rawLocal
-        .filter((r) => !r.deletedAt && !deletedIds.has(String(r.id)))
+        .filter((r) => !r.deletedAt)
         .map(asUserRecipe);
+      deviceMasterRef.current = local;
+      captureDeviceMasterSnapshot(local);
       try {
-        const remoteCount = await countRecipes();
-        const remote = remoteCount === 0 ? [] : await fetchRecipes();
+        const fromCloud = (await fetchRecipes()).map(asUserRecipe);
         if (cancelled) return;
-        const toPurge = remote.filter((r) => deletedIds.has(String(r.id)));
-        let persistError = null;
-        if (toPurge.length) {
-          try {
-            await deleteRecipesByIds(toPurge.map((r) => r.id));
-          } catch (purgeError) {
-            persistError = purgeError;
-          }
-        }
-        const fromCloud = remote
-          .filter((r) => !deletedIds.has(String(r.id)))
-          .map(asUserRecipe);
-
-        let next = remoteCount === 0
-          ? (local.length ? local : initialSeedRecipes(deletedIds))
-          : coalesceCloudAndLocal(fromCloud, local).map(asUserRecipe);
-        const mergedCatalog = mergeMissingCatalogRecipes(next, deletedIds);
-        next = mergedCatalog.recipes;
-        const toPersist = next.filter((recipe) => {
-          const prev = fromCloud.find((r) => String(r.id) === String(recipe.id));
-          if (!prev) return true;
-          return Number(recipe.updatedAt || 0) > Number(prev.updatedAt || 0);
-        });
-        if (toPersist.length) {
-          try {
-            await upsertRecipes(toPersist);
-          } catch (writeError) {
-            persistError = persistError || writeError;
-          }
-        }
-        if (cancelled) return;
+        const next = fromCloud.length ? fromCloud : local;
         lastSyncedRef.current = next;
         setRecipes(next);
         setSyncMode('cloud');
-        if (persistError) {
-          setToast(`שמירה בענן נכשלה: ${formatRecipesDbError(persistError)}`);
-        }
       } catch (e) {
         if (cancelled) return;
+        lastSyncedRef.current = local;
         setRecipes(local);
         setSyncMode('offline');
         setToast(`אין חיבור לענן — השינויים יישמרו במכשיר בלבד. ${formatRecipesDbError(e)}`);
@@ -2760,6 +2760,33 @@ export default function RecipeApp() {
       const message = `שמירת המתכון בענן נכשלה: ${formatRecipesDbError(error)}`;
       notify(message);
       window.alert(message);
+    }
+  }
+
+  async function pushAllFromDevice() {
+    const snapshot = loadDeviceMasterSnapshot();
+    const source = (
+      snapshot.length
+        ? snapshot
+        : (deviceMasterRef.current.length ? deviceMasterRef.current : recipes)
+    ).map(asUserRecipe);
+    if (!source.length) {
+      notify('אין מתכונים במכשיר להעלאה');
+      return;
+    }
+    setPushingCloud(true);
+    try {
+      await replaceAllRecipes(source);
+      clearDeviceMasterSnapshot();
+      deviceMasterRef.current = source;
+      lastSyncedRef.current = source;
+      setRecipes(source);
+      saveLocalRecipes(source);
+      notify(`הענן עודכן: ${source.length} מתכונים מהמכשיר`);
+    } catch (error) {
+      notify(`סנכרון לענן נכשל: ${formatRecipesDbError(error)}`);
+    } finally {
+      setPushingCloud(false);
     }
   }
 
@@ -2938,6 +2965,8 @@ export default function RecipeApp() {
             onOpenSmartImport={() => setShowSmartImportHome(true)}
             onAddCategory={addCategory}
             onAddToGrocery={openAddToGrocery}
+            onEdit={startEdit}
+            onDelete={deleteRecipe}
           />
         )}
         {view === 'detail' && selectedRecipe && (
@@ -2968,6 +2997,9 @@ export default function RecipeApp() {
             safetySnapshots={safetySnapshots}
             onRestoreSnapshot={restoreSnapshot}
             notify={notify}
+            onPushAllToCloud={pushAllFromDevice}
+            pushingCloud={pushingCloud}
+            pushCount={loadDeviceMasterSnapshot().length || recipes.length}
           />
         )}
           </>
