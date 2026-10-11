@@ -91,8 +91,13 @@ export default function IngredientUnitFields({
       unitWeightGrams,
       nextWeight,
     );
+    const previous = parseAmount(amount);
+    const defaultGramRow = String(unit || '') === 'גרם' && previous === 1;
+    const nextAmount = option.defaultAmount
+      || (option.kind === 'piece' && defaultGramRow ? 1 : 0)
+      || (converted > 0 ? converted : (option.kind === 'piece' && previous > 0 ? 1 : converted));
     patch({
-      amount: option.defaultAmount || converted,
+      amount: nextAmount,
       unit: option.unit,
       unitWeightGrams: nextWeight,
     });

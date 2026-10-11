@@ -185,7 +185,7 @@ export function convertAmountOnUnitChange(
   const newWeight = getUnitWeight(newUnit, ingredientName, nextUnitWeightGrams ?? unitWeightGrams);
   if (!(oldWeight > 0) || !(newWeight > 0)) return roundTo1(safeAmount);
 
-  return roundTo1((safeAmount * oldWeight) / newWeight);
+  return Math.round(((safeAmount * oldWeight) / newWeight) * 100) / 100;
 }
 
 export type ConvertibleIngredient = {
