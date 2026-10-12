@@ -174,8 +174,9 @@ export const ISRAELI_FOODS = [
     ],
   },
   {
-    keys: ['קוטג', "קוטג'", 'גביע קוטג', 'גבינה לבנה', 'גבינת נועם', 'גביע נועם'],
+    keys: ['גבינה לבנה', 'גביע גבינה לבנה'],
     defaultUnit: 'גביע',
+    per100: { calories: 96, protein: 9, carbs: 4, fat: 5 },
     portions: [
       portion('גביע', 250, { unit: 'גביע' }),
       portion('חצי גביע', 125, { unit: 'חצי גביע' }),
@@ -407,6 +408,151 @@ export const ISRAELI_FOODS = [
     defaultUnit: 'יחידה',
     portions: [
       portion('יחידה', 70, { unit: 'יחידה' }),
+      G100(),
+      G(),
+    ],
+  },
+
+  // ---- User pantry: branded items with label values per 100g ----
+  {
+    keys: ['אורז בסמטי Daawat', 'אורז בסמטי', 'אורז באסמטי', 'בסמטי', 'דאוואט', 'daawat', 'basmati', 'אורז יבש'],
+    defaultUnit: '100 גרם',
+    per100: { calories: 350, protein: 8.8, carbs: 78, fat: 0 },
+    portions: [
+      G100(),
+      portion('כוס אורז יבש (200ג)', 200, { unit: 'כוס אורז יבש' }),
+      portion('כוס אורז מבושל (150ג)', 150, { unit: 'כוס אורז מבושל' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['טורטייה חיטה שקדיה', 'טורטיה חיטה שקדיה', 'טורטייה שקדיה', 'טורטיה שקדיה', 'שקדיה'],
+    defaultUnit: 'יחידה',
+    per100: { calories: 310, protein: 8.5, carbs: 54, fat: 6.5 },
+    portions: [
+      portion('טורטייה/יחידה (42ג)', 42, { unit: 'יחידה' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['טורטייה חיטה וכוסמין', 'טורטיה חיטה וכוסמין', 'טורטייה כוסמין', 'טורטיה כוסמין', 'טורטייה מאסטר שף', 'טורטיה מאסטר שף'],
+    defaultUnit: 'יחידה',
+    per100: { calories: 298, protein: 9, carbs: 52, fat: 5.5 },
+    portions: [
+      portion('טורטייה/יחידה (45ג)', 45, { unit: 'יחידה' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ["שוקולד צ'יפס ללא סוכר", 'שוקולד ציפס ללא סוכר', "שוקולד צ'יפס", 'ציפס שוקולד', 'sweetango', 'סוויטנגו', 'chocolate chips'],
+    defaultUnit: 'כף',
+    per100: { calories: 389, protein: 3.6, carbs: 44.8, fat: 37 },
+    portions: [
+      portion('כף (15ג)', 15, { unit: 'כף', kind: 'household' }),
+      portion('כפית (5ג)', 5, { unit: 'כפית', kind: 'household' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['נטיפי שוקולד קרמל מלוח', 'נטיפי קרמל מלוח', 'קרמל מלוח', "lily's", 'lilys', 'לילי׳ס', 'לילי'],
+    defaultUnit: 'כף',
+    per100: { calories: 429, protein: 6.5, carbs: 57.1, fat: 28.6 },
+    portions: [
+      portion('כף (15ג)', 15, { unit: 'כף', kind: 'household' }),
+      portion('כפית (5ג)', 5, { unit: 'כפית', kind: 'household' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['משקה שקדים Alpro ללא סוכר', 'משקה שקדים', 'חלב שקדים', 'אלפרו', 'alpro', 'almond milk'],
+    defaultUnit: 'כוס',
+    per100: { calories: 15, protein: 0.5, carbs: 0, fat: 1.2 },
+    portions: [
+      portion('כוס (240 מ"ל)', 240, { unit: 'כוס', kind: 'household' }),
+      portion('100 מ"ל', 100, { unit: '100 מ"ל', kind: 'volume' }),
+      portion('כף (15 מ"ל)', 15, { unit: 'כף', kind: 'household' }),
+      portion('מ"ל / גרם', 1, { unit: 'מ"ל', kind: 'volume', id: 'ml' }),
+      G(),
+    ],
+  },
+  {
+    keys: ['שיבולת שועל Quaker', 'שיבולת שועל', 'שיבולת', 'קוואקר', 'quaker', 'oats', 'קוואקר להכנה מהירה'],
+    defaultUnit: 'מנה',
+    per100: { calories: 374, protein: 11, carbs: 69, fat: 8 },
+    portions: [
+      portion('כוס (80ג)', 80, { unit: 'כוס', kind: 'household' }),
+      portion('מנת הגשה (40ג)', 40, { unit: 'מנה' }),
+      portion('כף גדושה (15ג)', 15, { unit: 'כף', kind: 'household' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['מוצרלה מגוררת', 'מוצרלה מגוררת 22%', 'מוצרלה גד', 'mozzarella'],
+    defaultUnit: 'חופן',
+    per100: { calories: 285, protein: 21, carbs: 0, fat: 22 },
+    portions: [
+      portion('חופן (30ג)', 30, { unit: 'חופן' }),
+      portion('כף (15ג)', 15, { unit: 'כף', kind: 'household' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['גבינת נועם 9% טרה', 'גבינת נועם', 'נועם', 'נועם טרה', 'גביע נועם'],
+    defaultUnit: 'פרוסה',
+    per100: { calories: 201, protein: 30, carbs: 0, fat: 9 },
+    portions: [
+      portion('פרוסה (22ג)', 22, { unit: 'פרוסה' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ["קוטג' 5% שטראוס", 'קוטג 5% שטראוס', 'קוטג שטראוס', "קוטג'", 'קוטג', 'גביע קוטג', 'cottage'],
+    defaultUnit: 'גביע',
+    per100: { calories: 93, protein: 11, carbs: 1.5, fat: 5 },
+    portions: [
+      portion('גביע (250ג)', 250, { unit: 'גביע' }),
+      portion('חצי גביע (125ג)', 125, { unit: 'חצי גביע' }),
+      portion('כף גדושה (30ג)', 30, { unit: 'כף', kind: 'household' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['לחם 100% קמח מלא', 'לחם קמח מלא', 'לחם מלא', 'whole wheat bread'],
+    defaultUnit: 'פרוסה',
+    per100: { calories: 227, protein: 11.2, carbs: 36.6, fat: 2.4 },
+    portions: [
+      portion('פרוסה (35ג)', 35, { unit: 'פרוסה' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['אבקת חלבון Myprotein Impact Whey', 'אבקת חלבון', 'myprotein', 'מייפרוטאין', 'מיי פרוטאין', 'impact whey', 'whey', 'פרוטאין', 'חלבון וניל', 'חלבון שוקולד'],
+    defaultUnit: 'סקופ',
+    per100: { calories: 408, protein: 80, carbs: 7.5, fat: 7.2 },
+    portions: [
+      portion('סקופ / מנת הגשה (25ג)', 25, { unit: 'סקופ' }),
+      portion('סקופ גדול (30ג)', 30, { unit: 'סקופ גדול' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['חמאת בוטנים טבעית B&D', 'חמאת בוטנים טבעית', 'חמאת בוטנים', 'b&d', 'peanut butter'],
+    defaultUnit: 'כף שטוחה',
+    per100: { calories: 630, protein: 26, carbs: 15, fat: 52 },
+    portions: [
+      portion('כף שטוחה (15ג)', 15, { unit: 'כף שטוחה', kind: 'household' }),
+      portion('כף גדושה (30ג)', 30, { unit: 'כף גדושה', kind: 'household' }),
+      portion('כפית (5ג)', 5, { unit: 'כפית', kind: 'household' }),
       G100(),
       G(),
     ],
