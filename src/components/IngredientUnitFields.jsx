@@ -12,6 +12,7 @@ import {
 import { amountToGrams, findIngredientNutrition, macrosForIngredient } from '@/lib/ingredient-macros';
 
 const DECIMAL_INPUT_RE = /^[0-9]*[.,]?[0-9]*$/;
+const PARTIAL_DECIMAL_RE = /^[0-9]*\.([0-9]*0)?$/;
 const MACRO_FIELDS = [
   { key: 'calories', label: 'קלוריות', unit: 'קק"ל', tone: 'text-amber-800 bg-amber-50 border-amber-200' },
   { key: 'protein', label: 'חלבון', unit: 'ג׳', tone: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
@@ -121,21 +122,35 @@ export default function IngredientUnitFields({
   }
 
   function handleAmountInput(raw) {
-    if (raw !== '' && !DECIMAL_INPUT_RE.test(raw)) return;
-    if (raw === '' || raw === '.' || raw === ',') {
-      patch({ amount: raw });
+    const text = normalizeDecimalText(String(raw ?? '').trim());
+    if (text !== '' && !DECIMAL_INPUT_RE.test(text)) return;
+    // Keep partial decimals ("1.", "0.0", "2.50") as text so the dot survives typing.
+    if (text === '' || PARTIAL_DECIMAL_RE.test(text)) {
+      patch({ amount: text });
       return;
     }
-    patch({ amount: parseAmount(raw) });
+    patch({ amount: parseAmount(text) });
+  }
+
+  function handleAmountBlur() {
+    if (typeof amount !== 'string') return;
+    if (amount === '' || amount === '.') return;
+    patch({ amount: parseAmount(amount) });
   }
 
   function handleUnit(optionId) {
     const option = options.find((row) => row.id === optionId) || portionOption(CUSTOM_UNIT_PORTION);
     const previous = parseAmount(amount);
-    const nextAmount = previous > 0 ? previous : 1;
     const nextWeight = option.requiresWeight
       ? (Number(unitWeightGrams) > 0 ? Number(unitWeightGrams) : '')
       : (option.kind === 'piece' || option.kind === 'household' || Number(option.grams) > 1 ? option.grams : '');
+    // Convert through grams: 200 גרם → קופסה (100ג) becomes 2, and back again.
+    const totalGrams = amountToGrams(previous, unit, name, unitWeightGrams);
+    const newUnitGrams = option.requiresWeight ? Number(nextWeight) : Number(option.grams);
+    let nextAmount = previous > 0 ? previous : 1;
+    if (totalGrams > 0 && newUnitGrams > 0) {
+      nextAmount = Math.round((totalGrams / newUnitGrams) * 100) / 100 || 0.01;
+    }
     patch({
       amount: nextAmount,
       unit: option.unit,
@@ -183,6 +198,7 @@ export default function IngredientUnitFields({
             inputMode="decimal"
             value={amount}
             onChange={(e) => handleAmountInput(e.target.value)}
+            onBlur={handleAmountBlur}
             aria-label={customNutrition ? 'משקל כולל בגרמים' : 'כמות'}
             className="w-16 min-h-11 bg-white border border-stone-200 rounded-lg px-1.5 py-1.5 text-sm text-center text-stone-900 tabular-nums"
           />
@@ -225,7 +241,12 @@ export default function IngredientUnitFields({
             autoComplete="off"
           />
           {suggestions.length > 0 && (
-            <div className="absolute z-20 top-full inset-x-0 mt-1 rounded-xl border border-stone-200 bg-white shadow-lg overflow-hidden">
+            <div
+              role="listbox"
+              className="absolute z-50 top-full inset-x-0 mt-1 max-h-60 overflow-y-auto overscroll-contain touch-pan-y rounded-xl border border-stone-200 bg-white shadow-lg"
+              style={{ WebkitOverflowScrolling: 'touch' }}
+              onMouseDown={(e) => e.preventDefault()}
+            >
               {suggestions.map((suggestion) => (
                 <button
                   key={suggestion.label}

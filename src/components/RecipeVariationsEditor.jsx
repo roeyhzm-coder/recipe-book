@@ -169,7 +169,7 @@ export default function RecipeVariationsEditor({
                   <p className="text-xs text-stone-500">מצרכים</p>
                   <div className="flex flex-col gap-2">
                     {(variation.ingredients || []).map((ing) => (
-                      <div key={ing.id} className="flex gap-1.5 items-start">
+                      <div key={ing.id} className="relative focus-within:z-30 flex gap-1.5 items-start">
                         <div className="flex-1 min-w-0">
                           <IngredientUnitFields
                             amount={ing.amount}

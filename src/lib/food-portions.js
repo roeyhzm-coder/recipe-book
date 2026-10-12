@@ -175,9 +175,9 @@ export function searchIsraeliFoods(query, limit = 8) {
   return searchFoodCatalog(query, limit);
 }
 
-export function israeliFoodSuggestions(query) {
+export function israeliFoodSuggestions(query, limit = 40) {
   const hay = normalizeFoodName(query);
-  return searchFoodCatalog(query).map((item) => {
+  return searchFoodCatalog(query, limit).map((item) => {
     const matchedKey = item.keys.find((key) => prefixScore(key, hay) > 0) || item.label;
     return {
       label: matchedKey,

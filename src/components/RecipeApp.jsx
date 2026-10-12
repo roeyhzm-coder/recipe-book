@@ -2451,7 +2451,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
           <div className="flex flex-col gap-3 mt-4">
             {form.ingredients.map((ing) => (
-              <div key={ing.id} className="border border-stone-200 bg-white rounded-xl p-3 backdrop-blur-md">
+              <div key={ing.id} className="relative focus-within:z-30 border border-stone-200 bg-white rounded-xl p-3 backdrop-blur-md">
                 <div className="flex gap-2 items-start">
                   <div className="flex-1 min-w-0">
                     <IngredientUnitFields
