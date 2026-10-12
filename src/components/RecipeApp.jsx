@@ -2013,7 +2013,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
   const [equipInput, setEquipInput] = useState('');
   const [ingPaste, setIngPaste] = useState('');
   const [stepPaste, setStepPaste] = useState('');
-  const [expandedIng, setExpandedIng] = useState({});
   const [expandedVariationId, setExpandedVariationId] = useState(null);
   const [showSmartImport, setShowSmartImport] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
@@ -2068,13 +2067,6 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
 
   function addBlankIngredient() {
     setForm((f) => recalculateRecipe({ ...f, ingredients: [...f.ingredients, makeIngredient(1, 'גרם', '')] }));
-  }
-
-  function updateIngredient(id, field, value) {
-    setForm((f) => applyMacrosFromIngredients({
-      ...f,
-      ingredients: f.ingredients.map((ing) => (ing.id === id ? { ...ing, [field]: value } : ing)),
-    }));
   }
 
   function patchIngredient(id, patch) {
@@ -2467,36 +2459,23 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                       unit={ing.unit}
                       name={ing.name}
                       unitWeightGrams={ing.unitWeightGrams}
+                      per100={ing.per100}
+                      customNutrition={!!ing.customNutrition}
+                      storedMacros={{ calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat }}
                       onChange={(patch) => patchIngredient(ing.id, patch)}
+                      showMacros
+                      allowCustom
                     />
                   </div>
                   <button
                     type="button"
-                    onClick={() => setExpandedIng((prev) => ({ ...prev, [ing.id]: !prev[ing.id] }))}
-                    className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0"
+                    onClick={() => removeIngredient(ing.id)}
+                    className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0"
+                    aria-label="מחק מצרך"
                   >
-                    <ChevronDown className={`w-4 h-4 text-stone-500 transition ${expandedIng[ing.id] ? 'rotate-180' : ''}`} />
-                  </button>
-                  <button type="button" onClick={() => removeIngredient(ing.id)} className="min-h-11 min-w-11 w-11 h-11 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                   </button>
                 </div>
-                {expandedIng[ing.id] && (
-                  <div className="grid grid-cols-4 gap-1.5 mt-3">
-                    {['calories', 'protein', 'carbs', 'fat'].map((k) => (
-                      <input
-                        key={k}
-                        type="number"
-                        step="0.01"
-                        inputMode="decimal"
-                        value={ing[k]}
-                        onChange={(e) => updateIngredient(ing.id, k, e.target.value === '' ? '' : parseFloat(String(e.target.value).replace(',', '.')))}
-                        placeholder={k === 'calories' ? 'קק"ל' : k === 'protein' ? "חלבון" : k === 'carbs' ? "פחמימות" : "שומן"}
-                        className="min-h-11 bg-white border border-emerald-200 rounded-lg px-1.5 py-1.5 text-xs text-center text-emerald-800 placeholder:text-emerald-400"
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </div>

@@ -16,18 +16,81 @@ function portion(label, grams, extras = {}) {
 
 const G = (grams = 1) => portion('גרם', grams, { unit: 'גרם', kind: 'mass', id: 'gram' });
 const G100 = () => portion('100 גרם', 100, { unit: '100 גרם', kind: 'mass', id: '100g' });
+const PASTA_PORTIONS = () => [
+  portion('חבילה (500ג)', 500, { unit: 'חבילה' }),
+  portion('מנה אישית יבשה (100ג)', 100, { unit: 'מנה יבשה' }),
+  G(),
+];
+const TUNA_PORTIONS = () => [
+  portion('קופסה מסוננת (112ג)', 112, { unit: 'קופסה' }),
+  G100(),
+  G(),
+];
 
 export const ISRAELI_FOODS = [
   {
-    keys: ['רסק עגבניות', 'פומודורו', 'עגבניות מרוסקות'],
+    keys: ['רסק עגבניות', 'רסק עגבניות יכין', 'יכין רסק עגבניות', 'רסק עגבניות 22%'],
     defaultUnit: 'כף',
-    per100: { calories: 40, protein: 1.8, carbs: 6.5, fat: 0.2 },
+    per100: { calories: 82, protein: 4.3, carbs: 18.9, fat: 0.5 },
     portions: [
-      portion('כף', 30, { unit: 'כף', kind: 'household' }),
-      portion('כפית', 10, { unit: 'כפית', kind: 'household' }),
-      portion('קופסה קטנה', 100, { unit: 'קופסה קטנה' }),
+      portion('קופסה קטנה (100ג)', 100, { unit: 'קופסה קטנה' }),
+      portion('שפופרת (130ג)', 130, { unit: 'שפופרת' }),
+      portion('כף (30ג)', 30, { unit: 'כף', kind: 'household' }),
+      portion('כפית (10ג)', 10, { unit: 'כפית', kind: 'household' }),
       G(),
     ],
+  },
+  {
+    keys: [
+      'עגבניות מרוסקות',
+      'עגבניות מרוסקות יכין',
+      'עגבניות מרוסקות מוטי',
+      'עגבניות מרוסקות פחית',
+      'מוטי עגבניות מרוסקות',
+      'mutti',
+      'מוטי',
+      'פולפה',
+      'פומודורו',
+      'פחית עגבניות',
+    ],
+    defaultUnit: 'פחית',
+    per100: { calories: 32, protein: 1.6, carbs: 5.5, fat: 0.3 },
+    portions: [
+      portion('פחית (400ג)', 400, { unit: 'פחית' }),
+      portion('חצי פחית (200ג)', 200, { unit: 'חצי פחית' }),
+      G100(),
+      G(),
+    ],
+  },
+  {
+    keys: ['פסטה פנה ברילה', 'פנה ברילה', 'ברילה פנה', 'barilla penne'],
+    defaultUnit: 'מנה יבשה',
+    per100: { calories: 359, protein: 13, carbs: 71, fat: 2 },
+    portions: PASTA_PORTIONS(),
+  },
+  {
+    keys: ['פסטה ספגטי ברילה', 'ספגטי ברילה', 'ברילה ספגטי', 'barilla spaghetti'],
+    defaultUnit: 'מנה יבשה',
+    per100: { calories: 359, protein: 13, carbs: 71, fat: 2 },
+    portions: PASTA_PORTIONS(),
+  },
+  {
+    keys: ['פסטה', 'פסטה יבשה', 'ספגטי', 'פנה', 'מקרוני', 'פוזילי', 'ברילה', 'barilla'],
+    defaultUnit: 'מנה יבשה',
+    per100: { calories: 359, protein: 13, carbs: 71, fat: 1.5 },
+    portions: PASTA_PORTIONS(),
+  },
+  {
+    keys: ['טונה בשמן', 'טונה בשמן מסוננת', 'טונה בשמן סטארקיסט'],
+    defaultUnit: 'קופסה',
+    per100: { calories: 198, protein: 29, carbs: 0, fat: 8.2 },
+    portions: TUNA_PORTIONS(),
+  },
+  {
+    keys: ['טונה במים', 'טונה', 'טונה במים מסוננת', 'טונה במים סטארקיסט'],
+    defaultUnit: 'קופסה',
+    per100: { calories: 116, protein: 25.5, carbs: 0, fat: 0.8 },
+    portions: TUNA_PORTIONS(),
   },
   {
     keys: ['רוטב סויה'],
