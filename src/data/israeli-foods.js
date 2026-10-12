@@ -93,6 +93,16 @@ export const ISRAELI_FOODS = [
     portions: TUNA_PORTIONS(),
   },
   {
+    keys: ['פפריקה', 'פפריקה מתוקה', 'פפריקה מעושנת', 'פפריקה חריפה', 'paprika'],
+    defaultUnit: 'כפית',
+    per100: { calories: 282, protein: 14.1, carbs: 54, fat: 12.9 },
+    portions: [
+      portion('כפית (2.3ג)', 2.3, { unit: 'כפית', kind: 'household' }),
+      portion('כף (7ג)', 7, { unit: 'כף', kind: 'household' }),
+      G(),
+    ],
+  },
+  {
     keys: ['רוטב סויה'],
     defaultUnit: 'כף',
     per100: { calories: 53, protein: 8, carbs: 5, fat: 0.1 },

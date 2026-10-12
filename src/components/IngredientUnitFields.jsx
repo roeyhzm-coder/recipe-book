@@ -7,6 +7,7 @@ import {
   formatLiveGramsHint,
   getPortionOptions,
   israeliFoodSuggestions,
+  normalizeFoodName,
   portionOption,
 } from '@/lib/food-portions';
 import { amountToGrams, findIngredientNutrition, macrosForIngredient } from '@/lib/ingredient-macros';
@@ -60,14 +61,18 @@ export default function IngredientUnitFields({
   showName = true,
   per100,
   customNutrition = false,
+  catalogLabel,
   storedMacros,
   showMacros = false,
   allowCustom = false,
 }) {
   const [nameOpen, setNameOpen] = useState(false);
+  // A row picked from the list stays bound to that catalog item while its name is edited freely.
+  const linked = !customNutrition && !!catalogLabel;
+  const lookupName = linked ? catalogLabel : name;
   const options = useMemo(
-    () => getPortionOptions(name, { unit, unitWeightGrams }),
-    [name, unit, unitWeightGrams],
+    () => getPortionOptions(lookupName, { unit, unitWeightGrams }),
+    [lookupName, unit, unitWeightGrams],
   );
   const selected = options.find((option) => option.unit === unit || option.label === unit)
     || options.find((option) => option.id === 'gram')
@@ -76,11 +81,12 @@ export default function IngredientUnitFields({
     () => (nameOpen && !customNutrition && String(name || '').trim() ? israeliFoodSuggestions(name) : []),
     [nameOpen, customNutrition, name],
   );
-  const matched = findCatalogItem(name);
-  const hint = formatLiveGramsHint(amount, unit, name, unitWeightGrams);
-  const liveIngredient = { amount, unit, name, unitWeightGrams, per100, ...(storedMacros || {}) };
+  const matched = findCatalogItem(lookupName);
+  const hint = formatLiveGramsHint(amount, unit, lookupName, unitWeightGrams);
+  const liveIngredient = { amount, unit, name, catalogLabel: linked ? catalogLabel : undefined, unitWeightGrams, per100, ...(storedMacros || {}) };
   const liveMacros = showMacros ? macrosForIngredient(liveIngredient) : null;
-  const liveGrams = showMacros ? amountToGrams(amount, unit, name, unitWeightGrams) : 0;
+  const liveGrams = showMacros ? amountToGrams(amount, unit, lookupName, unitWeightGrams) : 0;
+  const showLinkChip = linked && normalizeFoodName(name) !== normalizeFoodName(catalogLabel);
   const hasData = showMacros && (customNutrition || hasNutritionData(liveIngredient));
   const needsWeight = !customNutrition && !matched && !!(selected?.requiresWeight || (selected?.kind === 'piece' && !(optionWeight(selected, unitWeightGrams) > 0)));
 
@@ -99,7 +105,7 @@ export default function IngredientUnitFields({
       patch({ customNutrition: false, per100: matched?.per100 || undefined });
       return;
     }
-    const grams = amountToGrams(amount, unit, name, unitWeightGrams);
+    const grams = amountToGrams(amount, unit, lookupName, unitWeightGrams);
     const base = per100 && typeof per100 === 'object' ? per100 : matched?.per100;
     patch({
       customNutrition: true,
@@ -145,7 +151,7 @@ export default function IngredientUnitFields({
       ? (Number(unitWeightGrams) > 0 ? Number(unitWeightGrams) : '')
       : (option.kind === 'piece' || option.kind === 'household' || Number(option.grams) > 1 ? option.grams : '');
     // Convert through grams: 200 גרם → קופסה (100ג) becomes 2, and back again.
-    const totalGrams = amountToGrams(previous, unit, name, unitWeightGrams);
+    const totalGrams = amountToGrams(previous, unit, lookupName, unitWeightGrams);
     const newUnitGrams = option.requiresWeight ? Number(nextWeight) : Number(option.grams);
     let nextAmount = previous > 0 ? previous : 1;
     if (totalGrams > 0 && newUnitGrams > 0) {
@@ -158,19 +164,26 @@ export default function IngredientUnitFields({
     });
   }
 
+  // Free typing: the raw value is stored as-is (no trim, no auto-binding) so spaces and
+  // multi-word names are never swallowed. Binding happens only on an explicit list pick.
   function handleName(nextName) {
     setNameOpen(true);
-    const exact = findCatalogItem(nextName);
-    const normalized = String(nextName || '').trim();
-    if (!customNutrition && exact && String(exact.label || '').trim() === normalized) {
-      patch(bindCatalogSelection(exact, amount));
-      setNameOpen(false);
+    if (customNutrition || linked) {
+      patch({ name: nextName });
       return;
     }
-    // A renamed catalog-backed row must not keep the previous food's macros.
-    patch(customNutrition
-      ? { name: nextName }
-      : { name: nextName, per100: undefined, calories: '', protein: '', carbs: '', fat: '' });
+    // Unlinked rows re-resolve their macros from the new name instead of keeping stale ones.
+    patch({ name: nextName, per100: undefined, calories: '', protein: '', carbs: '', fat: '' });
+  }
+
+  function handleNameBlur() {
+    setTimeout(() => setNameOpen(false), 180);
+    const trimmed = String(name ?? '').replace(/\s+/g, ' ').trim();
+    if (trimmed !== name) patch({ name: trimmed });
+  }
+
+  function unlinkCatalog() {
+    patch({ catalogLabel: undefined, per100: undefined, calories: '', protein: '', carbs: '', fat: '' });
   }
 
   function handleSelectSuggestion(suggestion) {
@@ -235,7 +248,7 @@ export default function IngredientUnitFields({
             value={name}
             onChange={(e) => handleName(e.target.value)}
             onFocus={() => setNameOpen(true)}
-            onBlur={() => setTimeout(() => setNameOpen(false), 180)}
+            onBlur={handleNameBlur}
             placeholder="שם המצרך"
             className="w-full min-h-11 bg-white border border-stone-200 rounded-lg px-2.5 py-1.5 text-sm text-stone-900 placeholder:text-stone-400"
             autoComplete="off"
@@ -260,6 +273,18 @@ export default function IngredientUnitFields({
               ))}
             </div>
           )}
+        </div>
+      )}
+      {showName && showLinkChip && (
+        <div className="flex items-center gap-1.5 text-[11px] text-stone-500">
+          <span className="truncate">ערכים לפי: {catalogLabel}</span>
+          <button
+            type="button"
+            onClick={unlinkCatalog}
+            className="min-h-8 shrink-0 px-2 rounded-full border border-stone-200 bg-white text-stone-600"
+          >
+            ניתוק
+          </button>
         </div>
       )}
       {needsWeight && (

@@ -2461,6 +2461,7 @@ function FormView({ initial, categories, onCancel, onSave, onAddCategory }) {
                       unitWeightGrams={ing.unitWeightGrams}
                       per100={ing.per100}
                       customNutrition={!!ing.customNutrition}
+                      catalogLabel={ing.catalogLabel}
                       storedMacros={{ calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat }}
                       onChange={(patch) => patchIngredient(ing.id, patch)}
                       showMacros

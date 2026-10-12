@@ -178,6 +178,7 @@ export default function RecipeVariationsEditor({
                             unitWeightGrams={ing.unitWeightGrams}
                             per100={ing.per100}
                             customNutrition={!!ing.customNutrition}
+                            catalogLabel={ing.catalogLabel}
                             storedMacros={{ calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat }}
                             onChange={(patch) => patchIngredient(variation.id, ing.id, patch)}
                             showMacros

@@ -64,7 +64,7 @@ function per100Of(ingredient) {
     const calories = Number(stored.calories);
     if (Number.isFinite(calories)) return stored;
   }
-  return findIngredientNutrition(ingredient?.name)?.per100 || null;
+  return findIngredientNutrition((!ingredient?.customNutrition && ingredient?.catalogLabel) || ingredient?.name)?.per100 || null;
 }
 
 export function amountToGrams(amount, unit, name, unitWeightGrams) {
@@ -73,7 +73,7 @@ export function amountToGrams(amount, unit, name, unitWeightGrams) {
 
 export function macrosForIngredient(ingredient) {
   const amount = Number(ingredient?.amount);
-  const name = ingredient?.name || '';
+  const name = (!ingredient?.customNutrition && ingredient?.catalogLabel) || ingredient?.name || '';
   const unit = ingredient?.unit || 'גרם';
   const per100 = per100Of(ingredient);
   if (per100) {

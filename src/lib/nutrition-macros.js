@@ -54,7 +54,7 @@ export function totalRecipeGrams(ingredients, recipeUnitWeight = 0) {
     const grams = amountToGrams(
       ing?.amount,
       ing?.unit,
-      ing?.name,
+      (!ing?.customNutrition && ing?.catalogLabel) || ing?.name,
       ing?.unitWeightGrams || (singleIngredient ? recipeUnitWeight : 0),
     );
     if (grams > 0) {

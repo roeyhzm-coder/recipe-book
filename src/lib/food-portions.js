@@ -142,11 +142,21 @@ export function findIsraeliFood(name) {
   return findCatalogItem(name);
 }
 
+/**
+ * Multi-word, order-independent match of a normalized query against a catalog key.
+ * 4: key starts with the whole query ("פפריק" → "פפריקה מתוקה")
+ * 3: every query word prefixes some key word, any order ("מתוקה פפר" → "פפריקה מתוקה")
+ * 1: every key word appears in the query, so free text still suggests the base food
+ *    ("פפריקה מתוקה בשמן" → "פפריקה")
+ */
 function prefixScore(text, query) {
   const value = normalizeFoodName(text);
   if (!value || !query) return 0;
-  if (value.startsWith(query)) return 2;
-  if (wordsOf(value).some((word) => word.startsWith(query))) return 1;
+  if (value.startsWith(query)) return 4;
+  const keyWords = wordsOf(value);
+  const queryWords = query.split(' ').filter(Boolean);
+  if (queryWords.every((q) => keyWords.some((word) => word.startsWith(q)))) return 3;
+  if (keyWords.every((word) => queryWords.includes(word))) return 1;
   return 0;
 }
 
@@ -178,7 +188,18 @@ export function searchIsraeliFoods(query, limit = 8) {
 export function israeliFoodSuggestions(query, limit = 40) {
   const hay = normalizeFoodName(query);
   return searchFoodCatalog(query, limit).map((item) => {
-    const matchedKey = item.keys.find((key) => prefixScore(key, hay) > 0) || item.label;
+    // Show the best-matching alias ("פפריקה מתוקה"), not just the first one that matches.
+    let matchedKey = item.label;
+    let best = 0;
+    for (const key of item.keys) {
+      const score = prefixScore(key, hay);
+      // Ties: shortest alias for typed prefixes, most specific alias for free text contained in the query.
+      const better = best === 1 ? key.length > matchedKey.length : key.length < matchedKey.length;
+      if (score > best || (score === best && score > 0 && better)) {
+        best = score;
+        matchedKey = key;
+      }
+    }
     return {
       label: matchedKey,
       item: { ...item, label: matchedKey },
@@ -291,6 +312,7 @@ export function bindCatalogSelection(item, currentAmount) {
   const macros = food.per100 ? macrosFromPer100(food.per100, grams || (amount * (preferred?.grams === 1 ? 1 : 0))) : {};
   return {
     name: food.label,
+    catalogLabel: food.label,
     unit: preferred?.unit || 'גרם',
     unitWeightGrams,
     amount,
